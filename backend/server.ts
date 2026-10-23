@@ -95,8 +95,8 @@ class Server {
         this.app.use('/api/suppliers', SuppliersRouter);
 
         // Health check
-        this.app.get('/api/health', (_req, res) => {
-            res.json({ status: 'ok', timestamp: new Date().toISOString() });
+        this.app.get(['/', '/health', '/api/health'], (_req, res) => {
+            res.status(200).json({ status: 'ok', service: 'camp-management-backend', timestamp: new Date().toISOString() });
         });
 
         // 404 Handler

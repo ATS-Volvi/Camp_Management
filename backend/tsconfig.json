@@ -7,7 +7,7 @@
 
     // Environment Settings
     "ignoreDeprecations": "6.0",
-    "module": "ESNext",
+    "module": "CommonJS",
     "moduleResolution": "Node",
     "target": "es2020",
     "baseUrl": ".",
@@ -36,6 +36,18 @@
     "skipLibCheck": true,
 
     "esModuleInterop": true,
-    "forceConsistentCasingInFileNames": true,
-  }
+    "forceConsistentCasingInFileNames": true
+  },
+  "include": [
+    "index.ts",
+    "server.ts",
+    "config/**/*",
+    "src/**/*",
+    "utils/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "src/scripts"
+  ]
 }
