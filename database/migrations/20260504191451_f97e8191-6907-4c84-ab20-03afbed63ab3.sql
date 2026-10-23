@@ -1,0 +1,1 @@
+DROP FUNCTION IF EXISTS public.perform_check_in(uuid, uuid, uuid, uuid, text, text);

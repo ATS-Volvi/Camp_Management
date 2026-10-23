@@ -1,0 +1,220 @@
+🟩 1. Daily Kitchen Inspection
+Template Name:
+Daily Kitchen Inspection
+Audit Type:
+Daily
+Section
+Question
+Response Type
+Critical
+Photo Required
+Personal Hygiene
+Are food handlers wearing clean uniforms?
+Yes/No
+Yes
+Yes
+Personal Hygiene
+Are hairnets and gloves used?
+Yes/No
+Yes
+Yes
+Kitchen Hygiene
+Is kitchen floor clean and dry?
+Yes/No
+Yes
+Yes
+Kitchen Hygiene
+Are utensils cleaned properly?
+Yes/No
+Yes
+No
+Food Serving
+Is food covered before serving?
+Yes/No
+Yes
+Yes
+Pest Control
+Any visible pests in kitchen area?
+Yes/No
+Yes
+Yes
+
+
+
+
+
+
+
+
+🟦 2. Weekly Hygiene Audit
+Template Name:
+Weekly Hygiene Audit
+Audit Type:
+Weekly
+Section
+Question
+Response Type
+Critical
+Photo Required
+Kitchen Hygiene
+Is deep cleaning completed this week?
+Yes/No
+Yes
+Yes
+Kitchen Hygiene
+Are drains and exhaust cleaned?
+Yes/No
+Yes
+Yes
+Equipment
+Are all kitchen equipments functioning?
+Yes/No
+Yes
+No
+Pest Control
+Are pest control logs updated?
+Yes/No
+Yes
+Yes
+Storage
+Is FIFO followed for all items?
+Yes/No
+Yes
+No
+Documentation
+Are cleaning records maintained?
+Yes/No
+No
+No
+
+
+
+
+
+
+
+
+
+
+🟨 3. Food Storage & Inventory Audit
+Template Name:
+Food Storage & Inventory Audit
+Audit Type:
+Weekly
+Section
+Question
+Response Type
+Critical
+Photo Required
+Food Storage
+Are raw and cooked foods stored separately?
+Yes/No
+Yes
+Yes
+Food Storage
+Are expiry dates checked?
+Yes/No
+Yes
+Yes
+Inventory
+Are stock levels updated correctly?
+Yes/No
+No
+No
+Inventory
+Are items properly labeled?
+Yes/No
+Yes
+Yes
+Storage
+Are refrigerators at correct temperature?
+Yes/No
+Yes
+Yes
+
+
+
+
+
+
+
+
+
+
+
+🟥 4. Monthly Compliance Audit
+Template Name:
+Monthly Compliance Audit
+Audit Type:
+Monthly
+Section
+Question
+Response Type
+Critical
+Photo Required
+Documentation
+Are all licenses valid?
+Yes/No
+Yes
+Yes
+Documentation
+Are staff training records updated?
+Yes/No
+No
+No
+Compliance
+Are previous NCRs closed?
+Yes/No
+Yes
+Yes
+Water
+Is water test report available?
+Yes/No
+Yes
+Yes
+Safety
+Are safety protocols followed?
+Yes/No
+Yes
+Yes
+
+
+
+
+
+
+
+
+
+
+
+🟪 5. Food Preparation Audit
+Template Name:
+Food Preparation Audit
+Audit Type:
+Daily
+Section
+Question
+Response Type
+Critical
+Photo Required
+Food Preparation
+Is food cooked at proper temperature?
+Yes/No
+Yes
+No
+Food Preparation
+Is cross-contamination avoided?
+Yes/No
+Yes
+Yes
+Food Preparation
+Are fresh ingredients used?
+Yes/No
+Yes
+Yes
+Water
+Is water used for cooking clean?
+Yes/No
+Yes
+No

@@ -1,0 +1,9 @@
+ALTER TABLE public.employees ADD COLUMN IF NOT EXISTS client_id UUID REFERENCES public.clients(id) ON DELETE SET NULL;
+ALTER TABLE public.assets
+  ADD COLUMN IF NOT EXISTS purchase_date DATE,
+  ADD COLUMN IF NOT EXISTS purchase_cost NUMERIC,
+  ADD COLUMN IF NOT EXISTS vendor TEXT,
+  ADD COLUMN IF NOT EXISTS warranty_expiry DATE,
+  ADD COLUMN IF NOT EXISTS warranty_details TEXT,
+  ADD COLUMN IF NOT EXISTS last_maintenance_date DATE,
+  ADD COLUMN IF NOT EXISTS notes TEXT;

@@ -1,0 +1,19 @@
+{
+  "name": "camp-management-root",
+  "private": true,
+  "scripts": {
+    "dev:frontend": "npm run dev --workspace=frontend",
+    "dev:backend": "npm run dev --workspace=backend",
+    "dev": "concurrently \"npm run dev:frontend\" \"npm run dev:backend\"",
+    "setup-db": "npm run setup-db --workspace=backend",
+    "install:all": "npm install && npm install --workspace=frontend && npm install --workspace=backend",
+    "build:all": "npm run build --workspace=frontend && npm run build --workspace=backend"
+  },
+  "workspaces": [
+    "frontend",
+    "backend"
+  ],
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

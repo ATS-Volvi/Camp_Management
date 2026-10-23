@@ -1,0 +1,1 @@
+ALTER TABLE public.rooms ADD CONSTRAINT rooms_camp_id_room_number_unique UNIQUE (camp_id, room_number);

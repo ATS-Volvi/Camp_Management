@@ -1,0 +1,2 @@
+ALTER TABLE public.room_categories ADD COLUMN IF NOT EXISTS holding_charge NUMERIC NOT NULL DEFAULT 0;
+COMMENT ON COLUMN public.room_categories.holding_charge IS 'Daily room holding charge (SAR) billed while the occupant is on leave';

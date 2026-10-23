@@ -1,0 +1,2 @@
+COMMENT ON COLUMN public.employees.client_id IS 'DEPRECATED: supplier rates now matched via employees.supplier_name to the supplier master (public.clients)';
+COMMENT ON TABLE public.clients IS 'Supplier master: per-supplier meal and room rates, matched to employees.supplier_name';

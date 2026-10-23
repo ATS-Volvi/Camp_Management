@@ -1,0 +1,62 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1792308847447,
+      "tag": "0000_add_department_cost_center",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1792599736880,
+      "tag": "0001_add_check_date_params",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792599752061,
+      "tag": "0002_add_check_date_params",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1792599895548,
+      "tag": "0003_room_category_holding_charge",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792600541338,
+      "tag": "0004_client_master",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1792600990889,
+      "tag": "0005_employee_client_and_asset_details",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1792601019755,
+      "tag": "0006_asset_maintenance_logs",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1792601360808,
+      "tag": "0007_deprecate_employee_client",
+      "breakpoints": true
+    }
+  ]
+}
