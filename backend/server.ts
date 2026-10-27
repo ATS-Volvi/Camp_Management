@@ -50,9 +50,12 @@ class Server {
         this.app.set('trust proxy', true);
         this.app.set('case sensitive routing', true);
         
-        const corsOptions = {
-            origin: variables.CORS_ALLOW_ORIGIN || '*',
+        const allowedOrigin = variables.CORS_ALLOW_ORIGIN;
+        const corsOptions: cors.CorsOptions = {
+            origin: (!allowedOrigin || allowedOrigin === '*') ? true : allowedOrigin,
+            credentials: true,
             methods: ['GET', 'PUT', 'POST', 'DELETE', 'OPTIONS', 'PATCH'],
+            allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
         };
         
         this.app.use(cors(corsOptions));
