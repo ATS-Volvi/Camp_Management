@@ -7,7 +7,8 @@ import { toast } from "@/hooks/use-toast";
 import ReactMarkdown from "react-markdown";
 import AIReportMessage from "@/components/ai-reports/AIReportMessage";
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:3001/api";
+const rawBackendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3001/api";
+const BACKEND_URL = rawBackendUrl.endsWith('/api') ? rawBackendUrl : `${rawBackendUrl}/api`;
 const ANOMALY_URL = `${BACKEND_URL}/ai/anomaly`;
 
 type Category = "all" | "occupancy" | "maintenance" | "inventory";

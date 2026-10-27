@@ -18,7 +18,8 @@ const SUGGESTED_PROMPTS = [
   { label: "📦 Inventory Alerts", prompt: "Show inventory items below minimum alert level with reorder recommendations" },
 ];
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:3001/api";
+const rawBackendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3001/api";
+const BACKEND_URL = rawBackendUrl.endsWith('/api') ? rawBackendUrl : `${rawBackendUrl}/api`;
 const CHAT_URL = `${BACKEND_URL}/ai/chat`;
 
 export default function AIReports() {
