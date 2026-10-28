@@ -57,6 +57,41 @@
       "when": 1792601360808,
       "tag": "0007_deprecate_employee_client",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1792651494167,
+      "tag": "0008_resolve_check_in_rpc_overload",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1793127480895,
+      "tag": "0009_validate_food_cancellation_stay_window",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1793128421432,
+      "tag": "0010_cap_food_cancellations_at_checkout",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1793130216362,
+      "tag": "0011_resolve_food_cancellation_camp_from_stay",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1793131964872,
+      "tag": "0012_camp_meal_rates",
+      "breakpoints": true
     }
   ]
 }

@@ -9,6 +9,7 @@ import AppLayout from "./components/layout/AppLayout";
 import Launchpad from "./pages/Launchpad";
 import Dashboard from "./pages/Dashboard";
 import HomeDashboard from "./pages/HomeDashboard";
+import CommandDashboard from "./pages/CommandDashboard";
 import CampsList from "./pages/CampsList";
 import CampDetails from "./pages/CampDetails";
 import RepairMaintenance from "./pages/RepairMaintenance";
@@ -40,6 +41,7 @@ import FoodCancellation from "./pages/FoodCancellation";
 import StaffKPI from "./pages/StaffKPI";
 import RoomCategoryMaster from "./pages/RoomCategoryMaster";
 import SupplierMaster from "./pages/SupplierMaster";
+import CampFoodRates from "./pages/CampFoodRates";
 import DesignationRoomMapping from "./pages/DesignationRoomMapping";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
@@ -77,6 +79,11 @@ const App = () => (
               }
             >
               <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/dashboards/board" element={<CommandDashboard key="board" view="board" />} />
+              <Route path="/dashboards/utilization" element={<CommandDashboard key="utilization" view="utilization" />} />
+              <Route path="/dashboards/monthly" element={<CommandDashboard key="snapshot" view="snapshot" />} />
+              <Route path="/dashboards/contracts" element={<CommandDashboard key="contracts" view="contracts" />} />
+              <Route path="/dashboards/expertise" element={<CommandDashboard key="expertise" view="expertise" />} />
               <Route path="/home" element={<HomeDashboard />} />
               <Route path="/camps" element={<CampsList />} />
               <Route path="/camps/:campId" element={<CampDetails />} />
@@ -109,6 +116,7 @@ const App = () => (
               <Route path="/food-cancellation" element={<FoodCancellation />} />
               <Route path="/admin/room-categories" element={<RoomCategoryMaster />} />
               <Route path="/admin/suppliers" element={<SupplierMaster />} />
+              <Route path="/admin/camp-food-rates" element={<CampFoodRates />} />
               <Route path="/admin/clients" element={<Navigate to="/admin/suppliers" replace />} />
               <Route path="/admin/designation-mapping" element={<DesignationRoomMapping />} />
             </Route>

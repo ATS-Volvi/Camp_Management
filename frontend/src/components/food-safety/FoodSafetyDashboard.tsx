@@ -1,3 +1,5 @@
+import { ChartDrilldown, type ChartSelection } from "@/components/dashboard/ChartDrilldown";
+import { useAuditResponses } from "@/hooks/useFoodSafetyAudit";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -17,6 +19,7 @@ const RISK_COLORS = {
 };
 
 export default function FoodSafetyDashboard() {
+  const [chartSelection, setChartSelection] = useState<ChartSelection | null>(null);
   const [campFilter, setCampFilter] = useState<string>("all");
   const [drilldown, setDrilldown] = useState<FsKpiType>(null);
   const { data: camps = [] } = useQuery({
@@ -48,15 +51,19 @@ export default function FoodSafetyDashboard() {
   const campCompliance = camps.map(camp => {
     const campAudits = completedAudits.filter(a => a.camp_id === camp.id);
     const avg = campAudits.length > 0 ? Math.round(campAudits.reduce((s, a) => s + a.compliance_pct, 0) / campAudits.length) : 0;
-    return { name: camp.name, compliance: avg, audits: campAudits.length };
+    return { id: camp.id, name: camp.name, compliance: avg, audits: campAudits.length };
   }).filter(c => c.audits > 0);
 
   // Trend data (last 7 audits)
   const trendData = completedAudits.slice(0, 7).reverse().map(a => ({
+    id: a.id,
     date: new Date(a.audit_date).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
     compliance: a.compliance_pct,
   }));
 
+  const [auditId, setAuditId] = useState<string | undefined>();
+  const responses = useAuditResponses(auditId);
+  const openAudits = (title: string, rows: typeof audits) => { setAuditId(undefined); setChartSelection({ title, rows: rows.map(a => ({ id: a.id, label: `${a.camps?.name ?? "—"} · ${a.audit_date}`, fields: { Date: a.audit_date, Camp: a.camps?.name, Type: a.audit_type, "Compliance (%)": a.compliance_pct, Risk: a.risk_grade, Status: a.status, "Total score": a.total_score, "Maximum score": a.max_score, Contractor: a.contractor_name, Notes: a.notes } })) }); };
   return (
     <>
     <div className="space-y-6">
@@ -153,7 +160,7 @@ export default function FoodSafetyDashboard() {
           <CardContent>
             {trendData.length > 0 ? (
               <ResponsiveContainer width="100%" height={250}>
-                <LineChart data={trendData}>
+                <LineChart data={trendData} onClick={event => { const id = event?.activePayload?.[0]?.payload?.id; const a = audits.find(a => a.id === id); if (a) { setAuditId(a.id); openAudits("Audit details", [a]); setAuditId(a.id); } }}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="date" tick={{ fontSize: 11 }} />
                   <YAxis domain={[0, 100]} tick={{ fontSize: 11 }} />
@@ -178,7 +185,7 @@ export default function FoodSafetyDashboard() {
             {completedAudits.length > 0 ? (
               <ResponsiveContainer width="100%" height={250}>
                 <PieChart>
-                  <Pie data={gradeDistribution} cx="50%" cy="50%" outerRadius={80} dataKey="value" label={({ name, value }) => `${name}: ${value}`}>
+                  <Pie cursor="pointer" onClick={row => openAudits(`${row.name} audits`, completedAudits.filter(a => a.risk_grade === ({ Compliant: "compliant", "Moderate Risk": "moderate_risk", Critical: "critical" } as Record<string, string>)[row.name]))} data={gradeDistribution} cx="50%" cy="50%" outerRadius={80} dataKey="value" label={({ name, value }) => `${name}: ${value}`}>
                     {gradeDistribution.map((entry, idx) => (
                       <Cell key={idx} fill={entry.color} />
                     ))}
@@ -208,7 +215,7 @@ export default function FoodSafetyDashboard() {
                 <XAxis dataKey="name" tick={{ fontSize: 11 }} />
                 <YAxis domain={[0, 100]} tick={{ fontSize: 11 }} />
                 <Tooltip />
-                <Bar dataKey="compliance" fill="hsl(217, 91%, 60%)" radius={[4, 4, 0, 0]} />
+                <Bar cursor="pointer" onClick={row => openAudits(`${row.payload.name} audits`, completedAudits.filter(a => a.camp_id === row.payload.id))} dataKey="compliance" fill="hsl(217, 91%, 60%)" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
@@ -249,6 +256,7 @@ export default function FoodSafetyDashboard() {
       </Card>
     </div>
 
+      <ChartDrilldown selection={chartSelection} onClose={() => setChartSelection(null)} onRecordOpen={record => setAuditId(record.id)} detailLoading={responses.isLoading} detailError={responses.isError} detailRows={auditId ? (responses.data ?? []).map(r => ({ id: r.id, label: r.question, fields: { Category: r.category, Response: r.response_value, Compliant: r.is_compliant, Score: r.score, "Maximum score": r.max_score, Rating: r.rating, Remarks: r.remarks } })) : undefined} />
       <FoodSafetyKpiDrilldown type={drilldown} onClose={() => setDrilldown(null)} audits={audits} ncrs={ncrs} />
     </>
   );

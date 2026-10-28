@@ -1,3 +1,7 @@
+import { ChartDrilldown, type ChartSelection } from "@/components/dashboard/ChartDrilldown";
+import { employeeRecord, roomRecord } from "@/lib/dashboardDrilldown";
+import { useCommandDashboard } from "@/hooks/useCommandDashboard";
+import { residentsAt } from "@/lib/commandDashboard";
 import { useState, useMemo } from "react";
 import {
   Building2, DoorOpen, Users, Clock, BedDouble, Wrench, ArrowRight,
@@ -20,11 +24,20 @@ import { useCamps } from "@/hooks/useCampManagement";
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
 
 export default function Dashboard() {
+  const [chartSelection, setChartSelection] = useState<ChartSelection | null>(null);
   const navigate = useNavigate();
   const { user } = useAuth();
   const { data: camps = [], isLoading } = useCamps();
   const [selectedCamp, setSelectedCamp] = useState<string>("all");
   const [drilldown, setDrilldown] = useState<DrilldownType>(null);
+
+  const details = useCommandDashboard();
+  const residents = residentsAt(details.data?.checkIns ?? [], details.data?.checkOuts ?? [], new Date().toISOString());
+  const openRoomChart = (label: string, predicate: (room: any) => boolean, campOnly = false) => {
+    const selected = (details.data?.rooms ?? []).filter(r => predicate(r) && (!campOnly || selectedCamp === "all" || r.camp_id === selectedCamp));
+    setChartSelection({ title: label, rows: selected.map(r => roomRecord(r, camps.find(c => c.id === r.camp_id)?.name ?? "—", residents.filter(e => e.room_id === r.id).flatMap(e => { const employee = details.data?.employees.find(emp => emp.id === e.employee_id); return employee ? [employeeRecord(employee, { "Check-in": e.check_in_date, Room: r.room_number })] : []; }))) });
+  };
+  const openSupplierChart = (name: string) => setChartSelection({ title: `${name} employees`, rows: allEmployees.filter(e => (e.employee_type === "supplier" ? e.supplier_name || "Unknown Supplier" : "Own") === name).map(e => employeeRecord(e)) });
 
   // Fetch all rooms for room availability
   const { data: allRooms = [] } = useQuery({
@@ -72,7 +85,7 @@ export default function Dashboard() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("employees")
-        .select("id, employee_type, supplier_name, designation, camp_id, room_id")
+        .select("id, name, employee_id, department, nationality, employee_type, supplier_name, designation, project, status, camp_id, room_id")
         .eq("status", "active");
       if (error) throw error;
       return data;
@@ -251,13 +264,13 @@ export default function Dashboard() {
             <div className="w-full h-8 rounded-full overflow-hidden flex bg-muted">
               {assignedBeds > 0 && (
                 <div
-                  className="h-full bg-primary transition-all"
+                  role="button" tabIndex={0} onClick={() => openRoomChart("Assigned beds", r => residents.some(e => e.room_id === r.id), true)} onKeyDown={e => { if (e.key === "Enter") openRoomChart("Assigned beds", r => residents.some(e => e.room_id === r.id), true); }} className="h-full bg-primary transition-all cursor-pointer"
                   style={{ width: `${(assignedBeds / roomBarTotal) * 100}%` }}
                 />
               )}
               {availableBeds > 0 && (
                 <div
-                  className="h-full transition-all"
+                  role="button" tabIndex={0} onClick={() => openRoomChart("Available beds", r => r.max_capacity > residents.filter(e => e.room_id === r.id).length, true)} onKeyDown={e => { if (e.key === "Enter") openRoomChart("Available beds", r => r.max_capacity > residents.filter(e => e.room_id === r.id).length, true); }} className="h-full transition-all cursor-pointer"
                   style={{
                     width: `${(availableBeds / roomBarTotal) * 100}%`,
                     backgroundColor: "hsl(var(--campman-green))",
@@ -266,7 +279,7 @@ export default function Dashboard() {
               )}
               {reservedRooms > 0 && (
                 <div
-                  className="h-full transition-all"
+                  role="button" tabIndex={0} onClick={() => openRoomChart("Reserved rooms", r => r.status === "reserved", true)} onKeyDown={e => { if (e.key === "Enter") openRoomChart("Reserved rooms", r => r.status === "reserved", true); }} className="h-full transition-all cursor-pointer"
                   style={{
                     width: `${(reservedRooms / roomBarTotal) * 100}%`,
                     backgroundColor: "hsl(var(--campman-yellow))",
@@ -275,7 +288,7 @@ export default function Dashboard() {
               )}
               {maintenanceRooms > 0 && (
                 <div
-                  className="h-full bg-destructive transition-all"
+                  role="button" tabIndex={0} onClick={() => openRoomChart("Maintenance rooms", r => r.status === "under_maintenance", true)} onKeyDown={e => { if (e.key === "Enter") openRoomChart("Maintenance rooms", r => r.status === "under_maintenance", true); }} className="h-full bg-destructive transition-all cursor-pointer"
                   style={{ width: `${(maintenanceRooms / roomBarTotal) * 100}%` }}
                 />
               )}
@@ -487,6 +500,7 @@ export default function Dashboard() {
                   <PieChart>
                     <Pie
                       data={pieData}
+                      cursor="pointer" onClick={row => openRoomChart(`${row.name} beds`, r => row.name === "Occupied" ? residents.some(e => e.room_id === r.id) : r.max_capacity > residents.filter(e => e.room_id === r.id).length)}
                       cx="50%"
                       cy="50%"
                       innerRadius={50}
@@ -615,6 +629,7 @@ export default function Dashboard() {
                   <PieChart>
                     <Pie
                       data={supplierDistribution}
+                      cursor="pointer" onClick={row => openSupplierChart(row.name)}
                       cx="50%"
                       cy="50%"
                       innerRadius={45}
@@ -679,8 +694,8 @@ export default function Dashboard() {
                         name === "occupied" ? "Occupied" : "Capacity",
                       ]}
                     />
-                    <Bar dataKey="occupied" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} name="occupied" />
-                    <Bar dataKey="capacity" fill="hsl(var(--muted-foreground) / 0.2)" radius={[0, 4, 4, 0]} name="capacity" />
+                    <Bar cursor="pointer" onClick={row => openRoomChart(`${row.payload.label} · occupied`, r => r.category === row.payload.category && residents.some(e => e.room_id === r.id))} dataKey="occupied" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} name="occupied" />
+                    <Bar cursor="pointer" onClick={row => openRoomChart(`${row.payload.label} · capacity`, r => r.category === row.payload.category)} dataKey="capacity" fill="hsl(var(--muted-foreground) / 0.2)" radius={[0, 4, 4, 0]} name="capacity" />
                   </BarChart>
                 </ResponsiveContainer>
                 <div className="space-y-1.5 max-h-[180px] overflow-y-auto">
@@ -773,6 +788,7 @@ export default function Dashboard() {
           )}
         </CardContent>
       </Card>
+    <ChartDrilldown selection={chartSelection} onClose={() => setChartSelection(null)} />
     </div>
   );
 }

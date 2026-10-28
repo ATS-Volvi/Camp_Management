@@ -1,0 +1,48 @@
+.command-dashboard {
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+  font-family: inherit;
+  padding: 20px;
+  min-height: calc(100vh - 110px);
+  border-radius: 8px;
+}
+.command-dashboard[role="dialog"] {
+  min-height: 0;
+  align-content: start;
+  padding: 24px;
+}
+.command-dashboard .command-panel {
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-radius: 8px;
+  padding: 24px;
+  min-width: 0;
+}
+.command-dashboard .command-metric { border-bottom: 1px solid hsl(var(--border)); padding: 12px 0; }
+.command-dashboard .command-metric:last-child { border-bottom: 0; }
+.command-dashboard .command-kpis .command-panel {
+  background: color-mix(in srgb, hsl(var(--kpi-tone)) 10%, hsl(var(--card)));
+  border-color: color-mix(in srgb, hsl(var(--kpi-tone)) 22%, hsl(var(--border)));
+  border-radius: 16px;
+  padding: 16px;
+}
+.command-dashboard .command-kpis .command-panel:nth-child(4n + 1) { --kpi-tone: var(--chart-1); }
+.command-dashboard .command-kpis .command-panel:nth-child(4n + 2) { --kpi-tone: var(--chart-2); }
+.command-dashboard .command-kpis .command-panel:nth-child(4n + 3) { --kpi-tone: var(--chart-3); }
+.command-dashboard .command-kpis .command-panel:nth-child(4n + 4) { --kpi-tone: var(--chart-4); }
+.command-dashboard .command-kpis .command-panel > h2 svg {
+  color: hsl(var(--kpi-tone));
+  background: color-mix(in srgb, hsl(var(--kpi-tone)) 15%, hsl(var(--card)));
+  border-radius: 10px;
+  padding: 8px;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+}
+.command-dashboard .command-kpis .command-metric:first-of-type > p:nth-child(2) { color: hsl(var(--kpi-tone)); font-size: 24px; }
+.command-dashboard input { color-scheme: inherit; }
+.command-dashboard .recharts-cartesian-axis-tick-value { fill: hsl(var(--muted-foreground)); }
+.command-dashboard .recharts-legend-item-text { color: hsl(var(--foreground)) !important; }
+@media (max-width: 640px) {
+  .command-dashboard { padding: 12px; }
+}

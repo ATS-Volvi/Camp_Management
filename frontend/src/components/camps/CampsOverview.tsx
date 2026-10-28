@@ -1,4 +1,8 @@
-import { useMemo } from "react";
+import { ChartDrilldown, type ChartSelection } from "@/components/dashboard/ChartDrilldown";
+import { employeeRecord, roomRecord } from "@/lib/dashboardDrilldown";
+import { useCommandDashboard } from "@/hooks/useCommandDashboard";
+import { residentsAt } from "@/lib/commandDashboard";
+import { useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Building2, BedDouble, Users, DoorOpen, Wrench, LayoutGrid } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts";
@@ -54,6 +58,16 @@ function getAmenityColor(name: string, index: number): string {
 }
 
 export default function CampsOverview({ camps }: Props) {
+  const [chartSelection, setChartSelection] = useState<ChartSelection | null>(null);
+  const details = useCommandDashboard();
+  const occupants = residentsAt(details.data?.checkIns ?? [], details.data?.checkOuts ?? [], new Date().toISOString());
+  const roomLeaf = (r: any) => roomRecord(r, camps.find(c => c.id === r.camp_id)?.name ?? "—", occupants.filter(e => e.room_id === r.id).flatMap(e => { const emp = details.data?.employees.find(emp => emp.id === e.employee_id); return emp ? [employeeRecord(emp, { "Check-in": e.check_in_date, Room: r.room_number })] : []; }));
+  const openStatus = (name: string) => setChartSelection({ title: `${name} rooms`, rows: (details.data?.rooms ?? []).filter(r => name === "Available" ? r.status === "vacant" : name === "Occupied" ? ["occupied", "partially_occupied"].includes(r.status) : r.status === "under_maintenance").map(roomLeaf) });
+  const openWeekly = (date: string, type: "checkIns" | "checkOuts") => {
+    const rows = type === "checkIns" ? details.data?.checkIns ?? [] : details.data?.checkOuts ?? [];
+    setChartSelection({ title: `${type === "checkIns" ? "Check-ins" : "Check-outs"} · ${date}`, rows: rows.filter(e => format(new Date("check_in_date" in e ? e.check_in_date : e.check_out_date), "yyyy-MM-dd") === date).flatMap(e => { const emp = details.data?.employees.find(emp => emp.id === e.employee_id); return emp ? [{ ...employeeRecord(emp, { Camp: camps.find(c => c.id === e.camp_id)?.name, Date: "check_in_date" in e ? e.check_in_date : e.check_out_date }), id: e.id }] : []; }) });
+  };
+  const openAmenity = (name: string) => setChartSelection({ title: `${name} camps`, rows: camps.filter(c => (c.amenities ?? []).includes(name)).map(c => ({ id: c.id, label: c.name, fields: { Location: c.location, Status: c.status, Amenity: name }, children: (details.data?.rooms ?? []).filter(r => r.camp_id === c.id).map(roomLeaf) })) });
   // Aggregate stats
   const stats = useMemo(() => {
     const totalCamps = camps.length;
@@ -193,8 +207,8 @@ export default function CampsOverview({ camps }: Props) {
                   <Tooltip
                     contentStyle={{ borderRadius: 8, border: "1px solid hsl(var(--border))", background: "hsl(var(--card))" }}
                   />
-                  <Bar dataKey="checkIns" name="Check In" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} maxBarSize={28} />
-                  <Bar dataKey="checkOuts" name="Check Out" fill="hsl(var(--destructive))" radius={[4, 4, 0, 0]} maxBarSize={28} />
+                  <Bar cursor="pointer" onClick={row => openWeekly(row.payload.date, "checkIns")} dataKey="checkIns" name="Check In" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} maxBarSize={28} />
+                  <Bar cursor="pointer" onClick={row => openWeekly(row.payload.date, "checkOuts")} dataKey="checkOuts" name="Check Out" fill="hsl(var(--destructive))" radius={[4, 4, 0, 0]} maxBarSize={28} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -220,6 +234,7 @@ export default function CampsOverview({ camps }: Props) {
                 <PieChart>
                   <Pie
                     data={occupancyPieData}
+                    cursor="pointer" onClick={row => openStatus(row.name)}
                     cx="50%"
                     cy="50%"
                     innerRadius={65}
@@ -276,6 +291,8 @@ export default function CampsOverview({ camps }: Props) {
                     <PieChart>
                       <Pie
                         data={amenitiesPieData}
+                        cursor="pointer"
+                        onClick={row => openAmenity(row.name)}
                         cx="50%"
                         cy="50%"
                         innerRadius={65}
@@ -317,6 +334,7 @@ export default function CampsOverview({ camps }: Props) {
           </CardContent>
         </Card>
       </div>
+      <ChartDrilldown selection={chartSelection} onClose={() => setChartSelection(null)} />
     </div>
   );
 }

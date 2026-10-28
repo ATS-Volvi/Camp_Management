@@ -1,4 +1,6 @@
 import { computeMealCost, defaultMealRates, type MealRates } from "@/lib/mealCosting";
+import { approvedFoodCancellations } from "@/lib/approvedFoodCancellations";
+import { billableStayWindow, stayDeparture } from "@/lib/stayBilling";
 import { LEAVE_STATUSES, leaveDaysWithin, leaveRangesWithin, dmy, roomCostWithHolding, type LeavePeriod } from "@/lib/roomHolding";
 import { useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,10 +14,6 @@ import { Download, DollarSign, Users, BedDouble, UtensilsCrossed } from "lucide-
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
-
-function daysBetween(a: Date, b: Date) {
-  return Math.max(0, Math.floor((b.getTime() - a.getTime()) / 86400000) + 1);
-}
 
 export function useRevenueData(fromDate: string, toDate: string) {
   return useQuery({
@@ -37,6 +35,7 @@ export function useRevenueData(fromDate: string, toDate: string) {
       const { data: categories } = await supabase.from("room_categories").select("code, category_key, holding_charge");
       const { data: clients } = await supabase.from("clients").select("id, code, name, breakfast_rate, lunch_rate, dinner_rate, ramadan_rate, is_active, client_room_rates(room_category_code, daily_rate)");
       const { data: ramadan } = await supabase.from("camp_food_cancellation_settings").select("camp_id, ramadan_mode, ramadan_start, ramadan_end");
+      const { data: campMealRates } = await supabase.from("camp_meal_rates").select("camp_id, breakfast_rate, lunch_rate, dinner_rate, ramadan_rate");
       const { data: leaves } = await supabase
         .from("employee_status_log")
         .select("employee_id, to_status, effective_from, effective_to")
@@ -45,12 +44,12 @@ export function useRevenueData(fromDate: string, toDate: string) {
 
       const { data: cancellations } = await supabase
         .from("food_cancellation_requests")
-        .select("id, employee_id, from_date, to_date, status, food_cancellation_request_meals(meal_type)")
+        .select("id, employee_id, from_date, to_date, status, source, reason, food_cancellation_request_meals(meal_type)")
         .eq("status", "approved")
         .lte("from_date", toDate)
         .gte("to_date", fromDate);
 
-      return { checkIns: checkIns || [], checkOuts: checkOuts || [], rates: rates || [], cancellations: cancellations || [], categories: categories || [], leaves: leaves || [], suppliers: clients || [], ramadan: ramadan || [] };
+      return { checkIns: checkIns || [], checkOuts: checkOuts || [], rates: rates || [], cancellations: cancellations || [], categories: categories || [], leaves: leaves || [], suppliers: clients || [], ramadan: ramadan || [], campMealRates: campMealRates || [] };
     },
   });
 }
@@ -66,22 +65,19 @@ export function buildRevenueRows(data: any, fromDate: string, toDate: string): a
     (data.suppliers || []).forEach((c: any) => { if (c.is_active !== false) supplierByName[String(c.name).trim().toLowerCase()] = c; });
     const ramadanByCamp: Record<string, { start: string; end: string }> = {};
     (data.ramadan || []).forEach((r: any) => { if (r.ramadan_mode && r.ramadan_start && r.ramadan_end) ramadanByCamp[r.camp_id] = { start: r.ramadan_start, end: r.ramadan_end }; });
+    // Camp Food Rates master: standard per-meal prices per camp for non-supplier staff.
+    const campMealByCamp: Record<string, MealRates> = {};
+    (data.campMealRates || []).forEach((r: any) => {
+      const breakfast = Number(r.breakfast_rate) || 0, lunch = Number(r.lunch_rate) || 0, dinner = Number(r.dinner_rate) || 0;
+      campMealByCamp[r.camp_id] = { breakfast, lunch, dinner, ramadan: Number(r.ramadan_rate) || breakfast + lunch + dinner };
+    });
     const leaveByEmp: Record<string, LeavePeriod[]> = {};
     (data.leaves || []).forEach((l: any) => { (leaveByEmp[l.employee_id] = leaveByEmp[l.employee_id] || []).push({ from: l.effective_from, to: l.effective_to }); });
-    const rangeStart = new Date(fromDate);
-    const rangeEnd = new Date(toDate);
-
-    const checkOutMap: Record<string, Date> = {};
-    checkOuts.forEach((co: any) => {
-      const d = new Date(co.check_out_date);
-      if (!checkOutMap[co.employee_id] || d > checkOutMap[co.employee_id]) checkOutMap[co.employee_id] = d;
-    });
-
     const rateMap: Record<string, number> = {};
     rates.forEach((r: any) => { rateMap[`${r.camp_id}-${r.room_category}`] = Number(r.daily_rate) || 0; });
 
     const cancelByEmp: Record<string, any[]> = {};
-    cancellations.forEach((c: any) => {
+    approvedFoodCancellations(cancellations).forEach((c: any) => {
       (cancelByEmp[c.employee_id] = cancelByEmp[c.employee_id] || []).push(c);
     });
 
@@ -91,13 +87,9 @@ export function buildRevenueRows(data: any, fromDate: string, toDate: string): a
       const camp = ci.camps;
       if (!emp || !room) return null;
 
-      const ciDate = new Date(ci.check_in_date);
-      const coDate = checkOutMap[ci.employee_id];
-      const stayStart = ciDate > rangeStart ? ciDate : rangeStart;
-      const stayEnd = coDate && coDate < rangeEnd ? coDate : rangeEnd;
-      if (stayEnd < stayStart) return null;
-
-      const stayDays = daysBetween(stayStart, stayEnd);
+      const departure = stayDeparture(ci, checkOuts, checkIns);
+      const { start: stayStart, end: stayEnd, days: stayDays } = billableStayWindow(ci.check_in_date, departure, fromDate, toDate);
+      if (stayDays === 0) return null;
       // Supplier employees are charged at their supplier's rates from the Supplier Master; own staff use standard rates.
       const client = emp.employee_type === "supplier" && emp.supplier_name ? supplierByName[String(emp.supplier_name).trim().toLowerCase()] ?? null : null;
       const clientRoom = client?.client_room_rates?.find((r: any) => r.room_category_code === codeByKey[room.category]);
@@ -105,7 +97,7 @@ export function buildRevenueRows(data: any, fromDate: string, toDate: string): a
       const baseFood = ci.food_required ? Number(room.daily_food_rate) || 0 : 0;
       const mealRates: MealRates = !ci.food_required ? { breakfast: 0, lunch: 0, dinner: 0, ramadan: 0 }
         : client ? { breakfast: Number(client.breakfast_rate) || 0, lunch: Number(client.lunch_rate) || 0, dinner: Number(client.dinner_rate) || 0, ramadan: Number(client.ramadan_rate) || 0 }
-        : defaultMealRates(baseFood);
+        : campMealByCamp[ci.camp_id] ?? defaultMealRates(baseFood);
       const dailyFood = mealRates.breakfast + mealRates.lunch + mealRates.dinner;
       const leaves = leaveRangesWithin(leaveByEmp[ci.employee_id] || [], stayStart, stayEnd);
       // Leave days automatically remove every meal for those days; the room is charged at the holding rate.

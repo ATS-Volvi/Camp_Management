@@ -1,3 +1,4 @@
+import { ChartDrilldown, type ChartSelection } from "@/components/dashboard/ChartDrilldown";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { Package, CheckCircle2, Wrench, AlertTriangle, UserCheck, Boxes, RotateCcw } from "lucide-react";
@@ -33,6 +34,7 @@ function FilterSelect({ label, value, onChange, options, allLabel }: { label: st
 }
 
 export default function AssetDashboard({ assets, camps, rooms }: Props) {
+  const [chartSelection, setChartSelection] = useState<ChartSelection | null>(null);
   const [camp, setCamp] = useState(ALL);
   const [block, setBlock] = useState(ALL);
   const [room, setRoom] = useState(ALL);
@@ -79,6 +81,7 @@ export default function AssetDashboard({ assets, camps, rooms }: Props) {
   }, {})).map(([name, v]) => ({ name, ...v }));
   const attention = filtered.filter(a => a.condition !== "good").slice(0, 8);
 
+  const openAssets = (title: string, rows: any[]) => setChartSelection({ title, rows: rows.map(a => ({ id: a.id, label: a.name, href: `/assets/${a.id}`, fields: { "Asset ID": a.asset_id, Camp: campName[a.camp_id], Block: roomMap[a.room_id]?.buildings?.name, Room: roomMap[a.room_id]?.room_number, Category: a.category, Condition: condLabel[a.condition], "Assigned to": a.assigned_to, "Purchase date": a.purchase_date, "Purchase cost (SAR)": a.purchase_cost, "Warranty expiry": a.warranty_expiry, "Last maintenance": a.last_maintenance_date, Vendor: a.vendor, Notes: a.notes } })) });
   const reset = () => { setCamp(ALL); setBlock(ALL); setRoom(ALL); setAssetName(ALL); setAssignee(ALL); };
 
   return (
@@ -110,7 +113,7 @@ export default function AssetDashboard({ assets, camps, rooms }: Props) {
             {pieData.length ? (
               <div className="flex items-center justify-center gap-6">
                 <ResponsiveContainer width={150} height={150}>
-                  <PieChart><Pie data={pieData} innerRadius={42} outerRadius={68} dataKey="value" strokeWidth={0}>
+                  <PieChart><Pie data={pieData} cursor="pointer" onClick={row => openAssets(row.name, filtered.filter(a => a.condition === row.key))} innerRadius={42} outerRadius={68} dataKey="value" strokeWidth={0}>
                     {pieData.map(d => <Cell key={d.key} fill={d.color} />)}
                   </Pie></PieChart>
                 </ResponsiveContainer>
@@ -127,7 +130,7 @@ export default function AssetDashboard({ assets, camps, rooms }: Props) {
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={byCategory}><CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                 <XAxis dataKey="name" tick={{ fontSize: 11 }} /><YAxis allowDecimals={false} tick={{ fontSize: 11 }} /><Tooltip />
-                <Bar dataKey="count" fill="hsl(var(--primary))" radius={[6, 6, 0, 0]} />
+                <Bar cursor="pointer" onClick={row => openAssets(`${row.payload.name} assets`, filtered.filter(a => a.category === row.payload.name))} dataKey="count" fill="hsl(var(--primary))" radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
@@ -141,7 +144,7 @@ export default function AssetDashboard({ assets, camps, rooms }: Props) {
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={byCamp}><CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                 <XAxis dataKey="name" tick={{ fontSize: 11 }} /><YAxis allowDecimals={false} tick={{ fontSize: 11 }} /><Tooltip />
-                {["good", "repair", "damaged"].map(c => <Bar key={c} dataKey={c} name={condLabel[c]} stackId="a" fill={condColor[c]} />)}
+                {["good", "repair", "damaged"].map(c => <Bar key={c} cursor="pointer" onClick={row => openAssets(`${row.payload.name} · ${condLabel[c]}`, filtered.filter(a => (campName[a.camp_id] || "—") === row.payload.name && a.condition === c))} dataKey={c} name={condLabel[c]} stackId="a" fill={condColor[c]} />)}
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
@@ -171,6 +174,7 @@ export default function AssetDashboard({ assets, camps, rooms }: Props) {
           </CardContent>
         </Card>
       </div>
+    <ChartDrilldown selection={chartSelection} onClose={() => setChartSelection(null)} />
     </div>
   );
 }

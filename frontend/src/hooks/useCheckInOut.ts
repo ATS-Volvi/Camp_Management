@@ -101,11 +101,13 @@ export function useCheckedInEmployees(campId: string | null) {
 
       // Deduplicate by employee_id, keep latest check-in only if after latest check-out
       const empRoomMap = new Map<string, string>();
+      const empArrivalMap = new Map<string, string>();
       (checkIns || []).forEach(ci => {
         if (empRoomMap.has(ci.employee_id)) return;
         const lastOut = latestCheckOut.get(ci.employee_id);
         if (!lastOut || new Date(ci.check_in_date) > new Date(lastOut)) {
           empRoomMap.set(ci.employee_id, ci.room_id);
+          empArrivalMap.set(ci.employee_id, ci.check_in_date.split("T")[0]);
         }
       });
 
@@ -121,6 +123,8 @@ export function useCheckedInEmployees(campId: string | null) {
       return (empData || []).map(emp => ({
         ...emp,
         checked_in_room_id: empRoomMap.get(emp.id) || null,
+        stay_from: empArrivalMap.get(emp.id) || null,
+        stay_to: null as string | null, // Current residents have no recorded departure.
       }));
     },
   });
@@ -236,6 +240,9 @@ export function useCheckOut() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["rooms"] });
       queryClient.invalidateQueries({ queryKey: ["recent-check-outs"] });
+      queryClient.invalidateQueries({ queryKey: ["food-cancellations"] });
+      queryClient.invalidateQueries({ queryKey: ["revenue-data"] });
+      queryClient.invalidateQueries({ queryKey: ["invoice-data"] });
       queryClient.invalidateQueries({ queryKey: ["employees"] });
       queryClient.invalidateQueries({ queryKey: ["checked-in-employees"] });
       toast({ title: "Check-out successful", description: "Employee has been checked out and room updated." });

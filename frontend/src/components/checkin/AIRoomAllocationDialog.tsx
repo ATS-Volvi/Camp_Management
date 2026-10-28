@@ -199,6 +199,7 @@ export default function AIRoomAllocationDialog({ open, onOpenChange, employees, 
     }
 
     const successfulIds: string[] = [];
+    const failureReasons: string[] = [];
     let success = 0, failed = 0;
     for (const alloc of toProcess) {
       try {
@@ -208,8 +209,14 @@ export default function AIRoomAllocationDialog({ open, onOpenChange, employees, 
           p_camp_id: campId,
           p_performed_by: user.id,
         });
-        if (error) { failed++; } else { success++; successfulIds.push(alloc.employee.id); }
-      } catch { failed++; }
+        if (error) {
+          failed++;
+          failureReasons.push(`${alloc.employee.name}: ${error.message}`);
+        } else { success++; successfulIds.push(alloc.employee.id); }
+      } catch (error) {
+        failed++;
+        failureReasons.push(`${alloc.employee.name}: ${error instanceof Error ? error.message : "Unable to complete check-in"}`);
+      }
     }
 
     queryClient.invalidateQueries({ queryKey: ["rooms"] });
@@ -219,7 +226,7 @@ export default function AIRoomAllocationDialog({ open, onOpenChange, employees, 
 
     toast({
       title: "Bulk AI check-in complete",
-      description: `${success} succeeded, ${failed} failed${unallocatedCount > 0 ? `, ${unallocatedCount} skipped (no room)` : ""}`,
+      description: `${success} succeeded, ${failed} failed${unallocatedCount > 0 ? `, ${unallocatedCount} skipped (no room)` : ""}${failureReasons.length ? `. ${failureReasons.slice(0, 3).join("; ")}` : ""}`,
       variant: failed > 0 ? "destructive" : "default",
     });
 

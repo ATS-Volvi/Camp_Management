@@ -8,8 +8,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Search, Download, FileText, Receipt, BedDouble, UtensilsCrossed, Calendar } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { format, parseISO, eachDayOfInterval, differenceInCalendarDays } from "date-fns";
+import { format, parseISO, eachDayOfInterval } from "date-fns";
 import { getRoomCategoryLabel } from "@/constants/roomCategories";
+import { billableStayWindow, stayDeparture } from "@/lib/stayBilling";
+import { approvedFoodCancellations } from "@/lib/approvedFoodCancellations";
 
 const MEAL_TYPES = ["breakfast", "lunch", "dinner"] as const;
 type MealType = (typeof MEAL_TYPES)[number];
@@ -64,15 +66,18 @@ function useInvoiceData(fromDate: string, toDate: string, campId: string) {
       // Camp room rates
       const { data: rates } = await supabase.from("camp_room_rates").select("*");
 
+      // Camp Food Rates master (per-meal prices per camp)
+      const { data: campMealRates } = await supabase.from("camp_meal_rates").select("camp_id, breakfast_rate, lunch_rate, dinner_rate");
+
       // Approved cancellations in range
       const { data: cancellations } = await supabase
         .from("food_cancellation_requests")
-        .select("id, employee_id, from_date, to_date, reason, remarks, status, food_cancellation_request_meals(meal_type)")
+        .select("id, employee_id, from_date, to_date, reason, remarks, status, source, food_cancellation_request_meals(meal_type)")
         .eq("status", "approved")
         .lte("from_date", toDate)
         .gte("to_date", fromDate);
 
-      return { checkIns: checkIns || [], checkOuts: checkOuts || [], rates: rates || [], cancellations: cancellations || [] };
+      return { checkIns: checkIns || [], checkOuts: checkOuts || [], rates: rates || [], cancellations: cancellations || [], campMealRates: campMealRates || [] };
     },
   });
 }
@@ -99,38 +104,27 @@ export default function CostInvoicingTab() {
   const rows: InvoiceRow[] = useMemo(() => {
     if (!data) return [];
     const { checkIns, checkOuts, rates, cancellations } = data;
-    const fromD = parseISO(fromDate);
-    const toD = parseISO(toDate);
-
-    // Latest check-out per employee/room
-    const lastCheckoutMap = new Map<string, string>();
-    checkOuts.forEach((co: any) => {
-      const key = `${co.employee_id}|${co.room_id}`;
-      const prev = lastCheckoutMap.get(key);
-      if (!prev || new Date(co.check_out_date) > new Date(prev)) lastCheckoutMap.set(key, co.check_out_date);
+    // Camp Food Rates master overrides the room's daily food rate when configured for the camp.
+    const campFoodByCamp = new Map<string, number>();
+    (data.campMealRates || []).forEach((r: any) => {
+      campFoodByCamp.set(r.camp_id, (Number(r.breakfast_rate) || 0) + (Number(r.lunch_rate) || 0) + (Number(r.dinner_rate) || 0));
     });
-
     // Group cancellations by employee
     const cancByEmp = new Map<string, any[]>();
-    cancellations.forEach((c: any) => {
+    approvedFoodCancellations(cancellations).forEach((c: any) => {
       const arr = cancByEmp.get(c.employee_id) || [];
       arr.push(c);
       cancByEmp.set(c.employee_id, arr);
     });
 
     return checkIns.map((ci: any) => {
-      const checkInDate = parseISO(ci.check_in_date);
-      const coDate = lastCheckoutMap.get(`${ci.employee_id}|${ci.room_id}`);
-      const checkOutDate = coDate ? parseISO(coDate) : null;
-
-      const stayStart = checkInDate > fromD ? checkInDate : fromD;
-      const stayEnd = checkOutDate && checkOutDate < toD ? checkOutDate : toD;
-      const stayDays = Math.max(0, differenceInCalendarDays(stayEnd, stayStart) + 1);
+      const coDate = stayDeparture(ci, checkOuts, checkIns);
+      const { start: stayStart, end: stayEnd, days: stayDays } = billableStayWindow(ci.check_in_date, coDate, fromDate, toDate);
       if (stayDays === 0) return null;
 
       const rate = rates.find((r: any) => r.camp_id === ci.camp_id && r.room_category === ci.rooms?.category);
       const dailyRoomRate = Number(rate?.daily_rate || 0);
-      const dailyFoodRate = Number(ci.rooms?.daily_food_rate || 0);
+      const dailyFoodRate = campFoodByCamp.get(ci.camp_id) ?? Number(ci.rooms?.daily_food_rate || 0);
       const mealUnitRate = dailyFoodRate / 3;
 
       // Build set of cancelled (date, meal)

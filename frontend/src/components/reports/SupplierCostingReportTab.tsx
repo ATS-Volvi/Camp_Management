@@ -1,3 +1,5 @@
+import { ChartDrilldown, type ChartSelection } from "@/components/dashboard/ChartDrilldown";
+import { revenueRecord } from "@/lib/dashboardDrilldown";
 import { Fragment, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { format, endOfMonth, parse, subMonths } from "date-fns";
@@ -18,6 +20,7 @@ const LABELS: StatementLabels = { title: "Supplier Monthly Costing Statement", c
 const fileName = (s: string, m: string) => `supplier-costing-${s.replace(/[^a-z0-9_-]/gi, "-")}-${m}`;
 
 export default function SupplierCostingReportTab() {
+  const [chartSelection, setChartSelection] = useState<ChartSelection | null>(null);
   const [month, setMonth] = useState(format(new Date(), "yyyy-MM"));
   const [supplier, setSupplier] = useState("all");
   const [open, setOpen] = useState<Record<string, boolean>>({});
@@ -62,6 +65,13 @@ export default function SupplierCostingReportTab() {
     const lines = shown.flatMap(g => g.list.map((r: any) => [month, g.costCenter, g.dept, r.emp_code, r.name, r.homeDept, r.project, r.camp, r.room, r.stayDays, r.supplierRates ? "Supplier" : "Standard", r.roomRevenue.toFixed(2), ...[r.breakfastCost, r.lunchCost, r.dinnerCost, r.ramadanCost].map((v: number) => (v ?? 0).toFixed(2)), r.foodRevenue.toFixed(2), r.total.toFixed(2)]));
     const csv = [h, ...lines].map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\r\n");
     downloadStatementBlob(new Blob(["\uFEFF", csv], { type: "text/csv;charset=utf-8" }), `${fileName(supplier, month)}.csv`);
+  };
+  const openTrend = (label: string, series: string) => {
+    const date = Array.from({ length: 6 }, (_, i) => subMonths(monthDate, 5 - i)).find(d => format(d, "MMM yy") === label);
+    if (!date) return;
+    const start = format(date, "yyyy-MM-dd"), end = format(endOfMonth(date), "yyyy-MM-dd");
+    const selectedRows = buildRevenueRows(trendData, start, end).filter(r => r.supplier && r.supplier !== "Own" && r.supplier !== "—" && (supplier === "all" || r.supplier === supplier));
+    setChartSelection({ title: `${label} · ${series} · ${supplier === "all" ? "All Suppliers" : supplier}`, description: `${start} — ${end}`, rows: selectedRows.map(revenueRecord) });
   };
   const selected = supplier !== "all" ? shown[0] : undefined;
   const unavailable = isLoading || isError || shown.length === 0;
@@ -122,11 +132,11 @@ export default function SupplierCostingReportTab() {
                     <YAxis tick={{ fontSize: 11 }} tickFormatter={v => Number(v).toLocaleString()} />
                     <Tooltip formatter={(v: number) => `SAR ${fmt(v)}`} />
                     <Legend wrapperStyle={{ fontSize: 12 }} />
-                    <Bar dataKey="Room" stackId="c" fill="hsl(var(--primary))" />
-                    <Bar dataKey="Breakfast" stackId="c" fill="hsl(var(--campman-amber))" />
-                    <Bar dataKey="Lunch" stackId="c" fill="hsl(var(--campman-green))" />
-                    <Bar dataKey="Dinner" stackId="c" fill="hsl(var(--accent-foreground))" />
-                    <Bar dataKey="Ramadan" stackId="c" fill="hsl(var(--destructive))" radius={[4, 4, 0, 0]} />
+                    <Bar cursor="pointer" onClick={row => openTrend(row.payload.month, "Room")} dataKey="Room" stackId="c" fill="hsl(var(--primary))" />
+                    <Bar cursor="pointer" onClick={row => openTrend(row.payload.month, "Breakfast")} dataKey="Breakfast" stackId="c" fill="hsl(var(--campman-amber))" />
+                    <Bar cursor="pointer" onClick={row => openTrend(row.payload.month, "Lunch")} dataKey="Lunch" stackId="c" fill="hsl(var(--campman-green))" />
+                    <Bar cursor="pointer" onClick={row => openTrend(row.payload.month, "Dinner")} dataKey="Dinner" stackId="c" fill="hsl(var(--accent-foreground))" />
+                    <Bar cursor="pointer" onClick={row => openTrend(row.payload.month, "Ramadan")} dataKey="Ramadan" stackId="c" fill="hsl(var(--destructive))" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               )}
@@ -176,6 +186,7 @@ export default function SupplierCostingReportTab() {
           <LeaveNotes rows={shown.flatMap((g: any) => g.list)} />
         </div>
       </>)}
+    <ChartDrilldown selection={chartSelection} onClose={() => setChartSelection(null)} />
     </div>
   );
 }

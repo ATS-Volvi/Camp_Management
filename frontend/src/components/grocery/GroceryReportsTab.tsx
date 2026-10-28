@@ -1,3 +1,4 @@
+import { ChartDrilldown, type ChartSelection } from "@/components/dashboard/ChartDrilldown";
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -10,6 +11,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { AlertTriangle } from "lucide-react";
 
 export default function GroceryReportsTab() {
+  const [chartSelection, setChartSelection] = useState<ChartSelection | null>(null);
   const [campId, setCampId] = useState<string>("");
   const { data: items = [] } = useGroceryItems();
   const { data: camps = [] } = useCamps();
@@ -43,12 +45,14 @@ export default function GroceryReportsTab() {
 
   // Stock movement chart
   const stockChart = stock.slice(0, 15).map((s: any) => ({
+    id: s.id,
     name: (s.ingredients?.name || "").substring(0, 12),
     in: s.stock_in || 0,
     out: s.stock_out || 0,
     balance: (s.opening_stock || 0) + (s.stock_in || 0) - (s.stock_out || 0),
   }));
 
+  const openStock = (id: string, type: string) => setChartSelection({ title: `${type} · Stock record`, rows: stock.filter(r => r.id === id).map(r => ({ id: r.id, label: r.ingredients?.name ?? "Ingredient", fields: { Camp: camps.find(c => c.id === r.camp_id)?.name, Category: r.ingredients?.category, Unit: r.ingredients?.unit, "Opening stock": r.opening_stock, "Stock in": r.stock_in, "Stock out": r.stock_out, Balance: (r.opening_stock || 0) + (r.stock_in || 0) - (r.stock_out || 0), "Updated": r.updated_at } })) });
   return (
     <div className="space-y-4">
       <div className="flex gap-3 items-end">
@@ -90,9 +94,9 @@ export default function GroceryReportsTab() {
                     <TableRow key={s.id}>
                       <TableCell className="font-medium">{s.ingredients?.name}</TableCell>
                       <TableCell><Badge variant="outline" className="text-xs">{s.ingredients?.category}</Badge></TableCell>
-                      <TableCell className="text-destructive font-semibold">{Number(bal).toFixed(1)} {s.ingredients?.unit}</TableCell>
+                      <TableCell className="text-destructive font-semibold">{bal.toFixed(1)} {s.ingredients?.unit}</TableCell>
                       <TableCell>{s.min_level}</TableCell>
-                      <TableCell className="text-destructive font-mono">{Number(s.min_level - bal).toFixed(1)}</TableCell>
+                      <TableCell className="text-destructive font-mono">{(s.min_level - bal).toFixed(1)}</TableCell>
                     </TableRow>
                   );
                 })}
@@ -114,8 +118,8 @@ export default function GroceryReportsTab() {
                   <XAxis dataKey="name" className="text-xs" angle={-20} textAnchor="end" height={60} />
                   <YAxis className="text-xs" />
                   <Tooltip />
-                  <Bar dataKey="in" fill="#10b981" name="Stock In" radius={[2, 2, 0, 0]} />
-                  <Bar dataKey="out" fill="#ef4444" name="Stock Out" radius={[2, 2, 0, 0]} />
+                  <Bar cursor="pointer" onClick={row => openStock(row.payload.id, "Stock In")} dataKey="in" fill="#10b981" name="Stock In" radius={[2, 2, 0, 0]} />
+                  <Bar cursor="pointer" onClick={row => openStock(row.payload.id, "Stock Out")} dataKey="out" fill="#ef4444" name="Stock Out" radius={[2, 2, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -142,9 +146,9 @@ export default function GroceryReportsTab() {
                 {volatileItems.map((v, i) => (
                   <TableRow key={i}>
                     <TableCell className="font-medium">{v.name}</TableCell>
-                    <TableCell className="font-mono">{Number(v.min || 0).toFixed(2)}</TableCell>
-                    <TableCell className="font-mono">{Number(v.max || 0).toFixed(2)}</TableCell>
-                    <TableCell className="font-mono">{Number(v.latest || 0).toFixed(2)}</TableCell>
+                    <TableCell className="font-mono">{v.min.toFixed(2)}</TableCell>
+                    <TableCell className="font-mono">{v.max.toFixed(2)}</TableCell>
+                    <TableCell className="font-mono">{v.latest.toFixed(2)}</TableCell>
                     <TableCell>
                       <Badge variant={v.change > 20 ? "destructive" : "outline"} className="text-xs">
                         {v.change}%
@@ -157,6 +161,7 @@ export default function GroceryReportsTab() {
           </CardContent>
         </Card>
       )}
+      <ChartDrilldown selection={chartSelection} onClose={() => setChartSelection(null)} />
     </div>
   );
 }

@@ -7,9 +7,11 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Download, Printer, ChevronDown, ChevronRight } from "lucide-react";
 import { format, endOfMonth, parse } from "date-fns";
-import { buildDepartmentStatementPdf, downloadStatementBlob, groupDepartmentStatements, statementAmount, statementFilename, type DepartmentStatement } from "./departmentStatement";
+import { buildDepartmentStatementPdf, downloadStatementBlob, groupDepartmentStatements, statementAmount, statementFilename, type DepartmentStatement, type StatementCancellation } from "./departmentStatement";
 import { useRevenueData, buildRevenueRows, LeaveNotes } from "./RevenueReportTab";
 import { useDepartments } from "@/hooks/useDepartments";
+import { approvedFoodCancellations } from "@/lib/approvedFoodCancellations";
+import { dmy } from "@/lib/roomHolding";
 
 const fmt = statementAmount;
 
@@ -37,6 +39,30 @@ export default function DepartmentMonthlyReportTab() {
 
   const groups = useMemo(() => groupDepartmentStatements(rows, costCenterMap), [rows, costCenterMap]);
   const shown = groups.filter(g => deptFilter === "all" || g.dept === deptFilter);
+
+  // Approved food cancellations for the month, resolved to employee name/code, shown at the bottom of each department statement.
+  const empMeta = useMemo(() => {
+    const map: Record<string, { name: string; emp_code: string }> = {};
+    (data?.checkIns || []).forEach((ci: any) => {
+      if (ci.employees?.id) map[ci.employees.id] = { name: ci.employees.name, emp_code: ci.employees.employee_id };
+    });
+    return map;
+  }, [data]);
+
+  const cancellationsFor = (g: DepartmentStatement): StatementCancellation[] => {
+    const codes = new Set(g.list.map(r => r.emp_code));
+    return approvedFoodCancellations(data?.cancellations || [])
+      .filter((c: any) => codes.has(empMeta[c.employee_id]?.emp_code))
+      .map((c: any) => ({
+        name: empMeta[c.employee_id]?.name || "—",
+        emp_code: empMeta[c.employee_id]?.emp_code || "—",
+        from: dmy(c.from_date),
+        to: dmy(c.to_date),
+        meals: (c.food_cancellation_request_meals || []).map((m: any) => m.meal_type).join(", ") || "All meals",
+        reason: c.reason ? String(c.reason).replace(/_/g, " ") : "—",
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name) || a.from.localeCompare(b.from));
+  };
   const grand = shown.reduce((s, g) => ({ n: s.n + g.residents, room: s.room + g.room, food: s.food + g.food, total: s.total + g.total }), { n: 0, room: 0, food: 0, total: 0 });
 
   const exportCsv = () => {
@@ -47,14 +73,14 @@ export default function DepartmentMonthlyReportTab() {
   };
 
   const exportPdf = (group: DepartmentStatement) => {
-    const doc = buildDepartmentStatementPdf(group, month);
+    const doc = buildDepartmentStatementPdf(group, month, undefined, cancellationsFor(group));
     downloadStatementBlob(doc.output("blob"), `${statementFilename(group.dept, month)}.pdf`);
   };
 
   const printStatement = (group: DepartmentStatement) => {
     const w = window.open("", "_blank");
     if (!w) return;
-    const doc = buildDepartmentStatementPdf(group, month);
+    const doc = buildDepartmentStatementPdf(group, month, undefined, cancellationsFor(group));
     doc.autoPrint();
     const url = URL.createObjectURL(doc.output("blob"));
     w.location.href = url;
@@ -175,6 +201,34 @@ export default function DepartmentMonthlyReportTab() {
           <LeaveNotes rows={shown.flatMap((g: any) => g.list)} />
         </div>
       )}
+      {!isLoading && !isError && shown.map(g => {
+        const cancels = cancellationsFor(g);
+        if (!cancels.length) return null;
+        return (
+          <Card key={`cancels-${g.dept}`} aria-label={`${g.dept} food cancellation details`}>
+            <CardContent className="pt-4">
+              <h4 className="font-semibold text-sm mb-2">Food Cancellation Details — {g.dept} <span className="font-normal text-muted-foreground">(approved requests credited in {format(monthDate, "MMMM yyyy")})</span></h4>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Employee</TableHead><TableHead>From</TableHead><TableHead>To</TableHead>
+                    <TableHead>Meals</TableHead><TableHead>Reason</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {cancels.map((c, i) => (
+                    <TableRow key={`${c.emp_code}-${c.from}-${i}`}>
+                      <TableCell><div>{c.name}</div><div className="text-xs text-muted-foreground font-mono">{c.emp_code}</div></TableCell>
+                      <TableCell>{c.from}</TableCell><TableCell>{c.to}</TableCell>
+                      <TableCell className="capitalize">{c.meals}</TableCell><TableCell className="capitalize">{c.reason}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        );
+      })}
     </div>
   );
 }

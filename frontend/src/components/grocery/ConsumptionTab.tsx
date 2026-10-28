@@ -1,3 +1,4 @@
+import { ChartDrilldown, type ChartSelection } from "@/components/dashboard/ChartDrilldown";
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -13,6 +14,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 const COLORS = ["hsl(var(--primary))", "#f59e0b", "#10b981", "#ef4444", "#8b5cf6", "#ec4899", "#06b6d4"];
 
 export default function ConsumptionTab() {
+  const [chartSelection, setChartSelection] = useState<ChartSelection | null>(null);
   const [campId, setCampId] = useState<string>("");
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
 
@@ -33,6 +35,7 @@ export default function ConsumptionTab() {
   const catChartData = Object.entries(categoryBreakdown).map(([cat, cost]) => ({ name: cat, value: +cost.toFixed(2) }));
   const totalCost = Object.values(mealCosts).reduce((s, v) => s + v, 0);
 
+  const openLogs = (title: string, rows: typeof logs) => setChartSelection({ title, description: date, rows: rows.map(l => ({ id: l.id, label: l.ingredients?.name ?? "Ingredient", fields: { Date: l.consumption_date, Camp: l.camps?.name, Meal: l.meal_type, Category: l.ingredients?.category, Quantity: l.consumed_qty, Unit: l.ingredients?.unit, "Unit cost (SAR)": l.unit_cost_at_time, "Total (SAR)": (l.consumed_qty || 0) * (l.unit_cost_at_time || 0) } })) });
   return (
     <div className="space-y-4">
       {/* Filters */}
@@ -70,7 +73,7 @@ export default function ConsumptionTab() {
                     <XAxis dataKey="meal" className="text-xs" />
                     <YAxis className="text-xs" />
                     <Tooltip />
-                    <Bar dataKey="cost" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                    <Bar cursor="pointer" onClick={row => openLogs(`${row.payload.meal} consumption`, logs.filter(l => l.meal_type === row.payload.meal))} dataKey="cost" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -82,7 +85,7 @@ export default function ConsumptionTab() {
               <div className="h-[220px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
-                    <Pie data={catChartData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
+                    <Pie cursor="pointer" onClick={row => openLogs(`${row.name} consumption`, logs.filter(l => (l.ingredients?.category || "Other") === row.name))} data={catChartData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
                       {catChartData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                     </Pie>
                     <Tooltip />
@@ -123,8 +126,8 @@ export default function ConsumptionTab() {
                   <TableCell className="font-medium">{l.ingredients?.name || "—"}</TableCell>
                   <TableCell className="text-xs">{l.ingredients?.category || "—"}</TableCell>
                   <TableCell>{l.consumed_qty}</TableCell>
-                  <TableCell className="font-mono">{Number(l.unit_cost_at_time || 0).toFixed(2)}</TableCell>
-                  <TableCell className="font-mono font-semibold">{(Number(l.consumed_qty || 0) * Number(l.unit_cost_at_time || 0)).toFixed(2)}</TableCell>
+                  <TableCell className="font-mono">{l.unit_cost_at_time?.toFixed(2)}</TableCell>
+                  <TableCell className="font-mono font-semibold">{((l.consumed_qty || 0) * (l.unit_cost_at_time || 0)).toFixed(2)}</TableCell>
                   <TableCell className="text-xs">{l.camps?.name || "—"}</TableCell>
                 </TableRow>
               ))}
@@ -132,6 +135,7 @@ export default function ConsumptionTab() {
           </Table>
         </CardContent>
       </Card>
+    <ChartDrilldown selection={chartSelection} onClose={() => setChartSelection(null)} />
     </div>
   );
 }

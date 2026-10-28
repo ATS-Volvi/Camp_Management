@@ -1,3 +1,6 @@
+import { ChartDrilldown, type ChartSelection } from "@/components/dashboard/ChartDrilldown";
+import { employeeRecord, roomRecord } from "@/lib/dashboardDrilldown";
+import { useCheckedInEmployees } from "@/hooks/useCheckInOut";
 import { useState } from "react";
 import CampRoomRatesDialog from "@/components/camps/CampRoomRatesDialog";
 import { useParams, useNavigate } from "react-router-dom";
@@ -86,6 +89,7 @@ const amenityIcons: Record<string, string> = {
 };
 
 export default function CampDetails() {
+  const [chartSelection, setChartSelection] = useState<ChartSelection | null>(null);
   const { campId } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -128,6 +132,9 @@ export default function CampDetails() {
 
   const { data: blocks = [] } = useBlocks(campId);
   const { data: rooms = [], refetch: refetchRooms } = useRooms(campId);
+
+  const { data: residents = [] } = useCheckedInEmployees(campId);
+  const openOccupancy = (name: string) => setChartSelection({ title: `${name} beds`, rows: rooms.filter(r => name === "Occupied" ? r.current_occupancy > 0 : r.current_occupancy < r.max_capacity).map(r => roomRecord(r, camp?.name ?? "—", residents.filter(e => e.checked_in_room_id === r.id).map(e => employeeRecord(e)))) });
 
   const totalCapacity = rooms.reduce((s, r: any) => s + r.max_capacity, 0);
   const totalOccupied = rooms.reduce((s, r: any) => s + r.current_occupancy, 0);
@@ -379,7 +386,7 @@ export default function CampDetails() {
                   <div className="flex items-center gap-6">
                     <ResponsiveContainer width={160} height={160}>
                       <PieChart>
-                        <Pie data={pieData} cx="50%" cy="50%" innerRadius={45} outerRadius={72} dataKey="value" strokeWidth={0}>
+                        <Pie cursor="pointer" onClick={row => openOccupancy(row.name)} data={pieData} cx="50%" cy="50%" innerRadius={45} outerRadius={72} dataKey="value" strokeWidth={0}>
                           {pieData.map((entry, i) => (
                             <Cell key={i} fill={entry.color} />
                           ))}
@@ -956,6 +963,7 @@ export default function CampDetails() {
           blocks={blocks.map((b: any) => ({ id: b.id, name: b.name, block_code: b.block_code }))}
         />
       )}
+      <ChartDrilldown selection={chartSelection} onClose={() => setChartSelection(null)} />
     </div>
   );
 }

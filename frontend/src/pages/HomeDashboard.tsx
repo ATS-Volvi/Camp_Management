@@ -1,3 +1,5 @@
+import { ChartDrilldown, type ChartSelection } from "@/components/dashboard/ChartDrilldown";
+import { employeeRecord } from "@/lib/dashboardDrilldown";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -27,6 +29,7 @@ const PIE_COLORS = [
 ];
 
 export default function HomeDashboard() {
+  const [chartSelection, setChartSelection] = useState<ChartSelection | null>(null);
   const [campFilter, setCampFilter] = useState<string>("all");
   const [deptFilter, setDeptFilter] = useState<string>("all");
   const [costType, setCostType] = useState<CostType>("all");
@@ -188,7 +191,7 @@ export default function HomeDashboard() {
       map.set(ci.camp_id, (map.get(ci.camp_id) || 0) + rev);
     });
     return Array.from(map.entries())
-      .map(([id, v]) => ({ name: campById.get(id)?.name?.slice(0, 14) || "—", value: v }))
+      .map(([id, v]) => ({ id, name: campById.get(id)?.name?.slice(0, 14) || "—", value: v }))
       .sort((a, b) => b.value - a.value);
   }, [filteredOccupants, costType, fromDate, toDate]);
 
@@ -272,6 +275,11 @@ export default function HomeDashboard() {
   }, [filteredEmployees]);
 
   const totalWorkforce = filteredEmployees.length;
+  const openNationality = (name: string) => {
+    const top = new Set(nationalityMix.filter(n => n.name !== "Others").map(n => n.name));
+    setChartSelection({ title: `${name} residents`, rows: filteredOccupants.filter(ci => { const nat = empById.get(ci.employee_id)?.nationality || "Other"; return name === "Others" ? !top.has(nat) : nat === name; }).map(ci => employeeRecord(empById.get(ci.employee_id) ?? { id: ci.employee_id }, { Camp: campById.get(ci.camp_id)?.name, "Check-in": ci.check_in_date })) });
+  };
+  const openCampRevenue = (id: string) => setChartSelection({ title: `${campById.get(id)?.name} revenue`, description: `${format(fromDate, "yyyy-MM-dd")} — ${format(toDate, "yyyy-MM-dd")}`, rows: filteredOccupants.filter(ci => ci.camp_id === id).map(ci => employeeRecord(empById.get(ci.employee_id) ?? { id: ci.employee_id }, { "Check-in": ci.check_in_date, "Revenue (SAR)": computeRevenue(ci, fromDate, toDate), "Cost type": costType })) });
 
   return (
     <div className="space-y-6">
@@ -442,7 +450,7 @@ export default function HomeDashboard() {
             <div className="h-[260px]">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
-                  <Pie data={nationalityMix} dataKey="value" innerRadius={60} outerRadius={100} paddingAngle={2} stroke="none">
+                  <Pie data={nationalityMix} cursor="pointer" onClick={row => openNationality(row.name)} dataKey="value" innerRadius={60} outerRadius={100} paddingAngle={2} stroke="none">
                     {nationalityMix.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
                   </Pie>
                   <Tooltip contentStyle={{ borderRadius: 8, border: "1px solid hsl(var(--border))", background: "hsl(var(--card))" }} />
@@ -457,7 +465,7 @@ export default function HomeDashboard() {
           <CardContent>
             <div className="h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={revenueByCamp.map((r) => ({ name: r.name, value: +(r.value / 1_000_000).toFixed(2) }))}>
+                <BarChart data={revenueByCamp.map((r) => ({ id: r.id, name: r.name, value: +(r.value / 1_000_000).toFixed(2) }))}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
                   <XAxis dataKey="name" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
                   <YAxis tick={{ fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => `SR ${v}M`} />
@@ -465,7 +473,7 @@ export default function HomeDashboard() {
                     formatter={(v: any) => [`SR ${v}M`, "Revenue"]}
                     contentStyle={{ borderRadius: 8, border: "1px solid hsl(var(--border))", background: "hsl(var(--card))" }}
                   />
-                  <Bar dataKey="value" radius={[6, 6, 0, 0]} maxBarSize={50}>
+                  <Bar cursor="pointer" onClick={row => openCampRevenue(row.payload.id)} dataKey="value" radius={[6, 6, 0, 0]} maxBarSize={50}>
                     {revenueByCamp.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
                   </Bar>
                 </BarChart>
@@ -521,6 +529,7 @@ export default function HomeDashboard() {
           />
         </div>
       </div>
+    <ChartDrilldown selection={chartSelection} onClose={() => setChartSelection(null)} />
     </div>
   );
 }

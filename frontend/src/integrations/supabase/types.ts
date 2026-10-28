@@ -416,6 +416,47 @@ export type Database = {
         }
         Relationships: []
       }
+      camp_meal_rates: {
+        Row: {
+          breakfast_rate: number
+          camp_id: string
+          created_at: string
+          dinner_rate: number
+          id: string
+          lunch_rate: number
+          ramadan_rate: number
+          updated_at: string
+        }
+        Insert: {
+          breakfast_rate?: number
+          camp_id: string
+          created_at?: string
+          dinner_rate?: number
+          id?: string
+          lunch_rate?: number
+          ramadan_rate?: number
+          updated_at?: string
+        }
+        Update: {
+          breakfast_rate?: number
+          camp_id?: string
+          created_at?: string
+          dinner_rate?: number
+          id?: string
+          lunch_rate?: number
+          ramadan_rate?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "camp_meal_rates_camp_id_fkey"
+            columns: ["camp_id"]
+            isOneToOne: true
+            referencedRelation: "camps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       camp_room_rates: {
         Row: {
           camp_id: string
@@ -3690,6 +3731,19 @@ export type Database = {
         }
         Returns: string
       }
+      food_cancellation_dates_within_stay: {
+        Args: {
+          p_arrival: string
+          p_departure: string
+          p_from: string
+          p_to: string
+        }
+        Returns: boolean
+      }
+      food_cancellation_stay_camp: {
+        Args: { p_employee_id: string; p_from: string; p_to: string }
+        Returns: string
+      }
       get_food_billable_days: {
         Args: { p_employee_id: string; p_from: string; p_to: string }
         Returns: number
@@ -3727,32 +3781,19 @@ export type Database = {
         }
         Returns: boolean
       }
-      perform_check_in:
-        | {
-            Args: {
-              p_camp_id: string
-              p_employee_id: string
-              p_food_required?: boolean
-              p_iqama_number?: string
-              p_passport_number?: string
-              p_performed_by: string
-              p_room_id: string
-            }
-            Returns: string
-          }
-        | {
-            Args: {
-              p_camp_id: string
-              p_check_in_date?: string
-              p_employee_id: string
-              p_food_required?: boolean
-              p_iqama_number?: string
-              p_passport_number?: string
-              p_performed_by: string
-              p_room_id: string
-            }
-            Returns: string
-          }
+      perform_check_in: {
+        Args: {
+          p_camp_id: string
+          p_check_in_date?: string
+          p_employee_id: string
+          p_food_required?: boolean
+          p_iqama_number?: string
+          p_passport_number?: string
+          p_performed_by: string
+          p_room_id: string
+        }
+        Returns: string
+      }
       perform_check_out:
         | {
             Args: {

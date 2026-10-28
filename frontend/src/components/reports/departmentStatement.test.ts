@@ -42,3 +42,18 @@ describe("department costing statements", () => {
     expect(text).toContain("Grand Total"); expect(text).toContain("SAR 2,840.00");
   });
 });
+describe("statement food cancellation details", () => {
+  it("lists approved cancellations at the bottom of the PDF", () => {
+    const doc = buildDepartmentStatementPdf(groupDepartmentStatements([row])[0], "2026-04", undefined, [
+      { name: "Sanath", emp_code: "EMP-SAN001", from: "05/04/2026", to: "11/04/2026", meals: "lunch", reason: "vacation" },
+    ]);
+    const text = doc.output();
+    expect(text).toContain("Food Cancellation Details");
+    expect(text).toContain("Sanath");
+    expect(text).toContain("05/04/2026");
+  });
+  it("omits the section when there are no cancellations", () => {
+    const doc = buildDepartmentStatementPdf(groupDepartmentStatements([row])[0], "2026-04");
+    expect(doc.output()).not.toContain("Food Cancellation Details");
+  });
+});

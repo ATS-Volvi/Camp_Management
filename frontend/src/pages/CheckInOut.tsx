@@ -1,4 +1,5 @@
 import { prepareCheckInReceipt } from "@/lib/checkInReport";
+import { billableStayWindow } from "@/lib/stayBilling";
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { LogIn, LogOut, Search, Users, DoorOpen, CheckCircle2, AlertTriangle, FileText, Package, Star, Ban, Calendar, Clock, Download, Sparkles, DollarSign, ArrowLeftRight } from "lucide-react";
 import TransferRequestsList from "@/components/checkin/TransferRequestsList";
@@ -326,7 +327,7 @@ export default function CheckInOut() {
           const ci = latestCheckIn.get(empId);
           const room = ci ? roomMap.get(ci.room_id) : null;
           const checkInDate = ci ? new Date(ci.date) : now;
-          const days = Math.max(differenceInDays(checkoutAt, checkInDate), 1);
+          const days = billableStayWindow(checkInDate.toISOString(), checkoutAt.toISOString(), checkInDate.toISOString(), checkoutAt.toISOString()).days;
           const dailyRate = room?.daily_rate || 0;
           const foodRate = room?.daily_food_rate || 0;
           const roomCost = days * dailyRate;
@@ -688,7 +689,7 @@ export default function CheckInOut() {
       const room = ci ? roomMap.get(ci.room_id) : null;
       const checkInDate = ci ? new Date(ci.date || ci.check_in_date) : null;
       const checkOutDate = co ? new Date(co.check_out_date) : null;
-      const days = checkInDate && checkOutDate ? Math.max(differenceInDays(checkOutDate, checkInDate), 1) : checkInDate ? Math.max(differenceInDays(now, checkInDate), 1) : 0;
+      const days = checkInDate ? billableStayWindow(checkInDate.toISOString(), checkOutDate?.toISOString() ?? null, checkInDate.toISOString(), (checkOutDate ?? now).toISOString()).days : 0;
       const dailyRate = room?.daily_rate || 0;
       const foodRate = room?.daily_food_rate || 0;
       const totalCharges = days * (dailyRate + foodRate);

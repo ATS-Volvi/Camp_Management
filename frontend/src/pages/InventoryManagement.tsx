@@ -1,3 +1,4 @@
+import { ChartDrilldown, type ChartSelection } from "@/components/dashboard/ChartDrilldown";
 import { useState } from "react";
 import { Package, AlertTriangle, Plus, Search, TrendingDown, TrendingUp, Edit2, Filter, Download, MoreHorizontal, ChevronLeft, ChevronRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -30,6 +31,7 @@ function getStatus(item: InventoryItem) {
 type Tab = "overview" | "all" | "low-stock";
 
 export default function InventoryManagement() {
+  const [chartSelection, setChartSelection] = useState<ChartSelection | null>(null);
   const [tab, setTab] = useState<Tab>("all");
   const [selectedCamp, setSelectedCamp] = useState<string>("all");
   const [search, setSearch] = useState("");
@@ -69,6 +71,7 @@ export default function InventoryManagement() {
     stock: items.filter(i => i.category === cat).reduce((s, i) => s + (i.balance ?? 0), 0),
   })).filter(c => c.count > 0);
 
+  const openStock = (name: string) => setChartSelection({ title: `${name} items`, rows: items.filter(item => getStatus(item) === name).map(item => ({ id: item.id, label: item.item_name, fields: { Camp: camps?.find(c => c.id === item.camp_id)?.name, Category: item.category, Balance: item.balance, "Opening stock": item.opening_stock, "Stock in": item.stock_in, "Stock out": item.stock_out, "Minimum level": item.min_alert_level, Vendor: item.vendor, "Last updated": item.updated_at } })) });
   const tabs: { label: string; value: Tab }[] = [
     { label: "Overview", value: "overview" },
     { label: "All Items", value: "all" },
@@ -182,7 +185,7 @@ export default function InventoryManagement() {
                   <div className="flex items-center justify-center gap-8">
                     <ResponsiveContainer width={160} height={160}>
                       <PieChart>
-                        <Pie data={pieData} cx="50%" cy="50%" innerRadius={45} outerRadius={72} dataKey="value" strokeWidth={0}>
+                        <Pie cursor="pointer" onClick={row => openStock(row.name)} data={pieData} cx="50%" cy="50%" innerRadius={45} outerRadius={72} dataKey="value" strokeWidth={0}>
                           {pieData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
                         </Pie>
                       </PieChart>
@@ -354,6 +357,7 @@ export default function InventoryManagement() {
           {editingItem && <EditItemForm item={editingItem} onClose={() => setEditingItem(null)} />}
         </DialogContent>
       </Dialog>
+      <ChartDrilldown selection={chartSelection} onClose={() => setChartSelection(null)} />
     </div>
   );
 }

@@ -21,7 +21,7 @@ const SAFE_TABLES = [
     'room_categories', 'designation_room_mapping', 'cook_request_items', 'purchase_order_items',
     'clients', 'client_room_rates', 'employee_status_log', 'camp_food_cancellation_settings',
     'employee_shift_assignments', 'food_cancellation_requests', 'food_cancellation_request_meals',
-    'asset_maintenance_log', 'room_category_master'
+    'asset_maintenance_log', 'room_category_master', 'camp_meal_rates'
 ];
 
 class DataService {
@@ -127,16 +127,29 @@ class DataService {
             
             // Handle Joins
             if (select !== '*' && data.length > 0) {
-                // regex to match table(cols) or table!inner(cols)
-                const joinMatches = select.matchAll(/([\w!]+)\(([^)]+)\)/g);
+                // regex to match table(cols), table!inner(cols), or alias:foreignKey(cols)
+                const joinMatches = select.matchAll(/([\w!:]+)\(([^)]+)\)/g);
                 for (const match of joinMatches) {
-                    let relatedTable = match[1];
+                    let target = match[1];
                     const columns = match[2];
+                    
+                    let alias = '';
+                    let relatedTable = target;
+                    if (target.includes(':')) {
+                        const parts = target.split(':');
+                        alias = parts[0];
+                        relatedTable = parts[1];
+                    }
                     
                     const isInner = relatedTable.includes('!inner');
                     relatedTable = relatedTable.replace('!inner', '');
                     
                     let foreignKey = `${relatedTable.replace(/s$/, '').replace(/^pm_/, '')}_id`;
+                    if (relatedTable.endsWith('_id')) {
+                        foreignKey = relatedTable;
+                        relatedTable = relatedTable.replace(/_id$/, '') + 's';
+                        if (relatedTable === 'pm_equipments') relatedTable = 'pm_equipment';
+                    }
                     if (relatedTable === 'pm_equipment') foreignKey = 'equipment_id';
                     if (relatedTable === 'rooms') foreignKey = 'room_id';
                     if (relatedTable === 'buildings') foreignKey = 'building_id';
@@ -176,8 +189,9 @@ class DataService {
                                 }
 
                                 const relatedMap = new Map(relatedData.map(r => [r.id, r]));
+                                const keyName = alias || relatedTable;
                                 data.forEach(r => {
-                                    r[relatedTable] = relatedMap.get(r[foreignKey]) || null;
+                                    r[keyName] = relatedMap.get(r[foreignKey]) || null;
                                 });
                             }
                         } else {
@@ -197,8 +211,9 @@ class DataService {
                                 if (!relatedMap.has(parentId)) relatedMap.set(parentId, []);
                                 relatedMap.get(parentId)!.push(rd);
                             });
+                            const keyName = alias || relatedTable;
                             data.forEach(r => {
-                                r[relatedTable] = relatedMap.get(r.id) || [];
+                                r[keyName] = relatedMap.get(r.id) || [];
                             });
                         }
                     } catch (joinErr: any) {

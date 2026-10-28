@@ -12,7 +12,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { UtensilsCrossed, ChefHat, Settings as SettingsIcon, AlertTriangle, CheckCircle2, XCircle, Clock, Users, Ban, Plus } from "lucide-react";
-import { useEmployees } from "@/hooks/useEmployees";
+import { useCheckedInEmployees } from "@/hooks/useCheckInOut";
+import { foodCancellationDateAllowed } from "@/lib/foodCancellationDates";
+import { filterCancellationResidents } from "@/lib/foodCancellationResidents";
 import { useCamps } from "@/hooks/useCampManagement";
 import {
   useCancellationRequests, useSubmitCancellation, useApproveCancellation, useRejectCancellation,
@@ -70,7 +72,7 @@ export default function FoodCancellation() {
         </Tabs>
       )}
 
-      {activeCamp && <NewRequestForm campId={activeCamp} open={newOpen} onOpenChange={setNewOpen} />}
+      {activeCamp && <NewRequestForm key={activeCamp} campId={activeCamp} open={newOpen} onOpenChange={setNewOpen} />}
     </div>
   );
 }
@@ -79,7 +81,8 @@ export default function FoodCancellation() {
 function KitchenDashboard({ campId }: { campId: string }) {
   const today = new Date().toISOString().split("T")[0];
   const [date, setDate] = useState(today);
-  const { data: counts = [], isLoading } = useKitchenMealCount(campId, date);
+  const { data, isLoading } = useKitchenMealCount(campId, date);
+  const counts = Array.isArray(data) ? data : [];
 
   // 7-day forecast
   const dates = useMemo(() => Array.from({ length: 7 }, (_, i) => {
@@ -145,7 +148,8 @@ function ForecastGrid({ campId, dates }: { campId: string; dates: string[] }) {
 }
 
 function ForecastRow({ campId, date }: { campId: string; date: string }) {
-  const { data: counts = [] } = useKitchenMealCount(campId, date);
+  const { data } = useKitchenMealCount(campId, date);
+  const counts = Array.isArray(data) ? data : [];
   const map = new Map(counts.map((c) => [c.meal_type, c]));
   return (
     <TableRow>
@@ -167,7 +171,10 @@ function ForecastRow({ campId, date }: { campId: string; date: string }) {
 
 /* -------------------- NEW REQUEST -------------------- */
 function NewRequestForm({ campId, open, onOpenChange }: { campId: string; open: boolean; onOpenChange: (o: boolean) => void }) {
-  const { data: employees = [] } = useEmployees();
+  const { data: camps = [] } = useCamps();
+  const [requestCampId, setRequestCampId] = useState(campId);
+  const [department, setDepartment] = useState("all");
+  const { data: employees = [], isLoading, isError } = useCheckedInEmployees(requestCampId);
   const submit = useSubmitCancellation();
   const [employeeId, setEmployeeId] = useState("");
   const [from, setFrom] = useState(new Date().toISOString().split("T")[0]);
@@ -175,25 +182,40 @@ function NewRequestForm({ campId, open, onOpenChange }: { campId: string; open: 
   const [meals, setMeals] = useState<MealType[]>(["breakfast", "lunch", "dinner"]);
   const [reason, setReason] = useState<CancelReason>("leave");
   const [remarks, setRemarks] = useState("");
-  const [search, setSearch] = useState("");
+  const departments = useMemo(() => Array.from(new Set(employees.flatMap(e => e.department ? [e.department] : []))).sort(), [employees]);
+  const filtered = useMemo(() => filterCancellationResidents(employees, department), [employees, department]);
 
-  const filtered = useMemo(() => {
-    const s = search.toLowerCase();
-    return employees
-      .filter((e: any) => e.camp_id === campId)
-      .filter((e: any) => !s || e.name.toLowerCase().includes(s) || e.employee_id.toLowerCase().includes(s))
-      .slice(0, 50);
-  }, [employees, campId, search]);
+  const selectedEmployee = filtered.find((e) => e.id === employeeId);
+  const stayFrom = selectedEmployee?.stay_from ?? "";
+  const stayTo = selectedEmployee?.stay_to ?? undefined;
+  const datesValid = foodCancellationDateAllowed(from, stayFrom, stayTo)
+    && foodCancellationDateAllowed(to, stayFrom, stayTo) && from <= to;
+
+  const selectEmployee = (id: string) => {
+    const employee = employees.find((e) => e.id === id);
+    if (!employee?.stay_from) return;
+    const clamp = (date: string) => date < employee.stay_from ? employee.stay_from
+      : employee.stay_to && date > employee.stay_to ? employee.stay_to : date;
+    const nextFrom = clamp(from);
+    setFrom(nextFrom);
+    setTo(clamp(to) < nextFrom ? nextFrom : clamp(to));
+    setEmployeeId(id);
+    submit.reset();
+  };
 
   const toggleMeal = (m: MealType) =>
     setMeals((prev) => prev.includes(m) ? prev.filter((x) => x !== m) : [...prev, m]);
 
   const handleSubmit = async () => {
-    if (!employeeId) return;
-    await submit.mutateAsync({
-      employee_id: employeeId,
-      from_date: from, to_date: to, meals, reason, remarks: remarks || undefined,
-    });
+    if (!selectedEmployee || !datesValid || isLoading || isError) return;
+    try {
+      await submit.mutateAsync({
+        employee_id: employeeId,
+        from_date: from, to_date: to, meals, reason, remarks: remarks || undefined,
+      });
+    } catch {
+      return; // The mutation displays the server's validation error; keep the form open.
+    }
     setRemarks(""); setEmployeeId("");
     onOpenChange(false);
   };
@@ -203,25 +225,40 @@ function NewRequestForm({ campId, open, onOpenChange }: { campId: string; open: 
       <DialogContent className="max-w-xl max-h-[85vh] overflow-y-auto">
       <DialogHeader><DialogTitle>Submit Cancellation Request</DialogTitle></DialogHeader>
       <div className="space-y-4">
-        <div>
-          <Label>Employee</Label>
-          <Input placeholder="Search by name or ID…" value={search} onChange={(e) => setSearch(e.target.value)} className="mb-2" />
-          <div className="border rounded-md max-h-48 overflow-y-auto">
-            {filtered.length === 0 && <div className="p-3 text-sm text-muted-foreground text-center">No employees in this camp.</div>}
-            {filtered.map((e: any) => (
-              <button key={e.id} type="button"
-                onClick={() => setEmployeeId(e.id)}
-                className={`w-full text-left px-3 py-2 text-sm hover:bg-accent flex justify-between items-center ${employeeId === e.id ? "bg-primary/10 border-l-2 border-primary" : ""}`}>
-                <span><strong>{e.name}</strong> · {e.employee_id}</span>
-                <span className="text-xs text-muted-foreground">{e.designation ?? "—"}</span>
-              </button>
-            ))}
+        <div className="grid sm:grid-cols-2 gap-3">
+          <div className="min-w-0">
+            <Label htmlFor="cancel-camp">Camp</Label>
+            <Select value={requestCampId} onValueChange={(id) => { setRequestCampId(id); setDepartment("all"); setEmployeeId(""); submit.reset(); }}>
+              <SelectTrigger id="cancel-camp"><SelectValue placeholder="Select camp" /></SelectTrigger>
+              <SelectContent>{camps.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
+            </Select>
           </div>
+          <div className="min-w-0">
+            <Label htmlFor="cancel-department">Department</Label>
+            <Select value={department} disabled={isLoading || isError} onValueChange={(value) => { setDepartment(value); setEmployeeId(""); submit.reset(); }}>
+              <SelectTrigger id="cancel-department"><SelectValue placeholder="Select department" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Departments</SelectItem>
+                {departments.map(value => <SelectItem key={value} value={value}>{value}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <div>
+          <Label htmlFor="cancel-employee">Employee</Label>
+          <Select value={employeeId} onValueChange={selectEmployee} disabled={isLoading || isError || filtered.length === 0}>
+            <SelectTrigger id="cancel-employee"><SelectValue placeholder={isLoading ? "Loading current residents…" : "Select employee"} /></SelectTrigger>
+            <SelectContent className="max-h-64">
+              {filtered.map(e => <SelectItem key={e.id} value={e.id}>{e.employee_id} — {e.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          {isError && <p role="alert" className="mt-2 text-sm text-destructive">Unable to load current residents. Please try again.</p>}
+          {!isLoading && !isError && filtered.length === 0 && <p className="mt-2 text-sm text-muted-foreground">No current residents in the selected camp and department.</p>}
         </div>
 
         <div className="grid sm:grid-cols-2 gap-3">
-          <div><Label>From Date</Label><Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></div>
-          <div><Label>To Date</Label><Input type="date" value={to} onChange={(e) => setTo(e.target.value)} /></div>
+          <div><Label htmlFor="cancel-from">From Date</Label><Input id="cancel-from" type="date" disabled={!stayFrom} min={stayFrom} max={stayTo} value={from} onChange={(e) => { setFrom(e.target.value); if (e.target.value > to) setTo(e.target.value); submit.reset(); }} /></div>
+          <div><Label htmlFor="cancel-to">To Date</Label><Input id="cancel-to" type="date" disabled={!stayFrom} min={from > stayFrom ? from : stayFrom} max={stayTo} value={to} onChange={(e) => { setTo(e.target.value); submit.reset(); }} /></div>
         </div>
 
         <div>
@@ -262,7 +299,9 @@ function NewRequestForm({ campId, open, onOpenChange }: { campId: string; open: 
           <Textarea value={remarks} onChange={(e) => setRemarks(e.target.value)} rows={2} />
         </div>
 
-        <Button onClick={handleSubmit} disabled={!employeeId || meals.length === 0 || submit.isPending} className="w-full">
+        {submit.error && <p role="alert" className="text-sm text-destructive">{submit.error.message}</p>}
+        {selectedEmployee && !datesValid && <p role="alert" className="text-sm text-destructive">Choose dates within the employee’s stay, with the end date on or after the start date.</p>}
+        <Button onClick={handleSubmit} disabled={!selectedEmployee || !datesValid || isLoading || isError || meals.length === 0 || submit.isPending} className="w-full">
           {submit.isPending ? "Submitting…" : "Submit Request"}
         </Button>
       </div>
@@ -357,15 +396,30 @@ function ApprovalsQueue({ campId }: { campId: string }) {
 
 /* -------------------- ALL REQUESTS -------------------- */
 function AllRequests({ campId }: { campId: string }) {
-  const { data: requests = [] } = useCancellationRequests({ campId });
+  const { data: camps = [] } = useCamps();
+  const [scope, setScope] = useState("all");
+  const { data: requests = [], isLoading, isError } = useCancellationRequests(scope === "all" ? undefined : { campId });
+  const campNames = new Map(camps.map(c => [c.id, c.name]));
   return (
     <Card>
-      <CardHeader><CardTitle>All Requests ({requests.length})</CardTitle></CardHeader>
+      <CardHeader className="flex flex-wrap flex-row items-center justify-between gap-3">
+        <CardTitle>All Requests ({requests.length})</CardTitle>
+        <Select value={scope} onValueChange={setScope}>
+          <SelectTrigger className="w-[240px]" aria-label="Request camp filter"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Camps</SelectItem>
+            <SelectItem value="selected">{campNames.get(campId) ?? "Selected Camp"}</SelectItem>
+          </SelectContent>
+        </Select>
+      </CardHeader>
       <CardContent>
+        {isLoading && <p className="py-4 text-muted-foreground">Loading requests…</p>}
+        {isError && <p role="alert" className="py-4 text-destructive">Unable to load cancellation requests. Please try again.</p>}
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead>Employee</TableHead>
+              <TableHead>Camp</TableHead>
               <TableHead>Date Range</TableHead>
               <TableHead>Meals</TableHead>
               <TableHead>Reason</TableHead>
@@ -380,6 +434,7 @@ function AllRequests({ campId }: { campId: string }) {
                   <div className="font-medium">{r.employee?.name ?? "—"}</div>
                   <div className="text-xs text-muted-foreground">{r.employee?.employee_id}</div>
                 </TableCell>
+                <TableCell>{campNames.get(r.camp_id) ?? "Not linked"}</TableCell>
                 <TableCell className="text-sm">{r.from_date} → {r.to_date}</TableCell>
                 <TableCell>
                   <div className="flex flex-wrap gap-1">
@@ -395,6 +450,7 @@ function AllRequests({ campId }: { campId: string }) {
                 </TableCell>
               </TableRow>
             ))}
+            {!isLoading && !isError && requests.length === 0 && <TableRow><TableCell colSpan={7} className="py-8 text-center text-muted-foreground">No requests found.</TableCell></TableRow>}
           </TableBody>
         </Table>
       </CardContent>

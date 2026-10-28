@@ -1,3 +1,7 @@
+import { ChartDrilldown, type ChartSelection } from "@/components/dashboard/ChartDrilldown";
+import { employeeRecord, roomRecord } from "@/lib/dashboardDrilldown";
+import { useCommandDashboard } from "@/hooks/useCommandDashboard";
+import { residentsAt } from "@/lib/commandDashboard";
 import { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -16,6 +20,8 @@ interface Props {
 }
 
 export default function CampsReports({ camps }: Props) {
+  const [chartSelection, setChartSelection] = useState<ChartSelection | null>(null);
+  const details = useCommandDashboard();
   const [selectedCamp, setSelectedCamp] = useState("all");
   const [dateRange, setDateRange] = useState("7");
   const [search, setSearch] = useState("");
@@ -88,15 +94,21 @@ export default function CampsReports({ camps }: Props) {
   // Bar chart: top 10 camps by occupancy
   const occupancyChartData = useMemo(() => {
     return campSummary
+      .filter(c => selectedCamp === "all" || camps.find(camp => camp.name === c.name)?.id === selectedCamp)
       .filter(c => c.capacity > 0)
       .sort((a, b) => (b.occupants / b.capacity) - (a.occupants / a.capacity))
       .slice(0, 10)
       .map(c => ({
+        id: camps.find(camp => camp.name === c.name)?.id,
         name: c.name.length > 15 ? c.name.slice(0, 14) + "…" : c.name,
         occupancy: c.capacity > 0 ? Math.round((c.occupants / c.capacity) * 100) : 0,
       }));
-  }, [campSummary]);
+  }, [campSummary, selectedCamp, camps]);
 
+  const openCamp = (id: string) => {
+    const residents = residentsAt(details.data?.checkIns ?? [], details.data?.checkOuts ?? [], new Date().toISOString());
+    setChartSelection({ title: `${camps.find(c => c.id === id)?.name} occupancy`, rows: (details.data?.rooms ?? []).filter(r => r.camp_id === id).map(r => roomRecord(r, camps.find(c => c.id === id)?.name ?? "—", residents.filter(e => e.room_id === r.id).flatMap(e => { const emp = details.data?.employees.find(emp => emp.id === e.employee_id); return emp ? [employeeRecord(emp, { "Check-in": e.check_in_date })] : []; }))) });
+  };
   // Aggregate stats
   const totalCheckIns = checkIns.length;
   const totalCheckOuts = checkOuts.length;
@@ -244,7 +256,7 @@ export default function CampsReports({ camps }: Props) {
                     formatter={(value: number) => [`${value}%`, "Occupancy"]}
                     contentStyle={{ borderRadius: 8, border: "1px solid hsl(var(--border))", background: "hsl(var(--card))" }}
                   />
-                  <Bar dataKey="occupancy" radius={[0, 4, 4, 0]} maxBarSize={24}>
+                  <Bar cursor="pointer" onClick={row => openCamp(row.payload.id)} dataKey="occupancy" radius={[0, 4, 4, 0]} maxBarSize={24}>
                     {occupancyChartData.map((entry, index) => (
                       <Cell
                         key={index}
@@ -310,6 +322,7 @@ export default function CampsReports({ camps }: Props) {
           </div>
         </CardContent>
       </Card>
+      <ChartDrilldown selection={chartSelection} onClose={() => setChartSelection(null)} />
     </div>
   );
 }

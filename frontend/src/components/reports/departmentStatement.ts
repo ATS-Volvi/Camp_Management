@@ -59,7 +59,10 @@ export const statementFilename = (dept: string, month: string) => `department-co
 export interface StatementLabels { title: string; chargeTo: string; codeLabel: string; footer: string }
 const DEPT_LABELS: StatementLabels = { title: "Department Monthly Costing Statement", chargeTo: "Charge to", codeLabel: "Cost Center", footer: "Department" };
 
-export function buildDepartmentStatementPdf(group: DepartmentStatement, month: string, labels: StatementLabels = DEPT_LABELS) {
+/** Approved food cancellation shown at the bottom of a statement. */
+export interface StatementCancellation { name: string; emp_code: string; from: string; to: string; meals: string; reason: string }
+
+export function buildDepartmentStatementPdf(group: DepartmentStatement, month: string, labels: StatementLabels = DEPT_LABELS, cancellations: StatementCancellation[] = []) {
   const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
   const start = parseISO(`${month}-01`);
   const period = `${format(start, "dd MMM yyyy")} - ${format(endOfMonth(start), "dd MMM yyyy")}`;
@@ -113,6 +116,20 @@ export function buildDepartmentStatementPdf(group: DepartmentStatement, month: s
       if (y > 188) { doc.addPage(); y = 20; }
       doc.text(line, 14, y);
     }
+  }
+  if (cancellations.length) {
+    let y = ((doc as any).lastAutoTable?.finalY ?? 100) + 8;
+    if (y > 170) { doc.addPage(); y = 20; }
+    doc.setFontSize(9);
+    doc.text("Food Cancellation Details (approved requests credited in this statement):", 14, y);
+    autoTable(doc, {
+      startY: y + 4,
+      head: [["Employee", "From", "To", "Meals", "Reason"]],
+      body: cancellations.map(c => [`${c.name} (${c.emp_code})`, c.from, c.to, c.meals, c.reason]),
+      theme: "grid",
+      styles: { fontSize: 8, cellPadding: 2, overflow: "linebreak" },
+      margin: { top: 15, bottom: 23, left: 14, right: 14 },
+    });
   }
   return doc;
 }

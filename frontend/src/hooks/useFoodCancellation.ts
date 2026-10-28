@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { api } from "@/lib/apiClient";
+import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 
@@ -48,29 +48,31 @@ export interface CancellationRequest {
   level2_approved_at: string | null;
   level3_approver: string | null;
   level3_approved_at: string | null;
-  employee?: {
-    id: string;
-    name: string;
-    employee_id: string;
-    designation: string | null;
-  } | null;
-  meals: MealType[];
 }
 
 export function useCancellationRequests(filters?: { campId?: string; status?: CancelStatus }) {
   return useQuery({
     queryKey: ["food-cancellations", filters],
     queryFn: async () => {
-      const params = new URLSearchParams();
-      if (filters?.campId) params.append("campId", filters.campId);
-      if (filters?.status) params.append("status", filters.status);
-      const query = params.toString();
-      const endpoint = `/food-cancellation/requests${query ? `?${query}` : ''}`;
-      const data = await api.get<any[]>(endpoint);
+      let q = supabase
+        .from("food_cancellation_requests")
+        .select("*, food_cancellation_request_meals(meal_type)")
+        .order("submitted_at", { ascending: false });
+      if (filters?.campId) q = q.eq("camp_id", filters.campId);
+      if (filters?.status) q = q.eq("status", filters.status);
+      const { data, error } = await q;
+      if (error) throw error;
+
+      const ids = Array.from(new Set((data ?? []).map((r: any) => r.employee_id)));
+      const { data: emps } = ids.length
+        ? await supabase.from("employees").select("id, name, employee_id, designation").in("id", ids)
+        : { data: [] as any[] };
+      const empMap = new Map((emps ?? []).map((e: any) => [e.id, e]));
       return (data ?? []).map((r: any) => ({
         ...r,
-        meals: r.meals ?? []
-      })) as CancellationRequest[];
+        employee: empMap.get(r.employee_id) ?? null,
+        meals: (r.food_cancellation_request_meals ?? []).map((m: any) => m.meal_type as MealType),
+      }));
     },
   });
 }
@@ -88,11 +90,19 @@ export function useSubmitCancellation() {
       remarks?: string;
       force?: boolean;
     }) => {
-      const payload = {
-        ...input,
-        submitted_by: user?.id ?? null
-      };
-      return await api.post('/food-cancellation/requests', payload);
+      const { data, error } = await supabase.rpc("submit_food_cancellation", {
+        p_employee_id: input.employee_id,
+        p_from_date: input.from_date,
+        p_to_date: input.to_date,
+        p_meals: input.meals as any,
+        p_reason: input.reason as any,
+        p_remarks: input.remarks ?? null,
+        p_source: "manual" as any,
+        p_submitted_by: user?.id ?? null,
+        p_force: input.force ?? false,
+      });
+      if (error) throw error;
+      return data;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["food-cancellations"] });
@@ -108,14 +118,18 @@ export function useApproveCancellation() {
   const { user } = useAuth();
   return useMutation({
     mutationFn: async (id: string) => {
-      return await api.put(`/food-cancellation/requests/${id}/approve`, {
-        approver_id: user?.id ?? null
+      const { error } = await supabase.rpc("approve_food_cancellation", {
+        p_request_id: id,
+        p_approver: user?.id ?? null,
       });
+      if (error) throw error;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["food-cancellations"] });
       qc.invalidateQueries({ queryKey: ["kitchen-meal-count"] });
       toast.success("Approved");
+      qc.invalidateQueries({ queryKey: ["invoice-data"] });
+      qc.invalidateQueries({ queryKey: ["revenue-data"] });
     },
     onError: (e: any) => toast.error(e.message),
   });
@@ -126,14 +140,18 @@ export function useRejectCancellation() {
   const { user } = useAuth();
   return useMutation({
     mutationFn: async ({ id, reason }: { id: string; reason: string }) => {
-      return await api.put(`/food-cancellation/requests/${id}/reject`, {
-        approver_id: user?.id ?? null,
-        reason
+      const { error } = await supabase.rpc("reject_food_cancellation", {
+        p_request_id: id,
+        p_approver: user?.id ?? null,
+        p_reason: reason,
       });
+      if (error) throw error;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["food-cancellations"] });
       toast.success("Rejected");
+      qc.invalidateQueries({ queryKey: ["invoice-data"] });
+      qc.invalidateQueries({ queryKey: ["revenue-data"] });
     },
     onError: (e: any) => toast.error(e.message),
   });
@@ -145,7 +163,11 @@ export function useKitchenMealCount(campId?: string, date?: string) {
     enabled: !!campId,
     queryFn: async () => {
       const d = date ?? new Date().toISOString().split("T")[0];
-      const data = await api.get(`/food-cancellation/kitchen-count/${campId}?date=${d}`);
+      const { data, error } = await supabase.rpc("get_kitchen_meal_count", {
+        p_camp_id: campId!,
+        p_date: d,
+      });
+      if (error) throw error;
       return (data ?? []) as { meal_type: string; total_active: number; cancelled: number; net_count: number }[];
     },
     refetchInterval: 10000,
@@ -157,7 +179,12 @@ export function useCampCancellationSettings(campId?: string) {
     queryKey: ["food-cancel-settings", campId],
     enabled: !!campId,
     queryFn: async () => {
-      const data = await api.get(`/food-cancellation/settings/${campId}`);
+      const { data, error } = await supabase
+        .from("camp_food_cancellation_settings")
+        .select("*")
+        .eq("camp_id", campId!)
+        .maybeSingle();
+      if (error) throw error;
       return data;
     },
   });
@@ -176,7 +203,21 @@ export function useUpsertCancellationSettings() {
       ramadan_end: string | null;
       night_shift_auto_breakfast: boolean;
     }) => {
-      return await api.post('/food-cancellation/settings', input);
+      const { data: existing } = await supabase
+        .from("camp_food_cancellation_settings")
+        .select("id")
+        .eq("camp_id", input.camp_id)
+        .maybeSingle();
+      if (existing) {
+        const { error } = await supabase
+          .from("camp_food_cancellation_settings")
+          .update(input)
+          .eq("id", existing.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("camp_food_cancellation_settings").insert(input);
+        if (error) throw error;
+      }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["food-cancel-settings"] });

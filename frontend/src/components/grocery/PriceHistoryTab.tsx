@@ -1,3 +1,4 @@
+import { ChartDrilldown, type ChartSelection } from "@/components/dashboard/ChartDrilldown";
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,6 +15,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { usePriceHistory } from "@/hooks/useGroceryInventory";
 
 export default function PriceHistoryTab() {
+  const [chartSelection, setChartSelection] = useState<ChartSelection | null>(null);
   const [selectedItem, setSelectedItem] = useState<string>("");
   const [addOpen, setAddOpen] = useState(false);
   const [form, setForm] = useState({ ingredient_id: "", price: 0, effective_date: new Date().toISOString().split("T")[0], source: "manual", invoice_reference: "", notes: "" });
@@ -32,6 +34,7 @@ export default function PriceHistoryTab() {
 
   // Chart data for selected item
   const chartData = [...itemHistory].reverse().map((h: any) => ({
+    id: h.id,
     date: format(new Date(h.effective_date), "dd MMM"),
     price: h.price,
   }));
@@ -99,7 +102,7 @@ export default function PriceHistoryTab() {
           <CardContent>
             <div className="h-[250px]">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={chartData}>
+                <LineChart data={chartData} onClick={event => { const id = event?.activePayload?.[0]?.payload?.id; const h = itemHistory.find(h => h.id === id); if (h) setChartSelection({ title: "Price record", rows: [{ id: h.id, label: h.ingredients?.name ?? "Ingredient", fields: { "Effective date": h.effective_date, "Price (SAR)": h.price, Unit: h.ingredients?.unit, Source: h.source, "Invoice reference": h.invoice_reference, Notes: h.notes } }] }); }}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                   <XAxis dataKey="date" className="text-xs" />
                   <YAxis className="text-xs" />
@@ -133,7 +136,7 @@ export default function PriceHistoryTab() {
               {(selectedItem ? itemHistory : allHistory).map((h: any) => (
                 <TableRow key={h.id}>
                   <TableCell className="font-medium">{h.ingredients?.name || "—"}</TableCell>
-                  <TableCell className="font-mono">{Number(h.price || 0).toFixed(2)}</TableCell>
+                  <TableCell className="font-mono">{h.price?.toFixed(2)}</TableCell>
                   <TableCell>{format(new Date(h.effective_date), "dd MMM yyyy")}</TableCell>
                   <TableCell>
                     <Badge variant="outline" className="text-xs capitalize">{h.source}</Badge>
@@ -149,6 +152,7 @@ export default function PriceHistoryTab() {
           </Table>
         </CardContent>
       </Card>
+      <ChartDrilldown selection={chartSelection} onClose={() => setChartSelection(null)} />
     </div>
   );
 }

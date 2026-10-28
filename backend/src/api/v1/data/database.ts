@@ -10,8 +10,14 @@ class DataDatabase {
     static async createData(table: string, keys: string[], values: any[]) {
         const pool = Database.getPool();
         const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ');
+        let onConflict = '';
+        if (table === 'camp_meal_rates') {
+            const updateCols = keys.filter(k => k !== 'camp_id' && k !== 'id');
+            const setClauses = updateCols.map(k => `${k} = EXCLUDED.${k}`).concat('updated_at = now()');
+            onConflict = ` ON CONFLICT (camp_id) DO UPDATE SET ${setClauses.join(', ')}`;
+        }
         const { rows } = await pool.query(
-            `INSERT INTO ${table} (${keys.join(', ')}) VALUES (${placeholders}) RETURNING *`,
+            `INSERT INTO ${table} (${keys.join(', ')}) VALUES (${placeholders})${onConflict} RETURNING *`,
             values
         );
         return rows[0];
@@ -36,17 +42,27 @@ class DataDatabase {
     static async callRpc(fnName: string, params: Record<string, any> = {}) {
         const pool = Database.getPool();
         const keys = Object.keys(params);
-        if (keys.length === 0) {
-            const { rows } = await pool.query(`SELECT public.${fnName}() AS result`);
-            return rows[0]?.result;
-        }
         const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ');
         const values = keys.map(k => params[k]);
-        const { rows } = await pool.query(
-            `SELECT public.${fnName}(${placeholders}) AS result`,
-            values
-        );
-        return rows[0]?.result;
+
+        try {
+            const query = placeholders ? `SELECT * FROM public.${fnName}(${placeholders})` : `SELECT * FROM public.${fnName}()`;
+            const { rows, fields } = await pool.query(query, values);
+
+            // Table / SETOF returning functions (like get_kitchen_meal_count)
+            if (rows.length > 1 || (rows.length === 1 && fields && fields.length > 1)) {
+                return rows;
+            }
+            if (rows.length === 1) {
+                const colName = fields[0]?.name;
+                return colName === fnName ? rows[0][colName] : rows;
+            }
+            return rows;
+        } catch (err) {
+            const fallbackQuery = placeholders ? `SELECT public.${fnName}(${placeholders}) AS result` : `SELECT public.${fnName}() AS result`;
+            const { rows } = await pool.query(fallbackQuery, values);
+            return rows[0]?.result;
+        }
     }
 }
 
