@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/apiClient";
 import { toast } from "@/hooks/use-toast";
 
 export interface Camp {
@@ -106,6 +107,33 @@ export function useUpdateCamp() {
       toast({ title: "Camp updated" });
     },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+}
+
+export function useDeleteCamp() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, archive = false }: { id: string; archive?: boolean }) => {
+      const res = await api.delete(`/camps/${id}${archive ? '?archive=true' : ''}`);
+      return res;
+    },
+    onSuccess: (res: any) => {
+      qc.invalidateQueries({ queryKey: ["camps-list"] });
+      qc.invalidateQueries({ queryKey: ["camps"] });
+      toast({
+        title: res?.archived ? "Camp Decommissioned / Archived" : "Camp Deleted",
+        description: res?.archived 
+          ? "The camp has been archived and marked inactive." 
+          : "The camp was permanently deleted.",
+      });
+    },
+    onError: (e: any) => {
+      toast({
+        title: "Action Failed",
+        description: e.message || "Failed to delete or archive camp",
+        variant: "destructive",
+      });
+    },
   });
 }
 

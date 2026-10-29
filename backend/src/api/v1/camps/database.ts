@@ -126,6 +126,69 @@ class CampsDatabase {
         const { rows } = await pool.query(query, [campId]);
         return rows;
     }
+
+    static async deleteCamp(id: string, forceArchive: boolean = false) {
+        const pool = Database.getPool();
+
+        // 1. Verify existence
+        const { rows: campRows } = await pool.query('SELECT * FROM camps WHERE id = $1', [id]);
+        if (!campRows[0]) {
+            return { notFound: true };
+        }
+
+        // 2. Count active occupants
+        const occQuery = `
+            WITH latest_ci AS (
+                SELECT DISTINCT ON (employee_id) *
+                FROM check_ins
+                WHERE camp_id = $1
+                ORDER BY employee_id, check_in_date DESC
+            ),
+            latest_co AS (
+                SELECT DISTINCT ON (employee_id) *
+                FROM check_outs
+                WHERE camp_id = $1
+                ORDER BY employee_id, check_out_date DESC
+            )
+            SELECT COUNT(*)::int as count
+            FROM latest_ci lci
+            LEFT JOIN latest_co lco ON lci.employee_id = lco.employee_id
+            WHERE (lco.check_out_date IS NULL OR lci.check_in_date > lco.check_out_date)
+        `;
+        const { rows: occRows } = await pool.query(occQuery, [id]);
+        const activeOccupants = occRows[0]?.count || 0;
+
+        if (activeOccupants > 0 && !forceArchive) {
+            return {
+                blocked: true,
+                activeOccupants,
+                message: `Cannot delete camp: It currently has ${activeOccupants} active resident(s). Please check them out or decommission/archive the camp instead.`
+            };
+        }
+
+        // 3. If forceArchive is selected (or active occupants need decommissioning):
+        if (forceArchive) {
+            const { rows: updated } = await pool.query(
+                "UPDATE camps SET status = 'inactive', updated_at = now() WHERE id = $1 RETURNING *",
+                [id]
+            );
+            return { archived: true, camp: updated[0] };
+        }
+
+        // 4. Attempt hard delete
+        try {
+            const { rows: deleted } = await pool.query('DELETE FROM camps WHERE id = $1 RETURNING *', [id]);
+            return { deleted: true, camp: deleted[0] };
+        } catch (err: any) {
+            if (err.code === '23503') {
+                return {
+                    hasHistory: true,
+                    message: 'Cannot permanently delete this camp because historical records (such as employee assignments, audits, or invoices) reference it. You can safely decommission / archive it instead.'
+                };
+            }
+            throw err;
+        }
+    }
 }
 
 export default CampsDatabase;

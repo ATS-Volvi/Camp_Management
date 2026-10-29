@@ -71,6 +71,24 @@ class CampsService {
             return next(createError({ status: 500, message: err.message }));
         }
     }
+
+    static async deleteCamp(id: string, forceArchive: boolean, next: NextFunction) {
+        try {
+            const result: any = await CampsDatabase.deleteCamp(id, forceArchive);
+            if (result.notFound) {
+                return next(createError({ status: 404, message: 'Camp not found' }));
+            }
+            if (result.blocked) {
+                return next(createError({ status: 400, message: result.message }));
+            }
+            if (result.hasHistory) {
+                return next(createError({ status: 409, message: result.message }));
+            }
+            return result;
+        } catch (err: any) {
+            return next(createError({ status: 500, message: err.message }));
+        }
+    }
 }
 
 export default CampsService;

@@ -11,6 +11,7 @@ import {
   Building2, BedDouble, Users, DoorOpen, Plus, ArrowLeft, Edit,
   ChevronRight, Search, Filter, MapPin, Phone, Mail, Calendar,
   Thermometer, Bath, MoreHorizontal, LogIn, LogOut, Upload,
+  Trash2, AlertTriangle,
 } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 import { Button } from "@/components/ui/button";
@@ -20,6 +21,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import RoomAllocationPanel from "@/components/camp/RoomAllocationPanel";
 import CampStaffTab from "@/components/camp/CampStaffTab";
 import CampInmatesTab from "@/components/camp/CampInmatesTab";
@@ -28,6 +36,7 @@ import AddCampDialog from "@/components/camps/AddCampDialog";
 import AddBlockDialog from "@/components/camps/AddBlockDialog";
 import AddRoomDialog from "@/components/camps/AddRoomDialog";
 import BulkRoomUploadDialog from "@/components/camps/BulkRoomUploadDialog";
+import DeleteCampDialog from "@/components/camps/DeleteCampDialog";
 import { useBlocks, useRooms } from "@/hooks/useCampManagement";
 import { getRoomCategoryLabel, NEW_ROOM_CATEGORIES } from "@/constants/roomCategories";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
@@ -106,6 +115,7 @@ export default function CampDetails() {
   const [checkOutOpen, setCheckOutOpen] = useState(false);
   const [ratesDialogOpen, setRatesDialogOpen] = useState(false);
   const [bulkRoomOpen, setBulkRoomOpen] = useState(false);
+  const [deleteCampOpen, setDeleteCampOpen] = useState(false);
 
   // Check if user is admin
   const { data: userRoles = [] } = useQuery({
@@ -205,9 +215,28 @@ export default function CampDetails() {
           <Button variant="outline" onClick={() => setRatesDialogOpen(true)}>
             Room Rates
           </Button>
-          <Button variant="ghost" size="icon">
-            <MoreHorizontal size={18} />
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" title="More options">
+                <MoreHorizontal size={18} />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-52">
+              <DropdownMenuItem onClick={() => setEditCampOpen(true)}>
+                <Edit size={14} className="mr-2" /> Edit Camp
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setRatesDialogOpen(true)}>
+                <Building2 size={14} className="mr-2" /> Room Rates
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={() => setDeleteCampOpen(true)}
+                className="text-destructive focus:text-destructive focus:bg-destructive/10 cursor-pointer"
+              >
+                <Trash2 size={14} className="mr-2" /> Delete / Decommission
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
@@ -618,6 +647,31 @@ export default function CampDetails() {
               </CardContent>
             </Card>
           )}
+
+          {/* Danger Zone */}
+          <Card className="border-destructive/30 bg-destructive/5 shadow-none">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base text-destructive flex items-center gap-2">
+                <AlertTriangle size={18} /> Danger Zone
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pt-0">
+              <div>
+                <p className="text-sm font-medium text-foreground">Delete or Decommission this Camp</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Permanently delete empty camps or safely decommission active camps to prevent new check-in assignments.
+                </p>
+              </div>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => setDeleteCampOpen(true)}
+                className="shrink-0 gap-1.5"
+              >
+                <Trash2 size={14} /> Delete / Decommission Camp
+              </Button>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         {/* ═══════ ROOMS TAB ═══════ */}
@@ -961,6 +1015,17 @@ export default function CampDetails() {
           campId={campId}
           campName={camp.name}
           blocks={blocks.map((b: any) => ({ id: b.id, name: b.name, block_code: b.block_code }))}
+        />
+      )}
+
+      {/* Delete / Decommission Camp Dialog */}
+      {camp && (
+        <DeleteCampDialog
+          open={deleteCampOpen}
+          onOpenChange={setDeleteCampOpen}
+          camp={camp}
+          totalOccupants={totalOccupied}
+          totalRooms={rooms.length}
         />
       )}
       <ChartDrilldown selection={chartSelection} onClose={() => setChartSelection(null)} />

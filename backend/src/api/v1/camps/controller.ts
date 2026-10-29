@@ -59,6 +59,14 @@ class CampsController {
             res.status(StatusCodes.OK).json(result);
         }
     }
+
+    static async deleteCamp(req: Request, res: Response, next: NextFunction) {
+        const forceArchive = req.query.archive === 'true' || req.body?.archive === true;
+        const result = await CampsService.deleteCamp(req.params.id, forceArchive, next);
+        if (result) {
+            res.status(StatusCodes.OK).json({ success: true, ...result });
+        }
+    }
 }
 
 export default CampsController;

@@ -11,5 +11,6 @@ router.get('/:id/inmates', CampsController.getInmates);
 router.post('/', CampsController.createCamp);
 router.post('/:id/buildings', CampsController.createBuilding);
 router.post('/:id/rooms', CampsController.createRoom);
+router.delete('/:id', CampsController.deleteCamp);
 
 export default router;
