@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { Plus, Search, MapPin, Building2, Users, BedDouble, ArrowUpRight, LayoutGrid, List, FileText } from "lucide-react";
+import { Plus, Search, MapPin, Building2, Users, BedDouble, ArrowUpRight, LayoutGrid, List, FileText, Sparkles, Sliders } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import AddCampDialog from "@/components/camps/AddCampDialog";
+import CampMasterSetupDialog from "@/components/camps/CampMasterSetupDialog";
 import CampsOverview from "@/components/camps/CampsOverview";
 import CampsReports from "@/components/camps/CampsReports";
 import { useCamps } from "@/hooks/useCampManagement";
@@ -16,6 +17,7 @@ export default function CampsList() {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [addOpen, setAddOpen] = useState(false);
+  const [masterSetupCamp, setMasterSetupCamp] = useState<{ id: string; name: string } | null>(null);
   const [viewMode, setViewMode] = useState<"card" | "list">("list");
   const [activeTab, setActiveTab] = useState("overview");
 
@@ -112,6 +114,7 @@ export default function CampsList() {
                     <TableHead className="text-center">Occupied</TableHead>
                     <TableHead className="text-center">Available</TableHead>
                     <TableHead>Manager</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -141,6 +144,17 @@ export default function CampsList() {
                       <TableCell className="text-center font-medium text-primary">{camp.totalOccupants}</TableCell>
                       <TableCell className="text-center font-medium text-green-600">{camp.vacantBeds}</TableCell>
                       <TableCell className="text-sm text-muted-foreground">{camp.managed_by || "—"}</TableCell>
+                      <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                        <Button
+                          size="xs"
+                          variant="ghost"
+                          className="h-7 text-xs gap-1 text-primary hover:bg-primary/10"
+                          onClick={() => setMasterSetupCamp({ id: camp.id, name: camp.name })}
+                          title="Open Master Structure Builder"
+                        >
+                          <Sparkles size={13} /> Setup
+                        </Button>
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -193,9 +207,19 @@ export default function CampsList() {
                         <p className="text-xs text-muted-foreground">Available</p>
                       </div>
                     </div>
-                    {camp.managed_by && (
-                      <p className="text-xs text-muted-foreground mt-2">Manager: {camp.managed_by}</p>
-                    )}
+                    <div className="mt-3 pt-2 border-t flex items-center justify-between" onClick={(e) => e.stopPropagation()}>
+                      <p className="text-xs text-muted-foreground truncate max-w-[130px]">
+                        {camp.managed_by ? `Mgr: ${camp.managed_by}` : ""}
+                      </p>
+                      <Button
+                        size="xs"
+                        variant="outline"
+                        className="h-7 text-xs gap-1 border-primary/30 text-primary hover:bg-primary/5"
+                        onClick={() => setMasterSetupCamp({ id: camp.id, name: camp.name })}
+                      >
+                        <Sparkles size={12} /> Master Setup
+                      </Button>
+                    </div>
                   </CardContent>
                 </Card>
               ))}
@@ -209,7 +233,26 @@ export default function CampsList() {
         </TabsContent>
       </Tabs>
 
-      <AddCampDialog open={addOpen} onOpenChange={setAddOpen} />
+      <AddCampDialog
+        open={addOpen}
+        onOpenChange={setAddOpen}
+        onCampCreated={(created) => setMasterSetupCamp({ id: created.id, name: created.name })}
+      />
+
+      {masterSetupCamp && (
+        <CampMasterSetupDialog
+          open={!!masterSetupCamp}
+          onOpenChange={(isOpen) => {
+            if (!isOpen) setMasterSetupCamp(null);
+          }}
+          campId={masterSetupCamp.id}
+          campName={masterSetupCamp.name}
+          onComplete={() => {
+            navigate(`/camps/${masterSetupCamp.id}`);
+            setMasterSetupCamp(null);
+          }}
+        />
+      )}
     </div>
   );
 }

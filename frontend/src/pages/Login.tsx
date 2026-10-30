@@ -193,13 +193,13 @@ export default function Login() {
           </div>
         </div>
 
-        {/* HMS-style Demo Credentials card */}
+        {/* Demo Credentials card */}
         <div className="p-5 bg-card/80 backdrop-blur-md rounded-2xl border shadow-md space-y-3.5">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <KeyRound className="w-4 h-4 text-primary" />
               <h2 className="text-xs font-semibold uppercase tracking-wider text-foreground">
-                Demo Credentials (HMS Style)
+                Demo Credentials
               </h2>
             </div>
             <span className="inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground bg-muted px-2 py-0.5 rounded-full">

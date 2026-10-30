@@ -4,22 +4,26 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import VoiceDictationButton from "@/components/maintenance/VoiceDictationButton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAddCamp, useUpdateCamp, type Camp } from "@/hooks/useCampManagement";
+import { Sparkles } from "lucide-react";
 
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   editCamp?: Camp | null;
+  onCampCreated?: (camp: Camp) => void;
 }
 
 const CAMP_TYPES = ["Executive", "Staff", "Worker", "Mixed"];
 
-export default function AddCampDialog({ open, onOpenChange, editCamp }: Props) {
+export default function AddCampDialog({ open, onOpenChange, editCamp, onCampCreated }: Props) {
   const addCamp = useAddCamp();
   const updateCamp = useUpdateCamp();
   const isEdit = !!editCamp;
+  const [launchMasterSetup, setLaunchMasterSetup] = useState(true);
 
   const [form, setForm] = useState({
     name: editCamp?.name || "",
@@ -59,9 +63,12 @@ export default function AddCampDialog({ open, onOpenChange, editCamp }: Props) {
       });
     } else {
       addCamp.mutate(payload as any, {
-        onSuccess: () => {
+        onSuccess: (data: any) => {
           setForm({ name: "", location: "", project_name: "", managed_by: "", contact_number: "", camp_type: "mixed", opening_date: "", notes: "", status: "active", is_rented: false, monthly_rent: "" });
           onOpenChange(false);
+          if (launchMasterSetup && onCampCreated && data) {
+            onCampCreated(data);
+          }
         },
       });
     }
@@ -146,6 +153,24 @@ export default function AddCampDialog({ open, onOpenChange, editCamp }: Props) {
             </div>
             <Textarea value={form.notes} onChange={(e) => update("notes", e.target.value)} placeholder="Additional notes or use Voice..." rows={2} />
           </div>
+
+          {!isEdit && (
+            <div className="col-span-2 p-3 rounded-lg border bg-primary/5 flex items-center justify-between gap-3">
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-1.5 text-xs font-semibold text-primary">
+                  <Sparkles size={14} />
+                  <span>Configure Structure (Master Setup)</span>
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  Open the master builder to customize blocks, floors, rooms, and bed sharing immediately.
+                </p>
+              </div>
+              <Switch
+                checked={launchMasterSetup}
+                onCheckedChange={setLaunchMasterSetup}
+              />
+            </div>
+          )}
         </div>
 
         <DialogFooter>

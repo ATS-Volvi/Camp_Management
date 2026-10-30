@@ -231,6 +231,17 @@ class DataService {
     static async createData(table: string, body: any, next: NextFunction) {
         if (!SAFE_TABLES.includes(table)) return next(createError({ status: 403, message: 'Unauthorized table' }));
         try {
+            if (Array.isArray(body)) {
+                if (body.length === 0) return [];
+                const results: any[] = [];
+                for (const item of body) {
+                    const keys = Object.keys(item);
+                    const values = Object.values(item);
+                    const row = await DataDatabase.createData(table, keys, values);
+                    results.push(row);
+                }
+                return results;
+            }
             const keys = Object.keys(body);
             const values = Object.values(body);
             return await DataDatabase.createData(table, keys, values);

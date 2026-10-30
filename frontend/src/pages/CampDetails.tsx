@@ -11,7 +11,7 @@ import {
   Building2, BedDouble, Users, DoorOpen, Plus, ArrowLeft, Edit,
   ChevronRight, Search, Filter, MapPin, Phone, Mail, Calendar,
   Thermometer, Bath, MoreHorizontal, LogIn, LogOut, Upload,
-  Trash2, AlertTriangle,
+  Trash2, AlertTriangle, Sparkles, Sliders,
 } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 import { Button } from "@/components/ui/button";
@@ -37,6 +37,7 @@ import AddBlockDialog from "@/components/camps/AddBlockDialog";
 import AddRoomDialog from "@/components/camps/AddRoomDialog";
 import BulkRoomUploadDialog from "@/components/camps/BulkRoomUploadDialog";
 import DeleteCampDialog from "@/components/camps/DeleteCampDialog";
+import CampMasterSetupDialog from "@/components/camps/CampMasterSetupDialog";
 import { useBlocks, useRooms } from "@/hooks/useCampManagement";
 import { getRoomCategoryLabel, NEW_ROOM_CATEGORIES } from "@/constants/roomCategories";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
@@ -116,6 +117,7 @@ export default function CampDetails() {
   const [ratesDialogOpen, setRatesDialogOpen] = useState(false);
   const [bulkRoomOpen, setBulkRoomOpen] = useState(false);
   const [deleteCampOpen, setDeleteCampOpen] = useState(false);
+  const [masterSetupOpen, setMasterSetupOpen] = useState(false);
 
   // Check if user is admin
   const { data: userRoles = [] } = useQuery({
@@ -212,6 +214,14 @@ export default function CampDetails() {
           <Button variant="outline" onClick={() => setEditCampOpen(true)}>
             <Edit size={16} className="mr-1.5" /> Edit
           </Button>
+          <Button
+            variant="outline"
+            onClick={() => setMasterSetupOpen(true)}
+            className="gap-1.5 border-primary/40 hover:border-primary text-primary hover:bg-primary/5 shadow-xs"
+            title="Configure blocks, floors, bed sharing & rooms"
+          >
+            <Sparkles size={16} /> Master Setup
+          </Button>
           <Button variant="outline" onClick={() => setRatesDialogOpen(true)}>
             Room Rates
           </Button>
@@ -221,7 +231,10 @@ export default function CampDetails() {
                 <MoreHorizontal size={18} />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-52">
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuItem onClick={() => setMasterSetupOpen(true)}>
+                <Sparkles size={14} className="mr-2 text-primary" /> Master Setup
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={() => setEditCampOpen(true)}>
                 <Edit size={14} className="mr-2" /> Edit Camp
               </DropdownMenuItem>
@@ -692,6 +705,13 @@ export default function CampDetails() {
             </h2>
             {!selectedBlock ? (
               <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setMasterSetupOpen(true)}
+                  className="gap-1.5 border-primary/40 hover:border-primary text-primary hover:bg-primary/5"
+                >
+                  <Sliders size={16} /> Master Setup
+                </Button>
                 <Button variant="outline" onClick={() => setBulkRoomOpen(true)}>
                   <Upload size={16} className="mr-1" /> Bulk Upload
                 </Button>
@@ -701,6 +721,13 @@ export default function CampDetails() {
               </div>
             ) : (
               <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setMasterSetupOpen(true)}
+                  className="gap-1.5 border-primary/40 hover:border-primary text-primary hover:bg-primary/5"
+                >
+                  <Sliders size={16} /> Master Setup
+                </Button>
                 <Button variant="outline" onClick={() => setBulkRoomOpen(true)}>
                   <Upload size={16} className="mr-1" /> Bulk Upload
                 </Button>
@@ -1026,6 +1053,26 @@ export default function CampDetails() {
           camp={camp}
           totalOccupants={totalOccupied}
           totalRooms={rooms.length}
+        />
+      )}
+
+      {/* Master Setup Dialog */}
+      {campId && camp && (
+        <CampMasterSetupDialog
+          open={masterSetupOpen}
+          onOpenChange={setMasterSetupOpen}
+          campId={campId}
+          campName={camp.name}
+          existingBlocks={blocks.map((b: any) => ({
+            id: b.id,
+            name: b.name,
+            block_type: b.block_type,
+            floors: b.floors,
+          }))}
+          onComplete={() => {
+            setActiveTab("rooms");
+            refetchRooms();
+          }}
         />
       )}
       <ChartDrilldown selection={chartSelection} onClose={() => setChartSelection(null)} />
