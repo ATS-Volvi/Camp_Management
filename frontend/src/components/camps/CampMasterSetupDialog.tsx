@@ -5,6 +5,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -47,6 +48,10 @@ import {
   Lock,
   Wifi,
   ExternalLink,
+  Filter,
+  Grid,
+  Hash,
+  Boxes,
 } from "lucide-react";
 
 interface Props {
@@ -139,6 +144,18 @@ export default function CampMasterSetupDialog({
   const [activeBlockId, setActiveBlockId] = useState<string>("b-1");
   const [activeFloor, setActiveFloor] = useState<number>(1);
   const [treeSearchQuery, setTreeSearchQuery] = useState("");
+  const [treeTypeFilter, setTreeTypeFilter] = useState<string>("all");
+
+  // Multi-Block Batch Generator State
+  const [batchModalOpen, setBatchModalOpen] = useState(false);
+  const [batchCount, setBatchCount] = useState<number>(3);
+  const [batchNamingStyle, setBatchNamingStyle] = useState<"letters" | "numbers" | "custom">("letters");
+  const [batchPrefixName, setBatchPrefixName] = useState<string>("Block");
+  const [batchBlockType, setBatchBlockType] = useState<string>("worker");
+  const [batchFloors, setBatchFloors] = useState<number>(3);
+  const [batchRoomsPerFloor, setBatchRoomsPerFloor] = useState<number>(8);
+  const [batchSpecId, setBatchSpecId] = useState<string>("");
+  const [batchNumberingFormat, setBatchNumberingFormat] = useState<"3digit" | "4digit" | "g_style" | "sequential">("3digit");
 
   // Room Matrix Items
   const [rooms, setRooms] = useState<GeneratedRoomItem[]>([]);
@@ -154,8 +171,13 @@ export default function CampMasterSetupDialog({
     if (open) {
       const stored = getStoredRoomSpecifications();
       setAvailableSpecs(stored);
-      if (stored.length > 0 && !rangeSelectedSpecId) {
-        setRangeSelectedSpecId(stored[2]?.id || stored[0]?.id);
+      if (stored.length > 0) {
+        if (!rangeSelectedSpecId) {
+          setRangeSelectedSpecId(stored[2]?.id || stored[0]?.id);
+        }
+        if (!batchSpecId) {
+          setBatchSpecId(stored.find((s) => s.capacity === 6)?.id || stored[2]?.id || stored[0]?.id);
+        }
       }
     }
   }, [open]);
@@ -268,6 +290,185 @@ export default function CampMasterSetupDialog({
   // Hierarchy Tree Actions
   const toggleBlockExpand = (blockId: string) => {
     setExpandedBlocks((prev) => ({ ...prev, [blockId]: !prev[blockId] }));
+  };
+
+  // Helper to determine next available letter prefixes
+  const getNextAvailableLetters = (existingPrefixes: string[], count: number) => {
+    const used = new Set(existingPrefixes.map((p) => p.trim().toUpperCase()));
+    const result: string[] = [];
+    let code = 65; // 'A'
+    while (result.length < count && code <= 90 + 26) {
+      let letter = "";
+      if (code <= 90) {
+        letter = String.fromCharCode(code);
+      } else {
+        const offset = code - 91;
+        letter = `A${String.fromCharCode(65 + offset)}`;
+      }
+      if (!used.has(letter)) {
+        result.push(letter);
+        used.add(letter);
+      }
+      code++;
+    }
+    return result;
+  };
+
+  // Helper to determine next available number prefixes
+  const getNextAvailableNumbers = (existingPrefixes: string[], count: number) => {
+    const used = new Set(existingPrefixes.map((p) => p.trim()));
+    const result: string[] = [];
+    let num = 1;
+    while (result.length < count && num <= 99) {
+      const str = String(num);
+      if (!used.has(str)) {
+        result.push(str);
+        used.add(str);
+      }
+      num++;
+    }
+    return result;
+  };
+
+  // Filtered blocks for tree explorer
+  const filteredBlocks = useMemo(() => {
+    return blocks.filter((b) => {
+      if (treeTypeFilter !== "all" && b.block_type !== treeTypeFilter) {
+        return false;
+      }
+      if (treeSearchQuery.trim()) {
+        const q = treeSearchQuery.toLowerCase().trim();
+        const matchName = b.name.toLowerCase().includes(q);
+        const matchSupervisor = (b.supervisor_name || "").toLowerCase().includes(q);
+        const matchPrefix = b.prefix.toLowerCase().includes(q);
+        const matchRooms = rooms.some(
+          (r) => r.blockTempId === b.id && r.room_number.toLowerCase().includes(q)
+        );
+        return matchName || matchSupervisor || matchPrefix || matchRooms;
+      }
+      return true;
+    });
+  }, [blocks, rooms, treeTypeFilter, treeSearchQuery]);
+
+  // Selected room specification for batch modal
+  const batchSelectedSpec = useMemo(() => {
+    const specs = availableSpecs.length > 0 ? availableSpecs : DEFAULT_ROOM_SPECIFICATIONS;
+    return specs.find((s) => s.id === batchSpecId) || specs[0];
+  }, [availableSpecs, batchSpecId]);
+
+  // Batch preview blocks
+  const batchPreviewBlocks = useMemo(() => {
+    const existingPrefixes = blocks.map((b) => b.prefix);
+    let prefixes: string[] = [];
+    if (batchNamingStyle === "letters") {
+      prefixes = getNextAvailableLetters(existingPrefixes, batchCount);
+    } else if (batchNamingStyle === "numbers") {
+      prefixes = getNextAvailableNumbers(existingPrefixes, batchCount);
+    } else {
+      prefixes = Array.from({ length: batchCount }, (_, i) => `${i + 1}`);
+    }
+
+    const typeObj = BLOCK_TYPES.find((t) => t.value === batchBlockType) || BLOCK_TYPES[2];
+
+    return prefixes.map((pref) => {
+      const blockName = `${batchPrefixName} ${pref} - ${typeObj.label.split(" / ")[0]}`;
+      return {
+        prefix: pref,
+        name: blockName,
+        floors: batchFloors,
+        roomsPerFloor: batchRoomsPerFloor,
+      };
+    });
+  }, [blocks, batchNamingStyle, batchCount, batchPrefixName, batchBlockType, batchFloors, batchRoomsPerFloor]);
+
+  // Batch preview totals
+  const batchPreviewTotals = useMemo(() => {
+    const totalNewBlocks = batchPreviewBlocks.length;
+    const totalNewFloors = totalNewBlocks * batchFloors;
+    const totalNewRooms = totalNewFloors * batchRoomsPerFloor;
+    const bedsPerRoom = batchSelectedSpec?.capacity || 4;
+    const totalNewBeds = totalNewRooms * bedsPerRoom;
+    const dailyRate = batchSelectedSpec?.dailyRate || 60;
+    const totalEstDailyRev = totalNewRooms * dailyRate;
+
+    return {
+      totalNewBlocks,
+      totalNewFloors,
+      totalNewRooms,
+      totalNewBeds,
+      totalEstDailyRev,
+    };
+  }, [batchPreviewBlocks, batchFloors, batchRoomsPerFloor, batchSelectedSpec]);
+
+  // Handle Multi-Block Generation
+  const handleBatchGenerateBlocks = () => {
+    if (batchCount < 1 || batchCount > 30) {
+      toast({ title: "Please enter between 1 and 30 blocks", variant: "destructive" });
+      return;
+    }
+    if (batchFloors < 1 || batchFloors > 20) {
+      toast({ title: "Floors must be between 1 and 20", variant: "destructive" });
+      return;
+    }
+    if (batchRoomsPerFloor < 1 || batchRoomsPerFloor > 50) {
+      toast({ title: "Rooms per floor must be between 1 and 50", variant: "destructive" });
+      return;
+    }
+
+    const spec = batchSelectedSpec;
+    const newBlocks: BlockHierarchyItem[] = [];
+    const newRooms: GeneratedRoomItem[] = [];
+    const newExpandedMap: { [id: string]: boolean } = { ...expandedBlocks };
+
+    batchPreviewBlocks.forEach((preview, bIdx) => {
+      const blockId = `b-batch-${Date.now()}-${bIdx}-${Math.random().toString(36).substring(2, 6)}`;
+      const blockItem: BlockHierarchyItem = {
+        id: blockId,
+        name: preview.name,
+        block_type: batchBlockType,
+        floors: batchFloors,
+        supervisor_name: "",
+        prefix: preview.prefix,
+        numberingFormat: batchNumberingFormat,
+      };
+      newBlocks.push(blockItem);
+      newExpandedMap[blockId] = true;
+
+      for (let flr = 1; flr <= batchFloors; flr++) {
+        for (let r = 1; r <= batchRoomsPerFloor; r++) {
+          const roomNumber = buildRoomNumber(preview.prefix, flr, r, batchNumberingFormat);
+          newRooms.push({
+            tempId: `${blockId}-f${flr}-r${r}-${Date.now()}-${Math.random().toString(36).substring(2, 5)}`,
+            blockTempId: blockId,
+            blockName: preview.name,
+            floor: flr,
+            room_number: roomNumber,
+            specId: spec.id,
+            category: spec.categoryValue,
+            categoryLabel: spec.name,
+            max_capacity: spec.capacity,
+            ac: spec.ac,
+            attached_bathroom: spec.attachedBath,
+            daily_rate: spec.dailyRate,
+            daily_food_rate: spec.dailyFoodRate,
+          });
+        }
+      }
+    });
+
+    setBlocks([...blocks, ...newBlocks]);
+    setRooms([...rooms, ...newRooms]);
+    setExpandedBlocks(newExpandedMap);
+    if (newBlocks.length > 0) {
+      setActiveBlockId(newBlocks[0].id);
+      setActiveFloor(1);
+    }
+
+    setBatchModalOpen(false);
+    toast({
+      title: `⚡ Batch Created ${newBlocks.length} Blocks!`,
+      description: `Added ${newBlocks.length} blocks with ${batchPreviewTotals.totalNewRooms} rooms (${batchPreviewTotals.totalNewBeds} beds).`,
+    });
   };
 
   const handleAddBlock = () => {
@@ -796,30 +997,111 @@ export default function CampMasterSetupDialog({
           {/* Main 2-Pane Split Workspace */}
           <div className="flex-1 flex overflow-hidden">
             {/* ════════ LEFT PANE: HIERARCHY TREE EXPLORER (320px) ════════ */}
-            <div className="w-[310px] border-r bg-muted/15 flex flex-col flex-shrink-0">
+            <div className="w-[320px] border-r bg-muted/15 flex flex-col flex-shrink-0">
               {/* Tree Explorer Search & Add Block Header */}
               <div className="p-3 border-b space-y-2 bg-background/50">
                 <div className="flex items-center justify-between">
                   <span className="font-bold text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
                     <Layers size={13} className="text-primary" /> Facility Tree
                   </span>
-                  <Button
-                    size="xs"
-                    variant="ghost"
-                    className="h-6 text-[11px] gap-1 text-primary hover:bg-primary/10 px-1.5"
-                    onClick={handleAddBlock}
-                  >
-                    <Plus size={12} /> Add Block
-                  </Button>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      size="xs"
+                      variant="outline"
+                      className="h-6 text-[11px] gap-1 text-primary hover:bg-primary/10 px-2 border-primary/40 font-medium bg-primary/5"
+                      onClick={() => setBatchModalOpen(true)}
+                      title="Scaffold multiple blocks at once"
+                    >
+                      <Sparkles size={11} className="text-amber-500" /> Multi-Block
+                    </Button>
+                    <Button
+                      size="xs"
+                      variant="ghost"
+                      className="h-6 text-[11px] gap-1 text-muted-foreground hover:text-foreground px-1.5"
+                      onClick={handleAddBlock}
+                      title="Add a single block"
+                    >
+                      <Plus size={12} /> Single
+                    </Button>
+                  </div>
                 </div>
+
+                {/* Search Bar with clear */}
                 <div className="relative">
                   <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
                   <Input
                     value={treeSearchQuery}
                     onChange={(e) => setTreeSearchQuery(e.target.value)}
-                    placeholder="Search blocks, floors..."
-                    className="h-7 pl-7 text-xs bg-background"
+                    placeholder="Search blocks, supervisor, rooms..."
+                    className="h-7 pl-7 pr-6 text-xs bg-background"
                   />
+                  {treeSearchQuery && (
+                    <button
+                      onClick={() => setTreeSearchQuery("")}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground font-bold p-0.5"
+                    >
+                      &times;
+                    </button>
+                  )}
+                </div>
+
+                {/* Block Type / Category Filter Strip */}
+                <div className="space-y-1 pt-0.5">
+                  <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+                    <span className="flex items-center gap-1 font-semibold uppercase tracking-wider">
+                      <Filter size={10} /> Filter Blocks
+                    </span>
+                    {(treeTypeFilter !== "all" || treeSearchQuery) && (
+                      <button
+                        onClick={() => {
+                          setTreeTypeFilter("all");
+                          setTreeSearchQuery("");
+                        }}
+                        className="text-[10px] text-primary hover:underline font-medium"
+                      >
+                        Reset ({filteredBlocks.length}/{blocks.length})
+                      </button>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1 overflow-x-auto pb-1 scrollbar-none text-[10px]">
+                    {[
+                      { id: "all", label: "All" },
+                      { id: "worker", label: "Worker" },
+                      { id: "staff", label: "Staff" },
+                      { id: "technician", label: "Tech" },
+                      { id: "labor", label: "Labor" },
+                      { id: "supervisor", label: "Supv" },
+                      { id: "executive", label: "Exec" },
+                    ].map((f) => {
+                      const isActive = treeTypeFilter === f.id;
+                      const count =
+                        f.id === "all"
+                          ? blocks.length
+                          : blocks.filter((b) => b.block_type === f.id).length;
+                      return (
+                        <button
+                          key={f.id}
+                          onClick={() => setTreeTypeFilter(f.id)}
+                          className={`px-2 py-0.5 rounded-full border transition-all whitespace-nowrap flex items-center gap-1 ${
+                            isActive
+                              ? "bg-primary text-primary-foreground border-primary font-semibold shadow-2xs"
+                              : "bg-background text-muted-foreground hover:bg-muted border-border"
+                          }`}
+                        >
+                          <span>{f.label}</span>
+                          <span
+                            className={`text-[9px] px-1 rounded-full ${
+                              isActive
+                                ? "bg-primary-foreground/25 text-white"
+                                : "bg-muted text-muted-foreground"
+                            }`}
+                          >
+                            {count}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
 
@@ -831,13 +1113,31 @@ export default function CampMasterSetupDialog({
                     <Building2 size={14} className="text-primary" />
                     <span className="font-bold truncate max-w-[150px]">{campName}</span>
                   </div>
-                  <Badge variant="outline" className="text-[10px] px-1 py-0 bg-background">
-                    {summary.totalRooms} Rms
+                  <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-background font-mono font-semibold">
+                    {summary.totalRooms} Rms &bull; {summary.totalBeds} Beds
                   </Badge>
                 </div>
 
+                {/* Filter Empty State */}
+                {filteredBlocks.length === 0 && (
+                  <div className="p-4 text-center border border-dashed rounded-md my-2 space-y-2">
+                    <p className="text-[11px] text-muted-foreground">No blocks match this filter.</p>
+                    <Button
+                      size="xs"
+                      variant="outline"
+                      className="text-[10px] h-6"
+                      onClick={() => {
+                        setTreeTypeFilter("all");
+                        setTreeSearchQuery("");
+                      }}
+                    >
+                      Clear Filters
+                    </Button>
+                  </div>
+                )}
+
                 {/* Blocks in tree */}
-                {blocks.map((block) => {
+                {filteredBlocks.map((block) => {
                   const isExpanded = !!expandedBlocks[block.id];
                   const isBlockActive = activeBlockId === block.id;
                   const blockRooms = rooms.filter((r) => r.blockTempId === block.id);
@@ -1428,6 +1728,322 @@ export default function CampMasterSetupDialog({
           }
         }}
       />
+
+      {/* ════════ MULTI-BLOCK BATCH GENERATOR MODAL ════════ */}
+      <Dialog open={batchModalOpen} onOpenChange={setBatchModalOpen}>
+        <DialogContent className="max-w-[850px] w-full p-0 overflow-hidden bg-background">
+          <DialogHeader className="p-5 pb-3 border-b bg-gradient-to-r from-blue-950/15 via-primary/5 to-transparent">
+            <div className="flex items-center gap-2 mb-1">
+              <Badge variant="secondary" className="gap-1 px-2.5 py-0.5 font-semibold text-xs bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20">
+                <Sparkles size={13} /> Multi-Block Batch Scaffolder
+              </Badge>
+              <Badge variant="outline" className="text-xs">
+                {campName}
+              </Badge>
+            </div>
+            <DialogTitle className="text-base font-bold">
+              Rapid Multi-Block & Room Generator
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Quickly instantiate multiple blocks at once with pre-assigned room specifications, floor counts, and automated numbering schemes.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="p-5 grid grid-cols-1 md:grid-cols-12 gap-5 max-h-[75vh] overflow-y-auto">
+            {/* Left Column: Form Controls (7 cols) */}
+            <div className="md:col-span-7 space-y-4">
+              {/* Number of Blocks */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-semibold">How Many Blocks to Create?</Label>
+                  <span className="text-xs font-mono font-bold text-primary">{batchCount} Blocks</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="number"
+                    min={1}
+                    max={20}
+                    value={batchCount}
+                    onChange={(e) => setBatchCount(Math.max(1, Math.min(20, parseInt(e.target.value) || 1)))}
+                    className="h-8 text-xs w-24 font-bold font-mono"
+                  />
+                  <div className="flex items-center gap-1">
+                    {[2, 3, 4, 6, 8].map((preset) => (
+                      <Button
+                        key={preset}
+                        type="button"
+                        size="xs"
+                        variant={batchCount === preset ? "default" : "outline"}
+                        className="h-7 text-xs px-2"
+                        onClick={() => setBatchCount(preset)}
+                      >
+                        +{preset}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Naming Style & Base Prefix */}
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold">Naming Convention</Label>
+                <div className="grid grid-cols-3 gap-1.5">
+                  {[
+                    { id: "letters", label: "Letters (A, B, C...)" },
+                    { id: "numbers", label: "Numbers (1, 2, 3...)" },
+                    { id: "custom", label: "Custom Style" },
+                  ].map((style) => (
+                    <button
+                      key={style.id}
+                      type="button"
+                      onClick={() => setBatchNamingStyle(style.id as any)}
+                      className={`p-2 text-xs rounded-md border text-center transition-all ${
+                        batchNamingStyle === style.id
+                          ? "bg-primary/10 border-primary text-primary font-bold shadow-2xs"
+                          : "hover:bg-muted text-muted-foreground border-border"
+                      }`}
+                    >
+                      {style.label}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 pt-1">
+                  <div>
+                    <Label className="text-[11px] text-muted-foreground">Base Label</Label>
+                    <Input
+                      value={batchPrefixName}
+                      onChange={(e) => setBatchPrefixName(e.target.value)}
+                      placeholder="e.g. Block, Wing, Cluster"
+                      className="h-8 text-xs mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-[11px] text-muted-foreground">Category / Role</Label>
+                    <Select value={batchBlockType} onValueChange={setBatchBlockType}>
+                      <SelectTrigger className="h-8 text-xs mt-1">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {BLOCK_TYPES.map((bt) => (
+                          <SelectItem key={bt.value} value={bt.value} className="text-xs">
+                            {bt.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Floors and Rooms per floor */}
+              <div className="grid grid-cols-2 gap-3 p-3 bg-secondary/15 rounded-lg border">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold">Floors per Block</Label>
+                  <div className="flex items-center gap-1.5">
+                    <Input
+                      type="number"
+                      min={1}
+                      max={15}
+                      value={batchFloors}
+                      onChange={(e) => setBatchFloors(Math.max(1, Math.min(15, parseInt(e.target.value) || 1)))}
+                      className="h-8 text-xs font-mono font-bold"
+                    />
+                    <span className="text-[11px] text-muted-foreground whitespace-nowrap">Levels</span>
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold">Rooms per Floor</Label>
+                  <div className="flex items-center gap-1.5">
+                    <Input
+                      type="number"
+                      min={1}
+                      max={50}
+                      value={batchRoomsPerFloor}
+                      onChange={(e) => setBatchRoomsPerFloor(Math.max(1, Math.min(50, parseInt(e.target.value) || 1)))}
+                      className="h-8 text-xs font-mono font-bold"
+                    />
+                    <span className="text-[11px] text-muted-foreground whitespace-nowrap">Rooms</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Room Template Specification */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-semibold">Pre-Assigned Room Specification</Label>
+                  <Button
+                    type="button"
+                    size="xs"
+                    variant="link"
+                    className="h-auto p-0 text-[11px] text-primary"
+                    onClick={() => setRoomConfigMasterOpen(true)}
+                  >
+                    Open Catalog &rarr;
+                  </Button>
+                </div>
+                <Select value={batchSpecId} onValueChange={setBatchSpecId}>
+                  <SelectTrigger className="h-9 text-xs">
+                    <SelectValue placeholder="Select Room Template" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableSpecs.map((spec) => (
+                      <SelectItem key={spec.id} value={spec.id} className="text-xs">
+                        {spec.name} &bull; {spec.capacity} Beds &bull; SAR {spec.dailyRate}/day
+                        {spec.ac ? " • AC" : ""}
+                        {spec.attachedBath ? " • Bath" : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-[10px] text-muted-foreground">
+                  All rooms inside these {batchCount} blocks will automatically receive this template layout. You can customize individual rooms later.
+                </p>
+              </div>
+
+              {/* Room Numbering Format */}
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold">Room Numbering Format</Label>
+                <Select
+                  value={batchNumberingFormat}
+                  onValueChange={(val: any) => setBatchNumberingFormat(val)}
+                >
+                  <SelectTrigger className="h-8 text-xs font-mono">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="3digit" className="text-xs font-mono">
+                      3-Digit Standard (e.g. C-101, C-102, C-201...)
+                    </SelectItem>
+                    <SelectItem value="4digit" className="text-xs font-mono">
+                      4-Digit Padded (e.g. C-0101, C-0102, C-0201...)
+                    </SelectItem>
+                    <SelectItem value="g_style" className="text-xs font-mono">
+                      Ground G-Style (e.g. C-G01, C-G02, C-101...)
+                    </SelectItem>
+                    <SelectItem value="sequential" className="text-xs font-mono">
+                      Sequential (e.g. C-1, C-2, C-3...)
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* Right Column: Live Architecture Blueprint & Summary (5 cols) */}
+            <div className="md:col-span-5 flex flex-col justify-between border rounded-lg p-4 bg-muted/20 space-y-4">
+              <div>
+                <div className="flex items-center gap-1.5 text-xs font-bold text-foreground mb-3 pb-2 border-b">
+                  <Boxes size={14} className="text-primary" /> Live Scaffolding Blueprint
+                </div>
+
+                {/* Telemetry Metrics */}
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div className="p-2.5 rounded bg-background border flex flex-col">
+                    <span className="text-[10px] text-muted-foreground">Blocks Added</span>
+                    <span className="font-bold text-sm text-foreground">
+                      +{batchPreviewTotals.totalNewBlocks} Blocks
+                    </span>
+                  </div>
+                  <div className="p-2.5 rounded bg-background border flex flex-col">
+                    <span className="text-[10px] text-muted-foreground">Floor Levels</span>
+                    <span className="font-bold text-sm text-foreground">
+                      +{batchPreviewTotals.totalNewFloors} Floors
+                    </span>
+                  </div>
+                  <div className="p-2.5 rounded bg-background border flex flex-col">
+                    <span className="text-[10px] text-muted-foreground">Total Rooms</span>
+                    <span className="font-bold text-sm text-blue-600 dark:text-blue-400">
+                      +{batchPreviewTotals.totalNewRooms} Rooms
+                    </span>
+                  </div>
+                  <div className="p-2.5 rounded bg-background border flex flex-col">
+                    <span className="text-[10px] text-muted-foreground">Bed Capacity</span>
+                    <span className="font-bold text-sm text-emerald-600 dark:text-emerald-400">
+                      +{batchPreviewTotals.totalNewBeds} Beds
+                    </span>
+                  </div>
+                </div>
+
+                {/* Generated Blocks Preview List */}
+                <div className="mt-3 space-y-1">
+                  <span className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider">
+                    Block Names & Room Ranges:
+                  </span>
+                  <ScrollArea className="h-44 rounded border bg-background p-2 text-xs">
+                    <div className="space-y-2">
+                      {batchPreviewBlocks.map((b, idx) => {
+                        const sampleStart = buildRoomNumber(b.prefix, 1, 1, batchNumberingFormat);
+                        const sampleEnd = buildRoomNumber(b.prefix, b.floors, b.roomsPerFloor, batchNumberingFormat);
+                        return (
+                          <div key={idx} className="p-2 rounded bg-muted/30 border text-[11px] space-y-1">
+                            <div className="flex items-center justify-between font-semibold">
+                              <span className="text-foreground flex items-center gap-1">
+                                <Building2 size={12} className="text-primary" />
+                                {b.name}
+                              </span>
+                              <Badge variant="outline" className="text-[9px] px-1 py-0 h-4 font-mono">
+                                Prefix: {b.prefix}
+                              </Badge>
+                            </div>
+                            <div className="flex items-center justify-between text-muted-foreground text-[10px]">
+                              <span>
+                                {b.floors} Floors &bull; {b.floors * b.roomsPerFloor} Rooms
+                              </span>
+                              <span className="font-mono text-foreground font-medium">
+                                {sampleStart} &rarr; {sampleEnd}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </ScrollArea>
+                </div>
+              </div>
+
+              {/* Template Highlight */}
+              <div className="p-2.5 rounded-md bg-primary/5 border border-primary/20 text-xs space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-[11px] text-primary flex items-center gap-1">
+                    <BedDouble size={12} /> {batchSelectedSpec?.name}
+                  </span>
+                  <Badge variant="secondary" className="text-[10px] px-1 py-0 font-bold">
+                    {batchSelectedSpec?.capacity} Beds/Room
+                  </Badge>
+                </div>
+                <div className="text-[10px] text-muted-foreground flex items-center justify-between">
+                  <span>Est. Daily Rev for batch:</span>
+                  <span className="font-bold text-foreground">
+                    SAR {batchPreviewTotals.totalEstDailyRev.toLocaleString()}/day
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="p-4 border-t bg-muted/10 flex items-center justify-between">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setBatchModalOpen(false)}
+              className="text-xs"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              onClick={handleBatchGenerateBlocks}
+              className="text-xs gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold shadow-xs"
+            >
+              <Sparkles size={13} className="text-amber-400" />
+              Generate {batchPreviewTotals.totalNewBlocks} Blocks ({batchPreviewTotals.totalNewRooms} Rooms)
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
