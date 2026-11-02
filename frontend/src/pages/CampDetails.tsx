@@ -38,6 +38,7 @@ import AddRoomDialog from "@/components/camps/AddRoomDialog";
 import BulkRoomUploadDialog from "@/components/camps/BulkRoomUploadDialog";
 import DeleteCampDialog from "@/components/camps/DeleteCampDialog";
 import CampMasterSetupDialog from "@/components/camps/CampMasterSetupDialog";
+import RoomConfigMasterDialog from "@/components/camps/RoomConfigMasterDialog";
 import { useBlocks, useRooms } from "@/hooks/useCampManagement";
 import { getRoomCategoryLabel, NEW_ROOM_CATEGORIES } from "@/constants/roomCategories";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
@@ -118,6 +119,7 @@ export default function CampDetails() {
   const [bulkRoomOpen, setBulkRoomOpen] = useState(false);
   const [deleteCampOpen, setDeleteCampOpen] = useState(false);
   const [masterSetupOpen, setMasterSetupOpen] = useState(false);
+  const [roomConfigMasterOpen, setRoomConfigMasterOpen] = useState(false);
 
   // Check if user is admin
   const { data: userRoles = [] } = useQuery({
@@ -232,6 +234,9 @@ export default function CampDetails() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuItem onClick={() => setRoomConfigMasterOpen(true)}>
+                <Sliders size={14} className="mr-2 text-primary" /> Room Configurations Catalog
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={() => setMasterSetupOpen(true)}>
                 <Sparkles size={14} className="mr-2 text-primary" /> Master Setup
               </DropdownMenuItem>
@@ -1055,6 +1060,11 @@ export default function CampDetails() {
           totalRooms={rooms.length}
         />
       )}
+
+      <RoomConfigMasterDialog
+        open={roomConfigMasterOpen}
+        onOpenChange={setRoomConfigMasterOpen}
+      />
 
       {/* Master Setup Dialog */}
       {campId && camp && (

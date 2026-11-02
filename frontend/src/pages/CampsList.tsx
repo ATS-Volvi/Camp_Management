@@ -9,6 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import AddCampDialog from "@/components/camps/AddCampDialog";
 import CampMasterSetupDialog from "@/components/camps/CampMasterSetupDialog";
+import RoomConfigMasterDialog from "@/components/camps/RoomConfigMasterDialog";
 import CampsOverview from "@/components/camps/CampsOverview";
 import CampsReports from "@/components/camps/CampsReports";
 import { useCamps } from "@/hooks/useCampManagement";
@@ -17,6 +18,7 @@ export default function CampsList() {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [addOpen, setAddOpen] = useState(false);
+  const [roomConfigMasterOpen, setRoomConfigMasterOpen] = useState(false);
   const [masterSetupCamp, setMasterSetupCamp] = useState<{ id: string; name: string } | null>(null);
   const [viewMode, setViewMode] = useState<"card" | "list">("list");
   const [activeTab, setActiveTab] = useState("overview");
@@ -45,9 +47,14 @@ export default function CampsList() {
           <h1 className="text-2xl font-bold text-foreground">Camp Management</h1>
           <p className="text-muted-foreground text-sm">Manage camps, blocks, and rooms</p>
         </div>
-        <Button onClick={() => setAddOpen(true)}>
-          <Plus size={16} className="mr-1" /> Create Camp
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={() => setRoomConfigMasterOpen(true)} className="gap-1.5 border-primary/30 text-primary hover:bg-primary/5">
+            <Sliders size={16} /> Room Configuration Master
+          </Button>
+          <Button onClick={() => setAddOpen(true)}>
+            <Plus size={16} className="mr-1" /> Create Camp
+          </Button>
+        </div>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -237,6 +244,11 @@ export default function CampsList() {
         open={addOpen}
         onOpenChange={setAddOpen}
         onCampCreated={(created) => setMasterSetupCamp({ id: created.id, name: created.name })}
+      />
+
+      <RoomConfigMasterDialog
+        open={roomConfigMasterOpen}
+        onOpenChange={setRoomConfigMasterOpen}
       />
 
       {masterSetupCamp && (
