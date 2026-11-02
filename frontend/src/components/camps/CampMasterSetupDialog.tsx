@@ -52,6 +52,11 @@ import {
   Grid,
   Hash,
   Boxes,
+  FileSpreadsheet,
+  ListPlus,
+  TableProperties,
+  AlertCircle,
+  FileText,
 } from "lucide-react";
 
 interface Props {
@@ -161,6 +166,37 @@ export default function CampMasterSetupDialog({
   const [rooms, setRooms] = useState<GeneratedRoomItem[]>([]);
   const [selectedRoomIds, setSelectedRoomIds] = useState<Set<string>>(new Set());
 
+  // Individual Custom Room Creation Dialog state
+  const [singleRoomModalOpen, setSingleRoomModalOpen] = useState(false);
+  const [customRoomNumber, setCustomRoomNumber] = useState("");
+  const [customRoomFloor, setCustomRoomFloor] = useState<number>(1);
+  const [customRoomSpecId, setCustomRoomSpecId] = useState<string>("");
+  const [customRoomCapacity, setCustomRoomCapacity] = useState<number>(4);
+  const [customRoomAc, setCustomRoomAc] = useState<boolean>(true);
+  const [customRoomBath, setCustomRoomBath] = useState<boolean>(true);
+  const [customRoomRate, setCustomRoomRate] = useState<number>(60);
+  const [keepSingleRoomOpen, setKeepSingleRoomOpen] = useState<boolean>(false);
+
+  // Bulk Room Entry Dialog state
+  const [bulkEntryModalOpen, setBulkEntryModalOpen] = useState(false);
+  const [bulkEntryMode, setBulkEntryMode] = useState<"paste" | "table">("paste");
+  const [bulkEntryRawText, setBulkEntryRawText] = useState("");
+  const [bulkEntrySpecId, setBulkEntrySpecId] = useState<string>("");
+  const [bulkEntryTargetFloor, setBulkEntryTargetFloor] = useState<number>(1);
+  const [bulkEntryAutoPrefix, setBulkEntryAutoPrefix] = useState<boolean>(false);
+  const [bulkGridRows, setBulkGridRows] = useState<
+    Array<{
+      id: string;
+      room_number: string;
+      floor: number;
+      specId: string;
+      capacity: number;
+      ac: boolean;
+      bath: boolean;
+      rate: number;
+    }>
+  >([]);
+
   // Range Tool state
   const [rangeStartRoom, setRangeStartRoom] = useState<string>("");
   const [rangeEndRoom, setRangeEndRoom] = useState<string>("");
@@ -177,6 +213,12 @@ export default function CampMasterSetupDialog({
         }
         if (!batchSpecId) {
           setBatchSpecId(stored.find((s) => s.capacity === 6)?.id || stored[2]?.id || stored[0]?.id);
+        }
+        if (!customRoomSpecId) {
+          setCustomRoomSpecId(stored[2]?.id || stored[0]?.id);
+        }
+        if (!bulkEntrySpecId) {
+          setBulkEntrySpecId(stored[2]?.id || stored[0]?.id);
         }
       }
     }
@@ -610,6 +652,256 @@ export default function CampMasterSetupDialog({
     toast({
       title: "Room Added",
       description: `Created Room ${roomNumber} (${activeSpec.name}) on Floor ${activeFloor}.`,
+    });
+  };
+
+  // Check if room number already exists in camp
+  const isRoomNumberTaken = (roomNum: string, excludeTempId?: string) => {
+    if (!roomNum || !roomNum.trim()) return false;
+    const clean = roomNum.trim().toUpperCase();
+    return rooms.some(
+      (r) => r.room_number.trim().toUpperCase() === clean && r.tempId !== excludeTempId
+    );
+  };
+
+  // Open Individual Room Creator
+  const openSingleRoomCreator = (floor?: number) => {
+    const targetFloor = floor !== undefined ? floor : activeFloor;
+    setActiveFloor(targetFloor);
+    setCustomRoomFloor(targetFloor);
+    const spec =
+      availableSpecs.find((s) => s.id === customRoomSpecId) ||
+      availableSpecs[2] ||
+      availableSpecs[0] ||
+      DEFAULT_ROOM_SPECIFICATIONS[2];
+
+    setCustomRoomSpecId(spec.id);
+    setCustomRoomCapacity(spec.capacity);
+    setCustomRoomAc(spec.ac);
+    setCustomRoomBath(spec.attachedBath);
+    setCustomRoomRate(spec.dailyRate);
+
+    // Suggest candidate room number
+    const candidate = findNextRoomNumber(
+      currentBlock.prefix,
+      targetFloor,
+      currentBlock.numberingFormat,
+      rooms.filter((r) => r.blockTempId === currentBlock.id && r.floor === targetFloor)
+    );
+    setCustomRoomNumber(candidate);
+    setSingleRoomModalOpen(true);
+  };
+
+  const handleCustomRoomSpecChange = (specId: string) => {
+    setCustomRoomSpecId(specId);
+    const spec = availableSpecs.find((s) => s.id === specId);
+    if (spec) {
+      setCustomRoomCapacity(spec.capacity);
+      setCustomRoomAc(spec.ac);
+      setCustomRoomBath(spec.attachedBath);
+      setCustomRoomRate(spec.dailyRate);
+    }
+  };
+
+  const handleCreateCustomRoom = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const cleanNum = customRoomNumber.trim();
+    if (!cleanNum) {
+      toast({ title: "Room number cannot be empty", variant: "destructive" });
+      return;
+    }
+
+    if (isRoomNumberTaken(cleanNum)) {
+      toast({
+        title: "Duplicate Room Number",
+        description: `Room number "${cleanNum}" is already assigned to a room in this camp.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const spec =
+      availableSpecs.find((s) => s.id === customRoomSpecId) ||
+      availableSpecs[0] ||
+      DEFAULT_ROOM_SPECIFICATIONS[0];
+
+    const newRoom: GeneratedRoomItem = {
+      tempId: `room-custom-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      blockTempId: currentBlock.id,
+      blockName: currentBlock.name,
+      floor: customRoomFloor,
+      room_number: cleanNum,
+      specId: spec.id,
+      category: spec.categoryValue,
+      categoryLabel: spec.name,
+      max_capacity: customRoomCapacity || spec.capacity,
+      ac: customRoomAc,
+      attached_bathroom: customRoomBath,
+      daily_rate: customRoomRate ?? spec.dailyRate,
+      daily_food_rate: spec.dailyFoodRate,
+    };
+
+    setRooms((prev) => [...prev, newRoom]);
+    toast({
+      title: "Room Created Successfully",
+      description: `Created Room ${cleanNum} (${spec.name}) on Floor ${customRoomFloor}.`,
+    });
+
+    if (keepSingleRoomOpen) {
+      setCustomRoomNumber("");
+    } else {
+      setSingleRoomModalOpen(false);
+      setCustomRoomNumber("");
+    }
+  };
+
+  // Open Bulk Room Entry
+  const openBulkRoomEntry = (floor?: number) => {
+    const targetFloor = floor !== undefined ? floor : activeFloor;
+    setActiveFloor(targetFloor);
+    setBulkEntryTargetFloor(targetFloor);
+    const defSpec = availableSpecs[2] || availableSpecs[0] || DEFAULT_ROOM_SPECIFICATIONS[2];
+    if (!bulkEntrySpecId) {
+      setBulkEntrySpecId(defSpec.id);
+    }
+    setBulkGridRows([
+      { id: "row-1", room_number: "", floor: targetFloor, specId: defSpec.id, capacity: defSpec.capacity, ac: defSpec.ac, bath: defSpec.attachedBath, rate: defSpec.dailyRate },
+      { id: "row-2", room_number: "", floor: targetFloor, specId: defSpec.id, capacity: defSpec.capacity, ac: defSpec.ac, bath: defSpec.attachedBath, rate: defSpec.dailyRate },
+      { id: "row-3", room_number: "", floor: targetFloor, specId: defSpec.id, capacity: defSpec.capacity, ac: defSpec.ac, bath: defSpec.attachedBath, rate: defSpec.dailyRate },
+      { id: "row-4", room_number: "", floor: targetFloor, specId: defSpec.id, capacity: defSpec.capacity, ac: defSpec.ac, bath: defSpec.attachedBath, rate: defSpec.dailyRate },
+    ]);
+    setBulkEntryModalOpen(true);
+  };
+
+  // Parsed bulk rooms from raw text
+  const parsedBulkRooms = useMemo(() => {
+    if (!bulkEntryRawText.trim()) return [];
+    const lines = bulkEntryRawText
+      .split(/[\r\n,;]+/)
+      .map((l) => l.trim())
+      .filter((l) => l.length > 0);
+
+    const prefix = currentBlock.prefix.trim();
+    const cleanPrefix = prefix ? `${prefix}-` : "";
+    const seenInBatch = new Set<string>();
+
+    return lines.map((line, idx) => {
+      let finalNum = line;
+      if (bulkEntryAutoPrefix && cleanPrefix && !line.toUpperCase().startsWith(cleanPrefix.toUpperCase())) {
+        finalNum = `${cleanPrefix}${line}`;
+      }
+      const upper = finalNum.toUpperCase();
+      const isTaken = isRoomNumberTaken(finalNum);
+      const isDuplicateInBatch = seenInBatch.has(upper);
+      seenInBatch.add(upper);
+
+      return {
+        id: `p-${idx}-${finalNum}`,
+        raw: line,
+        finalNumber: finalNum,
+        isTaken: isTaken,
+        isDuplicateInBatch: isDuplicateInBatch,
+      };
+    });
+  }, [bulkEntryRawText, bulkEntryAutoPrefix, currentBlock.prefix, rooms]);
+
+  const handleExecuteBulkPasteImport = () => {
+    if (parsedBulkRooms.length === 0) {
+      toast({ title: "No room numbers to import", variant: "destructive" });
+      return;
+    }
+
+    const invalidRooms = parsedBulkRooms.filter((r) => r.isTaken || r.isDuplicateInBatch);
+    if (invalidRooms.length > 0) {
+      toast({
+        title: "Duplicate Room Numbers Detected",
+        description: `Room "${invalidRooms[0].finalNumber}" is already in use or duplicated in this batch. Please resolve duplicates before importing.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const spec = availableSpecs.find((s) => s.id === bulkEntrySpecId) || availableSpecs[0] || DEFAULT_ROOM_SPECIFICATIONS[0];
+    const newItems: GeneratedRoomItem[] = parsedBulkRooms.map((p, idx) => ({
+      tempId: `bulk-paste-${Date.now()}-${idx}-${Math.random().toString(36).substring(2, 6)}`,
+      blockTempId: currentBlock.id,
+      blockName: currentBlock.name,
+      floor: bulkEntryTargetFloor,
+      room_number: p.finalNumber,
+      specId: spec.id,
+      category: spec.categoryValue,
+      categoryLabel: spec.name,
+      max_capacity: spec.capacity,
+      ac: spec.ac,
+      attached_bathroom: spec.attachedBath,
+      daily_rate: spec.dailyRate,
+      daily_food_rate: spec.dailyFoodRate,
+    }));
+
+    setRooms((prev) => [...prev, ...newItems]);
+    setBulkEntryModalOpen(false);
+    setBulkEntryRawText("");
+
+    toast({
+      title: `⚡ Bulk Imported ${newItems.length} Rooms!`,
+      description: `Added ${newItems.length} custom-numbered rooms to ${currentBlock.name} - Floor ${bulkEntryTargetFloor}.`,
+    });
+  };
+
+  const handleExecuteBulkTableImport = () => {
+    const validRows = bulkGridRows.filter((r) => r.room_number.trim().length > 0);
+    if (validRows.length === 0) {
+      toast({ title: "Please enter at least one room number", variant: "destructive" });
+      return;
+    }
+
+    const seen = new Set<string>();
+    for (const r of validRows) {
+      const num = r.room_number.trim();
+      if (isRoomNumberTaken(num)) {
+        toast({
+          title: "Duplicate Room Number",
+          description: `Room "${num}" already exists in this camp.`,
+          variant: "destructive",
+        });
+        return;
+      }
+      if (seen.has(num.toUpperCase())) {
+        toast({
+          title: "Duplicate in Table",
+          description: `Room "${num}" appears multiple times in your table.`,
+          variant: "destructive",
+        });
+        return;
+      }
+      seen.add(num.toUpperCase());
+    }
+
+    const newItems: GeneratedRoomItem[] = validRows.map((r, idx) => {
+      const spec = availableSpecs.find((s) => s.id === r.specId) || availableSpecs[0] || DEFAULT_ROOM_SPECIFICATIONS[0];
+      return {
+        tempId: `bulk-tbl-${Date.now()}-${idx}-${Math.random().toString(36).substring(2, 6)}`,
+        blockTempId: currentBlock.id,
+        blockName: currentBlock.name,
+        floor: r.floor || bulkEntryTargetFloor,
+        room_number: r.room_number.trim(),
+        specId: spec.id,
+        category: spec.categoryValue,
+        categoryLabel: spec.name,
+        max_capacity: r.capacity || spec.capacity,
+        ac: r.ac,
+        attached_bathroom: r.bath,
+        daily_rate: r.rate ?? spec.dailyRate,
+        daily_food_rate: spec.dailyFoodRate,
+      };
+    });
+
+    setRooms((prev) => [...prev, ...newItems]);
+    setBulkEntryModalOpen(false);
+
+    toast({
+      title: `⚡ Table Imported ${newItems.length} Rooms!`,
+      description: `Added ${newItems.length} custom-numbered rooms to ${currentBlock.name}.`,
     });
   };
 
@@ -1367,21 +1659,40 @@ export default function CampMasterSetupDialog({
                   </div>
                 </div>
 
-                {/* Add Room Dropdown */}
-                <div className="flex items-center gap-2">
+                {/* Room Creation Suite */}
+                <div className="flex items-center gap-1.5">
+                  <Button
+                    size="xs"
+                    onClick={() => openSingleRoomCreator()}
+                    className="h-7 text-xs gap-1 bg-primary text-primary-foreground font-semibold shadow-2xs hover:bg-primary/90"
+                    title="Add an individual room with custom room number"
+                  >
+                    <Plus size={13} /> Add Room
+                  </Button>
+
+                  <Button
+                    size="xs"
+                    variant="outline"
+                    onClick={() => openBulkRoomEntry()}
+                    className="h-7 text-xs gap-1 border-primary/40 text-primary hover:bg-primary/5 font-medium"
+                    title="Bulk paste or import multiple custom room numbers"
+                  >
+                    <FileSpreadsheet size={13} className="text-emerald-600 dark:text-emerald-400" /> Bulk Room Entry
+                  </Button>
+
                   <Select
                     onValueChange={(specId) => {
                       const spec = availableSpecs.find((s) => s.id === specId);
                       handleAddRoom(spec);
                     }}
                   >
-                    <SelectTrigger className="h-7 text-xs w-40 border-primary/40 text-primary font-medium">
-                      <SelectValue placeholder="+ Add Room as..." />
+                    <SelectTrigger className="h-7 text-xs w-36 border-muted-foreground/30 text-muted-foreground hover:text-foreground">
+                      <SelectValue placeholder="Quick Auto-Add..." />
                     </SelectTrigger>
                     <SelectContent>
                       {availableSpecs.map((s) => (
                         <SelectItem key={s.id} value={s.id} className="text-xs">
-                          + {s.name} ({s.capacity} Beds)
+                          Auto + {s.name} ({s.capacity}B)
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -1526,15 +1837,33 @@ export default function CampMasterSetupDialog({
               {/* Room Cards Grid */}
               <ScrollArea className="flex-1 p-4 overflow-y-auto">
                 {activeFloorRooms.length === 0 ? (
-                  <div className="text-center py-16 border border-dashed rounded-lg">
-                    <p className="text-xs text-muted-foreground">No rooms configured on this floor yet.</p>
-                    <Button
-                      size="xs"
-                      className="mt-2 text-xs"
-                      onClick={() => handleAddRoom()}
-                    >
-                      <Plus size={12} className="mr-1" /> Add First Room
-                    </Button>
+                  <div className="text-center py-16 border border-dashed rounded-lg space-y-3">
+                    <div className="p-3 bg-muted/40 rounded-full w-fit mx-auto text-muted-foreground">
+                      <BedDouble size={24} />
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-xs font-semibold text-foreground">No rooms configured on Floor {activeFloor} yet</p>
+                      <p className="text-[11px] text-muted-foreground max-w-sm mx-auto">
+                        Add rooms individually with custom numbering, or paste a list of arbitrary room numbers in bulk.
+                      </p>
+                    </div>
+                    <div className="flex items-center justify-center gap-2 pt-1">
+                      <Button
+                        size="xs"
+                        className="text-xs gap-1 bg-primary text-primary-foreground font-semibold"
+                        onClick={() => openSingleRoomCreator()}
+                      >
+                        <Plus size={12} /> Add Room
+                      </Button>
+                      <Button
+                        size="xs"
+                        variant="outline"
+                        className="text-xs gap-1 border-primary/40 text-primary font-medium"
+                        onClick={() => openBulkRoomEntry()}
+                      >
+                        <FileSpreadsheet size={12} className="text-emerald-500" /> Bulk Room Entry
+                      </Button>
+                    </div>
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 pb-4">
@@ -2041,6 +2370,600 @@ export default function CampMasterSetupDialog({
               <Sparkles size={13} className="text-amber-400" />
               Generate {batchPreviewTotals.totalNewBlocks} Blocks ({batchPreviewTotals.totalNewRooms} Rooms)
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ════════ INDIVIDUAL CUSTOM ROOM CREATION MODAL ════════ */}
+      <Dialog open={singleRoomModalOpen} onOpenChange={setSingleRoomModalOpen}>
+        <DialogContent className="max-w-[540px] w-full p-0 overflow-hidden bg-background">
+          <form onSubmit={handleCreateCustomRoom}>
+            <DialogHeader className="p-5 pb-3 border-b bg-gradient-to-r from-blue-950/15 via-primary/5 to-transparent">
+              <div className="flex items-center gap-2 mb-1">
+                <Badge variant="secondary" className="gap-1 px-2.5 py-0.5 font-semibold text-xs bg-primary/10 text-primary border-primary/20">
+                  <Plus size={13} /> Individual Room Setup
+                </Badge>
+                <Badge variant="outline" className="text-xs">
+                  {currentBlock.name} &bull; Floor {customRoomFloor}
+                </Badge>
+              </div>
+              <DialogTitle className="text-base font-bold">
+                Add Room with Custom Number
+              </DialogTitle>
+              <DialogDescription className="text-xs text-muted-foreground">
+                Assign an exact custom or non-standard room number, choose room specifications, and adjust capacity.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="p-5 space-y-4 max-h-[70vh] overflow-y-auto">
+              {/* Room Number Input */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="custom-room-num" className="text-xs font-semibold">
+                    Room Number / Identifier <span className="text-destructive">*</span>
+                  </Label>
+                  {isRoomNumberTaken(customRoomNumber) && (
+                    <span className="text-[11px] text-destructive flex items-center gap-1 font-medium">
+                      <AlertCircle size={12} /> Already taken in camp
+                    </span>
+                  )}
+                </div>
+                <div className="relative">
+                  <Input
+                    id="custom-room-num"
+                    value={customRoomNumber}
+                    onChange={(e) => setCustomRoomNumber(e.target.value)}
+                    placeholder="e.g. 101-A, VIP-1, Cabin-04, Porta-East"
+                    autoFocus
+                    className={`h-9 font-mono font-bold text-sm ${
+                      isRoomNumberTaken(customRoomNumber)
+                        ? "border-destructive focus-visible:ring-destructive"
+                        : "border-input"
+                    }`}
+                  />
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  Can be any arbitrary format (alphanumeric, dashed, or legacy code).
+                </p>
+              </div>
+
+              {/* Floor Level & Specification */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold">Floor Level</Label>
+                  <Select
+                    value={String(customRoomFloor)}
+                    onValueChange={(val) => setCustomRoomFloor(parseInt(val))}
+                  >
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Array.from({ length: currentBlock.floors }, (_, i) => i + 1).map((f) => (
+                        <SelectItem key={f} value={String(f)} className="text-xs">
+                          Floor {f}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold">Room Specification</Label>
+                  <Select
+                    value={customRoomSpecId}
+                    onValueChange={handleCustomRoomSpecChange}
+                  >
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue placeholder="Select template" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableSpecs.map((s) => (
+                        <SelectItem key={s.id} value={s.id} className="text-xs">
+                          {s.name} ({s.capacity} Beds)
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {/* Bed Capacity and Daily Rent */}
+              <div className="grid grid-cols-2 gap-3 p-3 bg-secondary/15 rounded-lg border">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold flex items-center gap-1">
+                    <BedDouble size={13} /> Bed Capacity
+                  </Label>
+                  <div className="flex items-center gap-1.5">
+                    <Input
+                      type="number"
+                      min={1}
+                      max={20}
+                      value={customRoomCapacity}
+                      onChange={(e) => setCustomRoomCapacity(Math.max(1, parseInt(e.target.value) || 1))}
+                      className="h-8 text-xs font-bold font-mono"
+                    />
+                    <span className="text-[11px] text-muted-foreground">Beds</span>
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold flex items-center gap-1">
+                    <DollarSign size={13} /> Daily Rent
+                  </Label>
+                  <div className="flex items-center gap-1.5">
+                    <Input
+                      type="number"
+                      min={0}
+                      value={customRoomRate}
+                      onChange={(e) => setCustomRoomRate(parseFloat(e.target.value) || 0)}
+                      className="h-8 text-xs font-bold font-mono"
+                    />
+                    <span className="text-[11px] text-muted-foreground">SAR/day</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Amenities Toggles */}
+              <div className="grid grid-cols-2 gap-3 pt-1">
+                <div
+                  onClick={() => setCustomRoomAc(!customRoomAc)}
+                  className={`p-2.5 rounded-lg border cursor-pointer flex items-center justify-between transition-all ${
+                    customRoomAc
+                      ? "bg-cyan-500/10 border-cyan-500/30 text-cyan-700 dark:text-cyan-300"
+                      : "bg-background border-border text-muted-foreground"
+                  }`}
+                >
+                  <span className="text-xs font-semibold flex items-center gap-1.5">
+                    <Wind size={14} /> Air Conditioning
+                  </span>
+                  <Switch checked={customRoomAc} onCheckedChange={setCustomRoomAc} />
+                </div>
+
+                <div
+                  onClick={() => setCustomRoomBath(!customRoomBath)}
+                  className={`p-2.5 rounded-lg border cursor-pointer flex items-center justify-between transition-all ${
+                    customRoomBath
+                      ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-300"
+                      : "bg-background border-border text-muted-foreground"
+                  }`}
+                >
+                  <span className="text-xs font-semibold flex items-center gap-1.5">
+                    <Bath size={14} /> Ensuite Bath
+                  </span>
+                  <Switch checked={customRoomBath} onCheckedChange={setCustomRoomBath} />
+                </div>
+              </div>
+
+              {/* Keep Modal Open Checkbox for continuous rapid entry */}
+              <div className="flex items-center gap-2 pt-2 border-t">
+                <Checkbox
+                  id="keep-single-open"
+                  checked={keepSingleRoomOpen}
+                  onCheckedChange={(checked) => setKeepSingleRoomOpen(!!checked)}
+                />
+                <label htmlFor="keep-single-open" className="text-xs text-muted-foreground cursor-pointer">
+                  Keep dialog open to add another room immediately
+                </label>
+              </div>
+            </div>
+
+            <DialogFooter className="p-4 border-t bg-muted/10 flex items-center justify-between">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setSingleRoomModalOpen(false)}
+                className="text-xs"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                size="sm"
+                disabled={!customRoomNumber.trim() || isRoomNumberTaken(customRoomNumber)}
+                className="text-xs gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold shadow-xs"
+              >
+                <Plus size={14} /> Add Room ({customRoomNumber.trim() || "..."})
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* ════════ BULK ROOM ENTRY & IMPORTER MODAL ════════ */}
+      <Dialog open={bulkEntryModalOpen} onOpenChange={setBulkEntryModalOpen}>
+        <DialogContent className="max-w-[860px] w-full p-0 overflow-hidden bg-background">
+          <DialogHeader className="p-5 pb-3 border-b bg-gradient-to-r from-blue-950/15 via-primary/5 to-transparent">
+            <div className="flex items-center gap-2 mb-1">
+              <Badge variant="secondary" className="gap-1 px-2.5 py-0.5 font-semibold text-xs bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20">
+                <FileSpreadsheet size={13} /> Bulk Room Entry & Importer
+              </Badge>
+              <Badge variant="outline" className="text-xs">
+                {currentBlock.name} &bull; Floor {bulkEntryTargetFloor}
+              </Badge>
+            </div>
+            <DialogTitle className="text-base font-bold">
+              Bulk Create Arbitrary & Random Room Numbers
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Paste a column of room numbers from Excel or fill a rapid spreadsheet grid to instantiate custom-numbered rooms in bulk.
+            </DialogDescription>
+          </DialogHeader>
+
+          {/* Mode Switcher Tabs */}
+          <div className="px-5 pt-3 border-b bg-muted/15 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setBulkEntryMode("paste")}
+                className={`pb-2.5 px-3 text-xs font-semibold border-b-2 transition-all flex items-center gap-1.5 ${
+                  bulkEntryMode === "paste"
+                    ? "border-primary text-primary"
+                    : "border-transparent text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <FileText size={13} /> Fast Paste List (From Excel / Text)
+              </button>
+              <button
+                type="button"
+                onClick={() => setBulkEntryMode("table")}
+                className={`pb-2.5 px-3 text-xs font-semibold border-b-2 transition-all flex items-center gap-1.5 ${
+                  bulkEntryMode === "table"
+                    ? "border-primary text-primary"
+                    : "border-transparent text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <TableProperties size={13} /> Spreadsheet Quick Table
+              </button>
+            </div>
+
+            {/* Target Floor Picker */}
+            <div className="flex items-center gap-1.5 pb-2">
+              <span className="text-[11px] text-muted-foreground">Target:</span>
+              <Select
+                value={String(bulkEntryTargetFloor)}
+                onValueChange={(val) => setBulkEntryTargetFloor(parseInt(val))}
+              >
+                <SelectTrigger className="h-7 text-xs w-28">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Array.from({ length: currentBlock.floors }, (_, i) => i + 1).map((f) => (
+                    <SelectItem key={f} value={String(f)} className="text-xs">
+                      Floor {f}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="p-5 max-h-[70vh] overflow-y-auto">
+            {bulkEntryMode === "paste" ? (
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-5">
+                {/* Left 7 cols: Paste Input & Config */}
+                <div className="md:col-span-7 space-y-4">
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="bulk-paste-area" className="text-xs font-semibold">
+                        Paste Room Numbers
+                      </Label>
+                      <span className="text-[10px] text-muted-foreground">
+                        One per line, comma or space separated
+                      </span>
+                    </div>
+                    <textarea
+                      id="bulk-paste-area"
+                      rows={8}
+                      value={bulkEntryRawText}
+                      onChange={(e) => setBulkEntryRawText(e.target.value)}
+                      placeholder={`Example:\n101A\n101B\nVIP-01\nCabin-4\nPorta-East-3\nG-12`}
+                      className="w-full font-mono text-xs p-3 rounded-md border bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    />
+                  </div>
+
+                  {/* Template for Pasted Rooms */}
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold">Apply Room Specification to All</Label>
+                    <Select value={bulkEntrySpecId} onValueChange={setBulkEntrySpecId}>
+                      <SelectTrigger className="h-8 text-xs">
+                        <SelectValue placeholder="Select specification" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableSpecs.map((spec) => (
+                          <SelectItem key={spec.id} value={spec.id} className="text-xs">
+                            {spec.name} &bull; {spec.capacity} Beds &bull; SAR {spec.dailyRate}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Auto Prefix Checkbox */}
+                  <div className="flex items-center gap-2 p-2.5 rounded border bg-secondary/15">
+                    <Checkbox
+                      id="bulk-auto-prefix"
+                      checked={bulkEntryAutoPrefix}
+                      onCheckedChange={(checked) => setBulkEntryAutoPrefix(!!checked)}
+                    />
+                    <label htmlFor="bulk-auto-prefix" className="text-xs cursor-pointer font-medium">
+                      Auto-prepend Block prefix (e.g. <span className="font-mono font-bold">{currentBlock.prefix}-</span>) if not already typed
+                    </label>
+                  </div>
+                </div>
+
+                {/* Right 5 cols: Live Parsed Preview */}
+                <div className="md:col-span-5 flex flex-col justify-between border rounded-lg p-3 bg-muted/20 space-y-3">
+                  <div>
+                    <div className="flex items-center justify-between pb-2 border-b">
+                      <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                        <CheckCircle2 size={13} className="text-primary" /> Parsed Rooms Preview
+                      </span>
+                      <Badge variant="outline" className="text-[10px] font-mono">
+                        {parsedBulkRooms.length} Detected
+                      </Badge>
+                    </div>
+
+                    {parsedBulkRooms.length === 0 ? (
+                      <div className="py-12 text-center text-muted-foreground text-xs space-y-1">
+                        <p>No room numbers entered yet.</p>
+                        <p className="text-[10px]">Type or paste room numbers on the left.</p>
+                      </div>
+                    ) : (
+                      <ScrollArea className="h-56 mt-2 rounded border bg-background p-2">
+                        <div className="space-y-1">
+                          {parsedBulkRooms.map((item, idx) => (
+                            <div
+                              key={item.id}
+                              className={`p-1.5 rounded flex items-center justify-between text-xs font-mono border ${
+                                item.isTaken || item.isDuplicateInBatch
+                                  ? "bg-destructive/10 border-destructive/30 text-destructive font-bold"
+                                  : "bg-muted/30 border-transparent text-foreground"
+                              }`}
+                            >
+                              <span className="flex items-center gap-1.5">
+                                <span className="text-[10px] text-muted-foreground font-sans">#{idx + 1}</span>
+                                {item.finalNumber}
+                              </span>
+                              {item.isTaken ? (
+                                <Badge variant="destructive" className="text-[9px] px-1 py-0 h-4">
+                                  Duplicate in Camp
+                                </Badge>
+                              ) : item.isDuplicateInBatch ? (
+                                <Badge variant="destructive" className="text-[9px] px-1 py-0 h-4">
+                                  Duplicate in List
+                                </Badge>
+                              ) : (
+                                <Badge variant="secondary" className="text-[9px] px-1 py-0 h-4 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10">
+                                  Ready
+                                </Badge>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </ScrollArea>
+                    )}
+                  </div>
+
+                  {parsedBulkRooms.some((r) => r.isTaken || r.isDuplicateInBatch) && (
+                    <div className="p-2 rounded bg-destructive/10 border border-destructive/30 text-destructive text-[11px] flex items-center gap-1.5">
+                      <AlertCircle size={14} className="flex-shrink-0" />
+                      <span>Resolve duplicate room numbers before creating.</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              /* Spreadsheet Quick Table Mode */
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">
+                    Directly type individual room numbers, customize bed capacities, or paste rows from a spreadsheet.
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      size="xs"
+                      variant="outline"
+                      className="text-xs h-7 gap-1"
+                      onClick={() => {
+                        const defSpec = availableSpecs[2] || availableSpecs[0] || DEFAULT_ROOM_SPECIFICATIONS[2];
+                        const nextId = `row-${Date.now()}`;
+                        setBulkGridRows((prev) => [
+                          ...prev,
+                          { id: nextId, room_number: "", floor: bulkEntryTargetFloor, specId: defSpec.id, capacity: defSpec.capacity, ac: defSpec.ac, bath: defSpec.attachedBath, rate: defSpec.dailyRate },
+                        ]);
+                      }}
+                    >
+                      <Plus size={12} /> Add Row
+                    </Button>
+                    <Button
+                      type="button"
+                      size="xs"
+                      variant="outline"
+                      className="text-xs h-7 gap-1"
+                      onClick={() => {
+                        const defSpec = availableSpecs[2] || availableSpecs[0] || DEFAULT_ROOM_SPECIFICATIONS[2];
+                        const newRows = Array.from({ length: 5 }, (_, i) => ({
+                          id: `row-${Date.now()}-${i}`,
+                          room_number: "",
+                          floor: bulkEntryTargetFloor,
+                          specId: defSpec.id,
+                          capacity: defSpec.capacity,
+                          ac: defSpec.ac,
+                          bath: defSpec.attachedBath,
+                          rate: defSpec.dailyRate,
+                        }));
+                        setBulkGridRows((prev) => [...prev, ...newRows]);
+                      }}
+                    >
+                      + Add 5 Rows
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="border rounded-md overflow-hidden bg-background">
+                  <div className="grid grid-cols-12 gap-2 p-2 bg-muted/40 font-semibold text-[11px] text-muted-foreground border-b">
+                    <div className="col-span-1 text-center">#</div>
+                    <div className="col-span-3">Room Number *</div>
+                    <div className="col-span-3">Template / Spec</div>
+                    <div className="col-span-2 text-center">Beds</div>
+                    <div className="col-span-1 text-center">AC</div>
+                    <div className="col-span-1 text-center">Bath</div>
+                    <div className="col-span-1 text-center">Del</div>
+                  </div>
+
+                  <ScrollArea className="max-h-64 overflow-y-auto">
+                    <div className="divide-y text-xs">
+                      {bulkGridRows.map((row, idx) => {
+                        const isDup = isRoomNumberTaken(row.room_number);
+                        return (
+                          <div key={row.id} className="grid grid-cols-12 gap-2 p-1.5 items-center hover:bg-muted/20">
+                            <div className="col-span-1 text-center text-[10px] text-muted-foreground font-mono">
+                              {idx + 1}
+                            </div>
+                            <div className="col-span-3">
+                              <Input
+                                value={row.room_number}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  setBulkGridRows((prev) =>
+                                    prev.map((r) => (r.id === row.id ? { ...r, room_number: val } : r))
+                                  );
+                                }}
+                                placeholder="e.g. VIP-1, 101A"
+                                className={`h-7 text-xs font-mono font-bold ${
+                                  isDup ? "border-destructive text-destructive" : ""
+                                }`}
+                              />
+                            </div>
+                            <div className="col-span-3">
+                              <Select
+                                value={row.specId}
+                                onValueChange={(val) => {
+                                  const spec = availableSpecs.find((s) => s.id === val);
+                                  setBulkGridRows((prev) =>
+                                    prev.map((r) =>
+                                      r.id === row.id
+                                        ? {
+                                            ...r,
+                                            specId: val,
+                                            capacity: spec?.capacity || r.capacity,
+                                            ac: spec ? spec.ac : r.ac,
+                                            bath: spec ? spec.attachedBath : r.bath,
+                                            rate: spec?.dailyRate || r.rate,
+                                          }
+                                        : r
+                                    )
+                                  );
+                                }}
+                              >
+                                <SelectTrigger className="h-7 text-xs">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {availableSpecs.map((s) => (
+                                    <SelectItem key={s.id} value={s.id} className="text-xs">
+                                      {s.name} ({s.capacity}B)
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div className="col-span-2">
+                              <Input
+                                type="number"
+                                min={1}
+                                max={20}
+                                value={row.capacity}
+                                onChange={(e) => {
+                                  const val = parseInt(e.target.value) || 1;
+                                  setBulkGridRows((prev) =>
+                                    prev.map((r) => (r.id === row.id ? { ...r, capacity: val } : r))
+                                  );
+                                }}
+                                className="h-7 text-xs font-mono font-bold text-center"
+                              />
+                            </div>
+                            <div className="col-span-1 flex justify-center">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setBulkGridRows((prev) =>
+                                    prev.map((r) => (r.id === row.id ? { ...r, ac: !r.ac } : r))
+                                  );
+                                }}
+                                className={`p-1 rounded ${row.ac ? "text-cyan-600 bg-cyan-500/10" : "text-muted-foreground/40"}`}
+                              >
+                                <Wind size={13} />
+                              </button>
+                            </div>
+                            <div className="col-span-1 flex justify-center">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setBulkGridRows((prev) =>
+                                    prev.map((r) => (r.id === row.id ? { ...r, bath: !r.bath } : r))
+                                  );
+                                }}
+                                className={`p-1 rounded ${row.bath ? "text-emerald-600 bg-emerald-500/10" : "text-muted-foreground/40"}`}
+                              >
+                                <Bath size={13} />
+                              </button>
+                            </div>
+                            <div className="col-span-1 flex justify-center">
+                              <button
+                                type="button"
+                                onClick={() => setBulkGridRows((prev) => prev.filter((r) => r.id !== row.id))}
+                                className="p-1 text-muted-foreground hover:text-destructive"
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </ScrollArea>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="p-4 border-t bg-muted/10 flex items-center justify-between">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setBulkEntryModalOpen(false)}
+              className="text-xs"
+            >
+              Cancel
+            </Button>
+            {bulkEntryMode === "paste" ? (
+              <Button
+                type="button"
+                size="sm"
+                onClick={handleExecuteBulkPasteImport}
+                disabled={parsedBulkRooms.length === 0 || parsedBulkRooms.some((r) => r.isTaken || r.isDuplicateInBatch)}
+                className="text-xs gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-xs"
+              >
+                <Sparkles size={13} />
+                Import {parsedBulkRooms.length} Rooms to Floor {bulkEntryTargetFloor}
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                size="sm"
+                onClick={handleExecuteBulkTableImport}
+                disabled={bulkGridRows.filter((r) => r.room_number.trim().length > 0).length === 0}
+                className="text-xs gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-xs"
+              >
+                <Sparkles size={13} />
+                Import Table Rooms ({bulkGridRows.filter((r) => r.room_number.trim().length > 0).length} Rooms)
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
