@@ -145,6 +145,9 @@ export default function CampMasterSetupDialog({
     "b-2": true,
   });
 
+  // Navigation Mode (Progressive 3-Stage Drilldown: Blocks -> Floors -> Rooms)
+  const [currentView, setCurrentView] = useState<"blocks" | "floors" | "rooms">("blocks");
+
   // Current active node in the hierarchy
   const [activeBlockId, setActiveBlockId] = useState<string>("b-1");
   const [activeFloor, setActiveFloor] = useState<number>(1);
@@ -1286,288 +1289,446 @@ export default function CampMasterSetupDialog({
             </div>
           </DialogHeader>
 
-          {/* Main 2-Pane Split Workspace */}
-          <div className="flex-1 flex overflow-hidden">
-            {/* ════════ LEFT PANE: HIERARCHY TREE EXPLORER (320px) ════════ */}
-            <div className="w-[320px] border-r bg-muted/15 flex flex-col flex-shrink-0">
-              {/* Tree Explorer Search & Add Block Header */}
-              <div className="p-3 border-b space-y-2 bg-background/50">
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                    <Layers size={13} className="text-primary" /> Facility Tree
-                  </span>
-                  <div className="flex items-center gap-1">
+          {/* Main Full-Width Staged Workspace */}
+          <div className="flex-1 flex flex-col overflow-hidden bg-background">
+            {/* Stage Navigation & Breadcrumbs Bar */}
+            <div className="px-5 py-2.5 border-b bg-muted/25 flex flex-wrap items-center justify-between gap-3 flex-shrink-0">
+              {/* Stepper Tabs */}
+              <div className="flex items-center gap-1.5 text-xs">
+                <button
+                  type="button"
+                  onClick={() => setCurrentView("blocks")}
+                  className={`px-3 py-1.5 rounded-md font-semibold transition-all flex items-center gap-1.5 ${
+                    currentView === "blocks"
+                      ? "bg-primary text-primary-foreground shadow-2xs"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground border border-transparent hover:border-border"
+                  }`}
+                >
+                  <Building2 size={13} />
+                  <span>1. Blocks ({blocks.length})</span>
+                </button>
+
+                <ChevronRight size={13} className="text-muted-foreground/60" />
+
+                <button
+                  type="button"
+                  onClick={() => setCurrentView("floors")}
+                  className={`px-3 py-1.5 rounded-md font-semibold transition-all flex items-center gap-1.5 ${
+                    currentView === "floors"
+                      ? "bg-primary text-primary-foreground shadow-2xs"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground border border-transparent hover:border-border"
+                  }`}
+                >
+                  <Layers size={13} />
+                  <span>2. Floors ({currentBlock.floors} Levels in {currentBlock.prefix})</span>
+                </button>
+
+                <ChevronRight size={13} className="text-muted-foreground/60" />
+
+                <button
+                  type="button"
+                  onClick={() => setCurrentView("rooms")}
+                  className={`px-3 py-1.5 rounded-md font-semibold transition-all flex items-center gap-1.5 ${
+                    currentView === "rooms"
+                      ? "bg-primary text-primary-foreground shadow-2xs"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground border border-transparent hover:border-border"
+                  }`}
+                >
+                  <BedDouble size={13} />
+                  <span>3. Rooms ({activeFloorRooms.length} on F{activeFloor})</span>
+                </button>
+              </div>
+
+              {/* Breadcrumb Context & Quick Back Action */}
+              <div className="flex items-center gap-2">
+                {currentView !== "blocks" && (
+                  <Button
+                    size="xs"
+                    variant="outline"
+                    onClick={() => setCurrentView(currentView === "rooms" ? "floors" : "blocks")}
+                    className="h-7 text-xs gap-1 border-muted-foreground/30 text-muted-foreground hover:text-foreground"
+                  >
+                    &larr; Back to {currentView === "rooms" ? "Floors" : "Blocks"}
+                  </Button>
+                )}
+                <div className="text-[11px] font-mono text-muted-foreground bg-muted px-2.5 py-1 rounded border hidden sm:flex items-center gap-1.5">
+                  <span className="font-semibold text-foreground">{campName}</span>
+                  <ChevronRight size={11} />
+                  <span className="font-semibold text-primary">{currentBlock.name}</span>
+                  {currentView === "rooms" && (
+                    <>
+                      <ChevronRight size={11} />
+                      <span className="font-bold text-foreground">Floor {activeFloor}</span>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* ════════ STAGE 1: BLOCKS OVERVIEW ════════ */}
+            {currentView === "blocks" && (
+              <div className="flex-1 flex flex-col overflow-hidden">
+                {/* Stage 1 Toolbar */}
+                <div className="p-4 border-b bg-card/60 flex flex-wrap items-center justify-between gap-3 flex-shrink-0">
+                  <div className="flex flex-wrap items-center gap-3">
+                    {/* Search */}
+                    <div className="relative w-64">
+                      <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                      <Input
+                        value={treeSearchQuery}
+                        onChange={(e) => setTreeSearchQuery(e.target.value)}
+                        placeholder="Search blocks by name or supervisor..."
+                        className="h-8 pl-7 pr-6 text-xs bg-background"
+                      />
+                      {treeSearchQuery && (
+                        <button
+                          onClick={() => setTreeSearchQuery("")}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground font-bold"
+                        >
+                          &times;
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Filter Pills */}
+                    <div className="flex items-center gap-1 overflow-x-auto text-[11px]">
+                      {[
+                        { id: "all", label: "All Blocks" },
+                        { id: "worker", label: "Worker" },
+                        { id: "staff", label: "Staff" },
+                        { id: "technician", label: "Tech" },
+                        { id: "labor", label: "Labor" },
+                        { id: "supervisor", label: "Supervisor" },
+                        { id: "executive", label: "Executive" },
+                      ].map((f) => {
+                        const isActive = treeTypeFilter === f.id;
+                        const count =
+                          f.id === "all"
+                            ? blocks.length
+                            : blocks.filter((b) => b.block_type === f.id).length;
+                        return (
+                          <button
+                            key={f.id}
+                            type="button"
+                            onClick={() => setTreeTypeFilter(f.id)}
+                            className={`px-2.5 py-1 rounded-full border transition-all whitespace-nowrap flex items-center gap-1.5 ${
+                              isActive
+                                ? "bg-primary text-primary-foreground border-primary font-semibold shadow-2xs"
+                                : "bg-background text-muted-foreground hover:bg-muted border-border"
+                            }`}
+                          >
+                            <span>{f.label}</span>
+                            <span
+                              className={`text-[9px] px-1 rounded-full ${
+                                isActive ? "bg-primary-foreground/25 text-white" : "bg-muted text-muted-foreground"
+                              }`}
+                            >
+                              {count}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex items-center gap-2">
                     <Button
-                      size="xs"
+                      size="sm"
                       variant="outline"
-                      className="h-6 text-[11px] gap-1 text-primary hover:bg-primary/10 px-2 border-primary/40 font-medium bg-primary/5"
                       onClick={() => setBatchModalOpen(true)}
-                      title="Scaffold multiple blocks at once"
+                      className="text-xs h-8 gap-1.5 border-primary/40 text-primary hover:bg-primary/5 font-medium"
                     >
-                      <Sparkles size={11} className="text-amber-500" /> Multi-Block
+                      <Sparkles size={13} className="text-amber-500" /> Multi-Block Generator
                     </Button>
                     <Button
-                      size="xs"
-                      variant="ghost"
-                      className="h-6 text-[11px] gap-1 text-muted-foreground hover:text-foreground px-1.5"
+                      size="sm"
                       onClick={handleAddBlock}
-                      title="Add a single block"
+                      className="text-xs h-8 gap-1.5 bg-primary text-primary-foreground font-semibold shadow-2xs"
                     >
-                      <Plus size={12} /> Single
+                      <Plus size={13} /> Add Single Block
                     </Button>
                   </div>
                 </div>
 
-                {/* Search Bar with clear */}
-                <div className="relative">
-                  <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    value={treeSearchQuery}
-                    onChange={(e) => setTreeSearchQuery(e.target.value)}
-                    placeholder="Search blocks, supervisor, rooms..."
-                    className="h-7 pl-7 pr-6 text-xs bg-background"
-                  />
-                  {treeSearchQuery && (
-                    <button
-                      onClick={() => setTreeSearchQuery("")}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground font-bold p-0.5"
-                    >
-                      &times;
-                    </button>
-                  )}
-                </div>
-
-                {/* Block Type / Category Filter Strip */}
-                <div className="space-y-1 pt-0.5">
-                  <div className="flex items-center justify-between text-[10px] text-muted-foreground">
-                    <span className="flex items-center gap-1 font-semibold uppercase tracking-wider">
-                      <Filter size={10} /> Filter Blocks
-                    </span>
-                    {(treeTypeFilter !== "all" || treeSearchQuery) && (
-                      <button
+                {/* Blocks Grid Cards */}
+                <ScrollArea className="flex-1 p-5 overflow-y-auto">
+                  {filteredBlocks.length === 0 ? (
+                    <div className="text-center py-20 border border-dashed rounded-lg space-y-3">
+                      <p className="text-xs text-muted-foreground">No blocks match the selected filter.</p>
+                      <Button
+                        size="xs"
+                        variant="outline"
                         onClick={() => {
                           setTreeTypeFilter("all");
                           setTreeSearchQuery("");
                         }}
-                        className="text-[10px] text-primary hover:underline font-medium"
                       >
-                        Reset ({filteredBlocks.length}/{blocks.length})
-                      </button>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-1 overflow-x-auto pb-1 scrollbar-none text-[10px]">
-                    {[
-                      { id: "all", label: "All" },
-                      { id: "worker", label: "Worker" },
-                      { id: "staff", label: "Staff" },
-                      { id: "technician", label: "Tech" },
-                      { id: "labor", label: "Labor" },
-                      { id: "supervisor", label: "Supv" },
-                      { id: "executive", label: "Exec" },
-                    ].map((f) => {
-                      const isActive = treeTypeFilter === f.id;
-                      const count =
-                        f.id === "all"
-                          ? blocks.length
-                          : blocks.filter((b) => b.block_type === f.id).length;
-                      return (
-                        <button
-                          key={f.id}
-                          onClick={() => setTreeTypeFilter(f.id)}
-                          className={`px-2 py-0.5 rounded-full border transition-all whitespace-nowrap flex items-center gap-1 ${
-                            isActive
-                              ? "bg-primary text-primary-foreground border-primary font-semibold shadow-2xs"
-                              : "bg-background text-muted-foreground hover:bg-muted border-border"
-                          }`}
-                        >
-                          <span>{f.label}</span>
-                          <span
-                            className={`text-[9px] px-1 rounded-full ${
-                              isActive
-                                ? "bg-primary-foreground/25 text-white"
-                                : "bg-muted text-muted-foreground"
+                        Clear Filters
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pb-6">
+                      {filteredBlocks.map((block) => {
+                        const blockRooms = rooms.filter((r) => r.blockTempId === block.id);
+                        const blockBeds = blockRooms.reduce((acc, r) => acc + r.max_capacity, 0);
+                        const isCurrent = activeBlockId === block.id;
+
+                        return (
+                          <Card
+                            key={block.id}
+                            className={`border transition-all hover:shadow-md relative overflow-hidden flex flex-col justify-between ${
+                              isCurrent ? "ring-2 ring-primary border-primary bg-primary/2" : "bg-card"
                             }`}
                           >
-                            {count}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
+                            <CardContent className="p-4 space-y-3">
+                              {/* Card Top: Icon, Name, Category Badge, Delete */}
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="flex items-start gap-2.5">
+                                  <div className="p-2 rounded-lg bg-primary/10 text-primary mt-0.5">
+                                    <Building2 size={18} />
+                                  </div>
+                                  <div className="space-y-0.5">
+                                    <Input
+                                      value={block.name}
+                                      onChange={(e) => {
+                                        const val = e.target.value;
+                                        setBlocks(blocks.map((b) => (b.id === block.id ? { ...b, name: val } : b)));
+                                      }}
+                                      className="h-7 text-xs font-bold px-1.5 border-transparent hover:border-input focus:border-input"
+                                    />
+                                    <div className="flex items-center gap-1.5 pl-1.5">
+                                      <Badge variant="outline" className="text-[10px] uppercase font-mono font-bold px-1.5 py-0">
+                                        Prefix: {block.prefix}
+                                      </Badge>
+                                      <Badge variant="secondary" className="text-[10px] capitalize px-1.5 py-0 font-medium">
+                                        {block.block_type}
+                                      </Badge>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {blocks.length > 1 && (
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    className="h-7 w-7 text-muted-foreground hover:text-destructive opacity-70 hover:opacity-100"
+                                    onClick={() => handleRemoveBlock(block.id)}
+                                    title="Delete block"
+                                  >
+                                    <Trash2 size={13} />
+                                  </Button>
+                                )}
+                              </div>
+
+                              {/* Block Metrics Bar */}
+                              <div className="grid grid-cols-3 gap-2 py-2 border-y bg-muted/20 rounded-md text-center text-xs">
+                                <div>
+                                  <div className="text-[10px] text-muted-foreground">Floors</div>
+                                  <div className="font-bold text-foreground">{block.floors} Levels</div>
+                                </div>
+                                <div className="border-x">
+                                  <div className="text-[10px] text-muted-foreground">Rooms</div>
+                                  <div className="font-bold text-blue-600 dark:text-blue-400">
+                                    {blockRooms.length} Rooms
+                                  </div>
+                                </div>
+                                <div>
+                                  <div className="text-[10px] text-muted-foreground">Beds</div>
+                                  <div className="font-bold text-emerald-600 dark:text-emerald-400">
+                                    {blockBeds} Beds
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Supervisor & Numbering format info */}
+                              <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-0.5">
+                                <span>Supervisor: {block.supervisor_name || "Unassigned"}</span>
+                                <span className="font-mono">{block.numberingFormat}</span>
+                              </div>
+                            </CardContent>
+
+                            {/* Card Footer: Drill down action */}
+                            <div className="p-3 border-t bg-muted/15 flex items-center justify-between">
+                              <span className="text-[11px] text-muted-foreground">
+                                Click to configure {block.floors} floors &rarr;
+                              </span>
+                              <Button
+                                size="xs"
+                                onClick={() => {
+                                  setActiveBlockId(block.id);
+                                  setActiveFloor(1);
+                                  setCurrentView("floors");
+                                }}
+                                className="text-xs gap-1.5 bg-primary text-primary-foreground font-semibold shadow-xs"
+                              >
+                                Manage Floors <ArrowRight size={13} />
+                              </Button>
+                            </div>
+                          </Card>
+                        );
+                      })}
+                    </div>
+                  )}
+                </ScrollArea>
               </div>
+            )}
 
-              {/* Tree Node List */}
-              <ScrollArea className="flex-1 p-2 space-y-1 text-xs overflow-y-auto">
-                {/* Root: Camp Node */}
-                <div className="p-2 rounded-md bg-secondary/30 border font-semibold flex items-center justify-between text-xs mb-2">
-                  <div className="flex items-center gap-1.5">
-                    <Building2 size={14} className="text-primary" />
-                    <span className="font-bold truncate max-w-[150px]">{campName}</span>
-                  </div>
-                  <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-background font-mono font-semibold">
-                    {summary.totalRooms} Rms &bull; {summary.totalBeds} Beds
-                  </Badge>
-                </div>
-
-                {/* Filter Empty State */}
-                {filteredBlocks.length === 0 && (
-                  <div className="p-4 text-center border border-dashed rounded-md my-2 space-y-2">
-                    <p className="text-[11px] text-muted-foreground">No blocks match this filter.</p>
+            {/* ════════ STAGE 2: FLOOR LEVELS ════════ */}
+            {currentView === "floors" && (
+              <div className="flex-1 flex flex-col overflow-hidden">
+                {/* Stage 2 Toolbar */}
+                <div className="p-4 border-b bg-card/60 flex flex-wrap items-center justify-between gap-3 flex-shrink-0">
+                  <div className="flex items-center gap-3">
                     <Button
                       size="xs"
                       variant="outline"
-                      className="text-[10px] h-6"
-                      onClick={() => {
-                        setTreeTypeFilter("all");
-                        setTreeSearchQuery("");
-                      }}
+                      onClick={() => setCurrentView("blocks")}
+                      className="h-8 text-xs gap-1"
                     >
-                      Clear Filters
+                      &larr; Back to Blocks
+                    </Button>
+                    <div>
+                      <h3 className="font-bold text-sm text-foreground flex items-center gap-2">
+                        <Building2 size={15} className="text-primary" />
+                        {currentBlock.name} &mdash; Floor Directory
+                      </h3>
+                      <p className="text-[11px] text-muted-foreground">
+                        Select a floor to view and edit individual rooms, or duplicate room layouts across floors.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex items-center gap-2">
+                    {currentBlock.floors > 1 && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={copyCurrentFloorToBlock}
+                        className="text-xs h-8 gap-1.5"
+                        title="Copy Floor 1 layout across all floors in this block"
+                      >
+                        <Copy size={13} /> Duplicate Floor Layout to All
+                      </Button>
+                    )}
+                    <Button
+                      size="sm"
+                      onClick={() => handleAddFloorToBlock(currentBlock.id)}
+                      className="text-xs h-8 gap-1.5 bg-primary text-primary-foreground font-semibold"
+                    >
+                      <Plus size={13} /> Add Floor to {currentBlock.prefix}
                     </Button>
                   </div>
-                )}
-
-                {/* Blocks in tree */}
-                {filteredBlocks.map((block) => {
-                  const isExpanded = !!expandedBlocks[block.id];
-                  const isBlockActive = activeBlockId === block.id;
-                  const blockRooms = rooms.filter((r) => r.blockTempId === block.id);
-                  const blockBeds = blockRooms.reduce((acc, r) => acc + r.max_capacity, 0);
-
-                  return (
-                    <div key={block.id} className="space-y-0.5">
-                      {/* Block Node Row */}
-                      <div
-                        className={`group flex items-center justify-between p-1.5 rounded-md cursor-pointer transition-colors ${
-                          isBlockActive
-                            ? "bg-primary/10 text-primary font-semibold"
-                            : "hover:bg-muted text-foreground"
-                        }`}
-                        onClick={() => {
-                          setActiveBlockId(block.id);
-                          setActiveFloor(1);
-                        }}
-                      >
-                        <div className="flex items-center gap-1.5 flex-1 min-w-0">
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              toggleBlockExpand(block.id);
-                            }}
-                            className="p-0.5 text-muted-foreground hover:text-foreground"
-                          >
-                            {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                          </button>
-                          <Building2 size={13} className={isBlockActive ? "text-primary" : "text-muted-foreground"} />
-                          <span className="truncate text-xs">{block.name}</span>
-                        </div>
-
-                        <div className="flex items-center gap-1">
-                          <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 bg-background">
-                            {block.floors}F &bull; {blockRooms.length}R
-                          </Badge>
-                          {blocks.length > 1 && (
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleRemoveBlock(block.id);
-                              }}
-                              className="opacity-0 group-hover:opacity-100 p-0.5 text-muted-foreground hover:text-destructive transition-opacity"
-                              title="Delete block"
-                            >
-                              <Trash2 size={12} />
-                            </button>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Floor Children Nodes */}
-                      {isExpanded && (
-                        <div className="pl-5 space-y-0.5 border-l-2 border-primary/20 ml-2.5 my-1">
-                          {Array.from({ length: block.floors }, (_, i) => i + 1).map((flr) => {
-                            const isFloorActive = isBlockActive && activeFloor === flr;
-                            const flrRooms = rooms.filter(
-                              (r) => r.blockTempId === block.id && r.floor === flr
-                            );
-                            const flrBeds = flrRooms.reduce((acc, r) => acc + r.max_capacity, 0);
-
-                            return (
-                              <div
-                                key={flr}
-                                onClick={() => {
-                                  setActiveBlockId(block.id);
-                                  setActiveFloor(flr);
-                                  setSelectedRoomIds(new Set());
-                                }}
-                                className={`flex items-center justify-between p-1.5 rounded-md cursor-pointer text-[11px] transition-colors ${
-                                  isFloorActive
-                                    ? "bg-primary text-primary-foreground font-bold shadow-2xs"
-                                    : "hover:bg-muted/80 text-muted-foreground hover:text-foreground"
-                                }`}
-                              >
-                                <div className="flex items-center gap-1.5">
-                                  <Layers size={12} />
-                                  <span>Floor {flr}</span>
-                                </div>
-                                <span
-                                  className={`text-[10px] px-1 rounded ${
-                                    isFloorActive ? "bg-primary-foreground/20 text-primary-foreground" : "text-muted-foreground"
-                                  }`}
-                                >
-                                  {flrRooms.length} Rms &bull; {flrBeds} Beds
-                                </span>
-                              </div>
-                            );
-                          })}
-
-                          {/* Add Floor to Block Button */}
-                          <button
-                            type="button"
-                            onClick={() => handleAddFloorToBlock(block.id)}
-                            className="w-full text-left py-1 px-1.5 text-[11px] text-primary hover:underline flex items-center gap-1"
-                          >
-                            <Plus size={11} /> Add Floor to {block.name}
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </ScrollArea>
-            </div>
-
-            {/* ════════ RIGHT PANE: LEVEL WORKBENCH (CAMP > BLOCK > FLOOR) ════════ */}
-            <div className="flex-1 flex flex-col overflow-hidden bg-background">
-              {/* Floor Header Bar */}
-              <div className="p-4 py-3 border-b bg-card space-y-2">
-                {/* Breadcrumbs */}
-                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <span className="hover:text-foreground cursor-pointer font-medium">{campName}</span>
-                  <ChevronRight size={12} />
-                  <span className="hover:text-foreground cursor-pointer font-medium">{currentBlock.name}</span>
-                  <ChevronRight size={12} />
-                  <span className="font-bold text-foreground">Floor {activeFloor}</span>
                 </div>
 
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-bold text-sm text-foreground flex items-center gap-2">
-                      <Layers size={16} className="text-primary" />
-                      {currentBlock.name} &mdash; Floor {activeFloor} Configuration
-                    </h3>
-                    <Badge variant="secondary" className="text-xs font-semibold">
-                      {activeFloorRooms.length} Rooms
-                    </Badge>
-                    <Badge variant="outline" className="text-xs font-semibold text-blue-600 dark:text-blue-400">
-                      {activeFloorRooms.reduce((acc, r) => acc + r.max_capacity, 0)} Total Beds
-                    </Badge>
+                {/* Floors Grid */}
+                <ScrollArea className="flex-1 p-5 overflow-y-auto">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pb-6">
+                    {Array.from({ length: currentBlock.floors }, (_, i) => i + 1).map((flr) => {
+                      const flrRooms = rooms.filter(
+                        (r) => r.blockTempId === currentBlock.id && r.floor === flr
+                      );
+                      const flrBeds = flrRooms.reduce((acc, r) => acc + r.max_capacity, 0);
+                      const acCount = flrRooms.filter((r) => r.ac).length;
+                      const bathCount = flrRooms.filter((r) => r.attached_bathroom).length;
+                      const sampleStart = flrRooms[0]?.room_number || "None";
+                      const sampleEnd = flrRooms[flrRooms.length - 1]?.room_number || "";
+
+                      return (
+                        <Card
+                          key={flr}
+                          className="border transition-all hover:shadow-md bg-card flex flex-col justify-between"
+                        >
+                          <CardContent className="p-4 space-y-3">
+                            {/* Header */}
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <div className="p-2 rounded-lg bg-primary/10 text-primary">
+                                  <Layers size={18} />
+                                </div>
+                                <div>
+                                  <h4 className="font-bold text-sm text-foreground">Floor {flr}</h4>
+                                  <span className="text-[11px] text-muted-foreground font-mono">
+                                    {flrRooms.length} Rooms &bull; {sampleStart}{sampleEnd && sampleEnd !== sampleStart ? ` ➔ ${sampleEnd}` : ""}
+                                  </span>
+                                </div>
+                              </div>
+                              <Badge variant="outline" className="font-mono text-xs font-bold text-blue-600 dark:text-blue-400">
+                                {flrBeds} Total Beds
+                              </Badge>
+                            </div>
+
+                            {/* Details bar */}
+                            <div className="grid grid-cols-2 gap-2 p-2 rounded bg-muted/20 border text-xs">
+                              <div className="flex items-center gap-1.5 text-muted-foreground">
+                                <Wind size={13} className="text-cyan-600" />
+                                <span>{acCount} AC Rooms</span>
+                              </div>
+                              <div className="flex items-center gap-1.5 text-muted-foreground">
+                                <Bath size={13} className="text-emerald-600" />
+                                <span>{bathCount} Ensuite Baths</span>
+                              </div>
+                            </div>
+                          </CardContent>
+
+                          {/* Footer */}
+                          <div className="p-3 border-t bg-muted/15 flex items-center justify-between gap-2">
+                            <Button
+                              size="xs"
+                              variant="ghost"
+                              onClick={() => openSingleRoomCreator(flr)}
+                              className="text-xs h-7 gap-1 text-primary hover:bg-primary/10"
+                            >
+                              <Plus size={12} /> Add Room
+                            </Button>
+
+                            <Button
+                              size="xs"
+                              onClick={() => {
+                                setActiveFloor(flr);
+                                setCurrentView("rooms");
+                              }}
+                              className="text-xs h-7 gap-1 bg-primary text-primary-foreground font-semibold shadow-xs"
+                            >
+                              Configure Rooms <ArrowRight size={13} />
+                            </Button>
+                          </div>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                </ScrollArea>
+              </div>
+            )}
+
+            {/* ════════ STAGE 3: ROOM WORKBENCH ════════ */}
+            {currentView === "rooms" && (
+              <div className="flex-1 flex flex-col overflow-hidden">
+                {/* Stage 3 Header Bar */}
+                <div className="p-3 px-5 border-b bg-card/60 flex flex-wrap items-center justify-between gap-3 flex-shrink-0">
+                  <div className="flex items-center gap-3">
+                    <Button
+                      size="xs"
+                      variant="outline"
+                      onClick={() => setCurrentView("floors")}
+                      className="h-8 text-xs gap-1"
+                    >
+                      &larr; Back to Floors
+                    </Button>
+                    <div>
+                      <h3 className="font-bold text-sm text-foreground flex items-center gap-2">
+                        <BedDouble size={16} className="text-primary" />
+                        {currentBlock.name} &mdash; Floor {activeFloor} Rooms
+                      </h3>
+                      <p className="text-[11px] text-muted-foreground">
+                        Every room can be individually customized: edit room numbers, assign specifications, adjust beds, and toggle amenities.
+                      </p>
+                    </div>
                   </div>
 
-                  {/* Floor Level Tools */}
-                  <div className="flex items-center gap-1.5">
+                  {/* Top Level Floor Tools */}
+                  <div className="flex items-center gap-2">
                     {/* Apply Preset Dropdown */}
                     <Select
                       onValueChange={(specId) => {
@@ -1575,7 +1736,7 @@ export default function CampMasterSetupDialog({
                         if (targetSpec) applyPresetToActiveFloor(targetSpec);
                       }}
                     >
-                      <SelectTrigger className="h-7 text-xs w-44">
+                      <SelectTrigger className="h-8 text-xs w-44">
                         <SelectValue placeholder="Apply Floor Preset..." />
                       </SelectTrigger>
                       <SelectContent>
@@ -1587,460 +1748,342 @@ export default function CampMasterSetupDialog({
                       </SelectContent>
                     </Select>
 
-                    {currentBlock.floors > 1 && (
-                      <Button
-                        size="xs"
-                        variant="outline"
-                        onClick={copyCurrentFloorToBlock}
-                        className="h-7 text-xs gap-1"
-                        title="Copy this floor's room layout to all other floors in this block"
-                      >
-                        <Copy size={12} /> Duplicate Floor to All
-                      </Button>
-                    )}
+                    {/* Add Room button */}
+                    <Button
+                      size="sm"
+                      onClick={() => openSingleRoomCreator()}
+                      className="h-8 text-xs gap-1.5 bg-primary text-primary-foreground font-semibold shadow-xs"
+                      title="Add an individual room with custom room number"
+                    >
+                      <Plus size={13} /> Add Room
+                    </Button>
+
+                    {/* Bulk Room Entry button */}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => openBulkRoomEntry()}
+                      className="h-8 text-xs gap-1.5 border-emerald-500/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/5 font-semibold"
+                      title="Bulk paste arbitrary room numbers from Excel"
+                    >
+                      <FileSpreadsheet size={13} className="text-emerald-600 dark:text-emerald-400" /> Bulk Room Entry
+                    </Button>
                   </div>
                 </div>
-              </div>
 
-              {/* Floor Setup & Action Toolbar */}
-              <div className="p-3 bg-muted/20 border-b flex flex-wrap items-center justify-between gap-2 text-xs">
-                <div className="flex flex-wrap items-center gap-3">
-                  {/* Select All Checkbox */}
-                  <div className="flex items-center gap-1.5 mr-1">
+                {/* Selection Bar if multiple rooms selected */}
+                {selectedRoomsOnActiveFloor.length > 0 && (
+                  <div className="p-2 px-5 bg-primary text-primary-foreground shadow-md flex flex-wrap items-center justify-between gap-2 text-xs flex-shrink-0 animate-in slide-in-from-top-1">
+                    <div className="flex items-center gap-2 font-semibold">
+                      <CheckSquare size={14} />
+                      <span>{selectedRoomsOnActiveFloor.length} rooms selected on Floor {activeFloor}</span>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Select
+                        onValueChange={(specId) => {
+                          const targetSpec = availableSpecs.find((s) => s.id === specId);
+                          if (targetSpec) {
+                            batchApplyToSelected({
+                              specId: targetSpec.id,
+                              category: targetSpec.categoryValue,
+                              categoryLabel: targetSpec.name,
+                              max_capacity: targetSpec.capacity,
+                              ac: targetSpec.ac,
+                              attached_bathroom: targetSpec.attachedBath,
+                              daily_rate: targetSpec.dailyRate,
+                              daily_food_rate: targetSpec.dailyFoodRate,
+                            });
+                          }
+                        }}
+                      >
+                        <SelectTrigger className="h-7 text-xs bg-background text-foreground w-40">
+                          <SelectValue placeholder="Set Room Spec..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {availableSpecs.map((s) => (
+                            <SelectItem key={s.id} value={s.id} className="text-xs">
+                              {s.name} ({s.capacity} Beds)
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+
+                      <Button
+                        size="xs"
+                        variant="secondary"
+                        className="h-7 text-xs gap-1"
+                        onClick={() => batchApplyToSelected({ ac: true })}
+                      >
+                        <Wind size={12} /> AC On
+                      </Button>
+
+                      <Button
+                        size="xs"
+                        variant="secondary"
+                        className="h-7 text-xs gap-1"
+                        onClick={() => batchApplyToSelected({ attached_bathroom: true })}
+                      >
+                        <Bath size={12} /> Bath On
+                      </Button>
+
+                      <Button
+                        size="xs"
+                        variant="destructive"
+                        className="h-7 text-xs gap-1"
+                        onClick={deleteSelectedRooms}
+                      >
+                        <Trash2 size={12} /> Delete ({selectedRoomsOnActiveFloor.length})
+                      </Button>
+
+                      <Button
+                        size="xs"
+                        variant="ghost"
+                        className="h-7 text-xs text-primary-foreground hover:bg-primary-foreground/20"
+                        onClick={() => setSelectedRoomIds(new Set())}
+                      >
+                        Clear
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Select All Row */}
+                <div className="px-5 py-2 bg-muted/20 border-b flex items-center justify-between text-xs flex-shrink-0">
+                  <div className="flex items-center gap-2">
                     <Checkbox
                       checked={
                         activeFloorRooms.length > 0 &&
                         activeFloorRooms.every((r) => selectedRoomIds.has(r.tempId))
                       }
                       onCheckedChange={toggleSelectAllOnFloor}
-                      id="select-all-floor-main"
+                      id="select-all-rooms"
                     />
-                    <label htmlFor="select-all-floor-main" className="text-xs cursor-pointer font-medium">
-                      Select All ({activeFloorRooms.length})
+                    <label htmlFor="select-all-rooms" className="text-xs cursor-pointer font-medium">
+                      Select All on Floor {activeFloor} ({activeFloorRooms.length} Rooms &bull; {activeFloorRooms.reduce((acc, r) => acc + r.max_capacity, 0)} Beds)
                     </label>
                   </div>
 
-                  {/* Room Prefix & Numbering Input */}
-                  <div className="flex items-center gap-1.5 border-l pl-3">
-                    <span className="text-muted-foreground text-[11px]">Prefix:</span>
-                    <Input
-                      value={currentBlock.prefix}
-                      onChange={(e) => {
-                        const val = e.target.value.toUpperCase();
-                        setBlocks(
-                          blocks.map((b) => (b.id === currentBlock.id ? { ...b, prefix: val } : b))
-                        );
-                      }}
-                      className="h-6 w-14 text-xs font-mono font-bold uppercase text-center px-1"
-                    />
-                  </div>
-
-                  {/* Numbering Format Select */}
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-muted-foreground text-[11px]">Format:</span>
-                    <Select
-                      value={currentBlock.numberingFormat}
-                      onValueChange={(val: any) => {
-                        setBlocks(
-                          blocks.map((b) => (b.id === currentBlock.id ? { ...b, numberingFormat: val } : b))
-                        );
-                      }}
-                    >
-                      <SelectTrigger className="h-6 text-xs w-28 font-mono">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="3digit" className="text-xs font-mono">3-Digit (101..)</SelectItem>
-                        <SelectItem value="4digit" className="text-xs font-mono">4-Digit (0101..)</SelectItem>
-                        <SelectItem value="g_style" className="text-xs font-mono">G-Style (G01..)</SelectItem>
-                        <SelectItem value="sequential" className="text-xs font-mono">Sequential (1..)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                {/* Room Creation Suite */}
-                <div className="flex items-center gap-1.5">
-                  <Button
-                    size="xs"
-                    onClick={() => openSingleRoomCreator()}
-                    className="h-7 text-xs gap-1 bg-primary text-primary-foreground font-semibold shadow-2xs hover:bg-primary/90"
-                    title="Add an individual room with custom room number"
-                  >
-                    <Plus size={13} /> Add Room
-                  </Button>
-
-                  <Button
-                    size="xs"
-                    variant="outline"
-                    onClick={() => openBulkRoomEntry()}
-                    className="h-7 text-xs gap-1 border-primary/40 text-primary hover:bg-primary/5 font-medium"
-                    title="Bulk paste or import multiple custom room numbers"
-                  >
-                    <FileSpreadsheet size={13} className="text-emerald-600 dark:text-emerald-400" /> Bulk Room Entry
-                  </Button>
-
-                  <Select
-                    onValueChange={(specId) => {
-                      const spec = availableSpecs.find((s) => s.id === specId);
-                      handleAddRoom(spec);
-                    }}
-                  >
-                    <SelectTrigger className="h-7 text-xs w-36 border-muted-foreground/30 text-muted-foreground hover:text-foreground">
-                      <SelectValue placeholder="Quick Auto-Add..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {availableSpecs.map((s) => (
-                        <SelectItem key={s.id} value={s.id} className="text-xs">
-                          Auto + {s.name} ({s.capacity}B)
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              {/* Room Range Tool Strip */}
-              {activeFloorRooms.length > 1 && (
-                <div className="px-4 py-2 bg-secondary/15 border-b flex flex-wrap items-center gap-2 text-xs">
-                  <span className="font-semibold text-muted-foreground">Range Tool:</span>
-                  <span className="text-muted-foreground">From</span>
-                  <Select value={rangeStartRoom} onValueChange={setRangeStartRoom}>
-                    <SelectTrigger className="h-6 text-xs w-24">
-                      <SelectValue placeholder="Room" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {activeFloorRooms.map((r) => (
-                        <SelectItem key={r.tempId} value={r.room_number} className="text-xs font-mono">
-                          {r.room_number}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-
-                  <span className="text-muted-foreground">to</span>
-                  <Select value={rangeEndRoom} onValueChange={setRangeEndRoom}>
-                    <SelectTrigger className="h-6 text-xs w-24">
-                      <SelectValue placeholder="Room" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {activeFloorRooms.map((r) => (
-                        <SelectItem key={r.tempId} value={r.room_number} className="text-xs font-mono">
-                          {r.room_number}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-
-                  <span className="text-muted-foreground">Set To</span>
-                  <Select value={rangeSelectedSpecId} onValueChange={setRangeSelectedSpecId}>
-                    <SelectTrigger className="h-6 text-xs w-44">
-                      <SelectValue placeholder="Select template..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {availableSpecs.map((s) => (
-                        <SelectItem key={s.id} value={s.id} className="text-xs">
-                          {s.name} ({s.capacity}B &bull; SAR {s.dailyRate})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-
-                  <Button
-                    size="xs"
-                    variant="outline"
-                    className="h-6 text-xs px-2"
-                    onClick={applyRangeTool}
-                  >
-                    Apply Range
-                  </Button>
-                </div>
-              )}
-
-              {/* Multi-Select Floating Action Bar */}
-              {selectedRoomsOnActiveFloor.length > 0 && (
-                <div className="p-2.5 px-4 bg-primary text-primary-foreground shadow-md flex flex-wrap items-center justify-between gap-2 text-xs animate-in slide-in-from-top-1">
-                  <div className="flex items-center gap-2 font-semibold">
-                    <CheckSquare size={14} />
-                    <span>{selectedRoomsOnActiveFloor.length} rooms selected on Floor {activeFloor}</span>
-                  </div>
-
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Select
-                      onValueChange={(specId) => {
-                        const targetSpec = availableSpecs.find((s) => s.id === specId);
-                        if (targetSpec) {
-                          batchApplyToSelected({
-                            specId: targetSpec.id,
-                            category: targetSpec.categoryValue,
-                            categoryLabel: targetSpec.name,
-                            max_capacity: targetSpec.capacity,
-                            ac: targetSpec.ac,
-                            attached_bathroom: targetSpec.attachedBath,
-                            daily_rate: targetSpec.dailyRate,
-                            daily_food_rate: targetSpec.dailyFoodRate,
-                          });
-                        }
-                      }}
-                    >
-                      <SelectTrigger className="h-7 text-xs bg-background text-foreground w-40">
-                        <SelectValue placeholder="Set Room Spec..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {availableSpecs.map((s) => (
-                          <SelectItem key={s.id} value={s.id} className="text-xs">
-                            {s.name} ({s.capacity} Beds)
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-
-                    <Button
-                      size="xs"
-                      variant="secondary"
-                      className="h-7 text-xs gap-1"
-                      onClick={() => batchApplyToSelected({ ac: true })}
-                    >
-                      <Wind size={12} /> AC On
-                    </Button>
-
-                    <Button
-                      size="xs"
-                      variant="secondary"
-                      className="h-7 text-xs gap-1"
-                      onClick={() => batchApplyToSelected({ attached_bathroom: true })}
-                    >
-                      <Bath size={12} /> Bath On
-                    </Button>
-
-                    <Button
-                      size="xs"
-                      variant="destructive"
-                      className="h-7 text-xs gap-1"
-                      onClick={deleteSelectedRooms}
-                    >
-                      <Trash2 size={12} /> Delete ({selectedRoomsOnActiveFloor.length})
-                    </Button>
-
-                    <Button
-                      size="xs"
-                      variant="ghost"
-                      className="h-7 text-xs text-primary-foreground hover:bg-primary-foreground/20"
-                      onClick={() => setSelectedRoomIds(new Set())}
-                    >
-                      Clear
-                    </Button>
-                  </div>
-                </div>
-              )}
-
-              {/* Room Cards Grid */}
-              <ScrollArea className="flex-1 p-4 overflow-y-auto">
-                {activeFloorRooms.length === 0 ? (
-                  <div className="text-center py-16 border border-dashed rounded-lg space-y-3">
-                    <div className="p-3 bg-muted/40 rounded-full w-fit mx-auto text-muted-foreground">
-                      <BedDouble size={24} />
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-xs font-semibold text-foreground">No rooms configured on Floor {activeFloor} yet</p>
-                      <p className="text-[11px] text-muted-foreground max-w-sm mx-auto">
-                        Add rooms individually with custom numbering, or paste a list of arbitrary room numbers in bulk.
-                      </p>
-                    </div>
-                    <div className="flex items-center justify-center gap-2 pt-1">
-                      <Button
-                        size="xs"
-                        className="text-xs gap-1 bg-primary text-primary-foreground font-semibold"
-                        onClick={() => openSingleRoomCreator()}
-                      >
-                        <Plus size={12} /> Add Room
-                      </Button>
-                      <Button
-                        size="xs"
-                        variant="outline"
-                        className="text-xs gap-1 border-primary/40 text-primary font-medium"
-                        onClick={() => openBulkRoomEntry()}
-                      >
-                        <FileSpreadsheet size={12} className="text-emerald-500" /> Bulk Room Entry
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 pb-4">
-                    {activeFloorRooms.map((room) => {
-                      const isSelected = selectedRoomIds.has(room.tempId);
-                      return (
-                        <Card
-                          key={room.tempId}
-                          className={`border shadow-2xs hover:shadow-xs transition-all relative overflow-hidden group ${
-                            isSelected ? "ring-2 ring-primary border-primary bg-primary/5" : "bg-card"
-                          }`}
-                        >
-                          <div
-                            className={`h-1.5 w-full ${
-                              room.max_capacity === 1
-                                ? "bg-purple-500"
-                                : room.max_capacity === 2
-                                ? "bg-blue-500"
-                                : room.max_capacity <= 4
-                                ? "bg-emerald-500"
-                                : room.max_capacity <= 6
-                                ? "bg-amber-500"
-                                : "bg-red-500"
-                            }`}
-                          />
-                          <CardContent className="p-3 space-y-2.5">
-                            {/* Top row: Checkbox, Room Number, Bed count badge, Delete */}
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-1.5">
-                                <Checkbox
-                                  checked={isSelected}
-                                  onCheckedChange={() => toggleSelectRoom(room.tempId)}
-                                  className="h-4 w-4"
-                                />
-                                <Input
-                                  value={room.room_number}
-                                  onChange={(e) => {
-                                    const val = e.target.value;
-                                    setRooms(
-                                      rooms.map((r) =>
-                                        r.tempId === room.tempId ? { ...r, room_number: val } : r
-                                      )
-                                    );
-                                  }}
-                                  className="h-6 w-20 px-1 text-xs font-mono font-bold"
-                                />
-                              </div>
-
-                              <div className="flex items-center gap-1">
-                                <Badge
-                                  variant="secondary"
-                                  className="text-[10px] px-1.5 py-0 font-bold gap-1"
-                                >
-                                  <BedDouble size={11} /> {room.max_capacity}B
-                                </Badge>
-                                <Button
-                                  size="icon"
-                                  variant="ghost"
-                                  className="h-6 w-6 text-muted-foreground hover:text-destructive opacity-70 group-hover:opacity-100"
-                                  onClick={() =>
-                                    setRooms(rooms.filter((r) => r.tempId !== room.tempId))
-                                  }
-                                  title="Delete room"
-                                >
-                                  <Trash2 size={12} />
-                                </Button>
-                              </div>
-                            </div>
-
-                            {/* Room Specification / Template Selector */}
-                            <div className="space-y-1">
-                              <Select
-                                value={room.specId || ""}
-                                onValueChange={(specId) => {
-                                  const spec = availableSpecs.find((s) => s.id === specId);
-                                  if (spec) applySpecToRoom(room.tempId, spec);
-                                }}
-                              >
-                                <SelectTrigger className="h-7 text-[11px] font-medium">
-                                  <SelectValue placeholder="Room Template" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {availableSpecs.map((s) => (
-                                    <SelectItem key={s.id} value={s.id} className="text-xs">
-                                      {s.name} ({s.capacity} Beds)
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
-
-                            {/* Amenities and Daily Rent */}
-                            <div className="flex items-center justify-between pt-1 border-t text-xs">
-                              <div className="flex items-center gap-1">
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    setRooms(
-                                      rooms.map((r) =>
-                                        r.tempId === room.tempId ? { ...r, ac: !r.ac } : r
-                                      )
-                                    )
-                                  }
-                                  title={room.ac ? "AC Active" : "No AC"}
-                                  className={`p-1 rounded transition-colors ${
-                                    room.ac
-                                      ? "bg-cyan-500/10 text-cyan-600 dark:text-cyan-400"
-                                      : "text-muted-foreground/40 hover:text-muted-foreground"
-                                  }`}
-                                >
-                                  <Wind size={13} />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    setRooms(
-                                      rooms.map((r) =>
-                                        r.tempId === room.tempId
-                                          ? { ...r, attached_bathroom: !r.attached_bathroom }
-                                          : r
-                                      )
-                                    )
-                                  }
-                                  title={room.attached_bathroom ? "Ensuite Private Bath" : "Shared Bath"}
-                                  className={`p-1 rounded transition-colors ${
-                                    room.attached_bathroom
-                                      ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                                      : "text-muted-foreground/40 hover:text-muted-foreground"
-                                  }`}
-                                >
-                                  <Bath size={13} />
-                                </button>
-                              </div>
-
-                              <div className="flex items-center gap-1">
-                                <span className="text-[10px] text-muted-foreground">SAR</span>
-                                <Input
-                                  type="number"
-                                  min={0}
-                                  value={room.daily_rate}
-                                  onChange={(e) => {
-                                    const val = parseFloat(e.target.value) || 0;
-                                    setRooms(
-                                      rooms.map((r) =>
-                                        r.tempId === room.tempId ? { ...r, daily_rate: val } : r
-                                      )
-                                    );
-                                  }}
-                                  className="h-6 w-14 text-right px-1 text-[11px] font-semibold"
-                                />
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      );
-                    })}
-                  </div>
-                )}
-              </ScrollArea>
-
-              {/* Bottom Room Config Master Link Banner */}
-              <div className="p-3 px-4 border-t bg-primary/5 flex items-center justify-between text-xs">
-                <div className="flex items-center gap-2">
-                  <Sparkles size={14} className="text-primary" />
-                  <span className="text-muted-foreground">
-                    Need new room types, custom bed counts, or new workforce roles?
+                  <span className="text-[11px] text-muted-foreground">
+                    Tip: Every room number, template, capacity, and rate can be directly edited right on the card.
                   </span>
                 </div>
-                <Button
-                  size="xs"
-                  variant="link"
-                  onClick={() => setRoomConfigMasterOpen(true)}
-                  className="h-auto p-0 text-xs font-semibold text-primary gap-1"
-                >
-                  Manage specifications in Room Configuration Master &rarr;
-                </Button>
+
+                {/* Room Cards Grid */}
+                <ScrollArea className="flex-1 p-5 overflow-y-auto">
+                  {activeFloorRooms.length === 0 ? (
+                    <div className="text-center py-20 border border-dashed rounded-lg space-y-3">
+                      <div className="p-3 bg-muted/40 rounded-full w-fit mx-auto text-muted-foreground">
+                        <BedDouble size={24} />
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-xs font-semibold text-foreground">No rooms configured on Floor {activeFloor} yet</p>
+                        <p className="text-[11px] text-muted-foreground max-w-sm mx-auto">
+                          Add rooms individually with custom numbering, or paste a list of arbitrary room numbers in bulk.
+                        </p>
+                      </div>
+                      <div className="flex items-center justify-center gap-2 pt-1">
+                        <Button
+                          size="xs"
+                          className="text-xs gap-1 bg-primary text-primary-foreground font-semibold"
+                          onClick={() => openSingleRoomCreator()}
+                        >
+                          <Plus size={12} /> Add Room
+                        </Button>
+                        <Button
+                          size="xs"
+                          variant="outline"
+                          className="text-xs gap-1 border-primary/40 text-primary font-medium"
+                          onClick={() => openBulkRoomEntry()}
+                        >
+                          <FileSpreadsheet size={12} className="text-emerald-500" /> Bulk Room Entry
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3.5 pb-6">
+                      {activeFloorRooms.map((room) => {
+                        const isSelected = selectedRoomIds.has(room.tempId);
+                        const isDup = isRoomNumberTaken(room.room_number, room.tempId);
+
+                        return (
+                          <Card
+                            key={room.tempId}
+                            className={`border shadow-2xs hover:shadow-xs transition-all relative overflow-hidden group ${
+                              isSelected
+                                ? "ring-2 ring-primary border-primary bg-primary/5"
+                                : isDup
+                                ? "border-destructive bg-destructive/5"
+                                : "bg-card"
+                            }`}
+                          >
+                            <div
+                              className={`h-1.5 w-full ${
+                                room.max_capacity === 1
+                                  ? "bg-purple-500"
+                                  : room.max_capacity === 2
+                                  ? "bg-blue-500"
+                                  : room.max_capacity <= 4
+                                  ? "bg-emerald-500"
+                                  : room.max_capacity <= 6
+                                  ? "bg-amber-500"
+                                  : "bg-red-500"
+                              }`}
+                            />
+                            <CardContent className="p-3.5 space-y-2.5">
+                              {/* Top row: Checkbox, Room Number (Editable!), Bed count badge, Delete */}
+                              <div className="flex items-center justify-between gap-1.5">
+                                <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                                  <Checkbox
+                                    checked={isSelected}
+                                    onCheckedChange={() => toggleSelectRoom(room.tempId)}
+                                    className="h-4 w-4 flex-shrink-0"
+                                  />
+                                  <Input
+                                    value={room.room_number}
+                                    onChange={(e) => {
+                                      const val = e.target.value;
+                                      setRooms(
+                                        rooms.map((r) =>
+                                          r.tempId === room.tempId ? { ...r, room_number: val } : r
+                                        )
+                                      );
+                                    }}
+                                    placeholder="Room #"
+                                    className={`h-7 text-xs font-mono font-bold px-1.5 ${
+                                      isDup ? "border-destructive text-destructive font-black" : ""
+                                    }`}
+                                  />
+                                </div>
+
+                                <div className="flex items-center gap-1">
+                                  <Badge
+                                    variant="secondary"
+                                    className="text-[10px] px-1.5 py-0 font-bold gap-1 whitespace-nowrap"
+                                  >
+                                    <BedDouble size={11} /> {room.max_capacity}B
+                                  </Badge>
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    className="h-6 w-6 text-muted-foreground hover:text-destructive opacity-70 group-hover:opacity-100"
+                                    onClick={() =>
+                                      setRooms(rooms.filter((r) => r.tempId !== room.tempId))
+                                    }
+                                    title="Delete room"
+                                  >
+                                    <Trash2 size={12} />
+                                  </Button>
+                                </div>
+                              </div>
+
+                              {/* Room Specification Selector */}
+                              <div className="space-y-1">
+                                <Select
+                                  value={room.specId || ""}
+                                  onValueChange={(specId) => {
+                                    const spec = availableSpecs.find((s) => s.id === specId);
+                                    if (spec) applySpecToRoom(room.tempId, spec);
+                                  }}
+                                >
+                                  <SelectTrigger className="h-7 text-[11px] font-medium">
+                                    <SelectValue placeholder="Room Template" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {availableSpecs.map((s) => (
+                                      <SelectItem key={s.id} value={s.id} className="text-xs">
+                                        {s.name} ({s.capacity} Beds)
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+
+                              {/* Amenities and Daily Rent */}
+                              <div className="flex items-center justify-between pt-1 border-t text-xs">
+                                <div className="flex items-center gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setRooms(
+                                        rooms.map((r) =>
+                                          r.tempId === room.tempId ? { ...r, ac: !r.ac } : r
+                                        )
+                                      )
+                                    }
+                                    title={room.ac ? "AC Active" : "No AC"}
+                                    className={`p-1 rounded transition-colors ${
+                                      room.ac
+                                        ? "bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 font-semibold"
+                                        : "text-muted-foreground/40 hover:text-muted-foreground"
+                                    }`}
+                                  >
+                                    <Wind size={13} />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setRooms(
+                                        rooms.map((r) =>
+                                          r.tempId === room.tempId ? { ...r, attached_bathroom: !r.attached_bathroom } : r
+                                        )
+                                      )
+                                    }
+                                    title={room.attached_bathroom ? "Ensuite Private Bath" : "Shared Bath"}
+                                    className={`p-1 rounded transition-colors ${
+                                      room.attached_bathroom
+                                        ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-semibold"
+                                        : "text-muted-foreground/40 hover:text-muted-foreground"
+                                    }`}
+                                  >
+                                    <Bath size={13} />
+                                  </button>
+                                </div>
+
+                                <div className="flex items-center gap-1">
+                                  <span className="text-[10px] text-muted-foreground">SAR</span>
+                                  <Input
+                                    type="number"
+                                    min={0}
+                                    value={room.daily_rate}
+                                    onChange={(e) => {
+                                      const val = parseFloat(e.target.value) || 0;
+                                      setRooms(
+                                        rooms.map((r) =>
+                                          r.tempId === room.tempId ? { ...r, daily_rate: val } : r
+                                        )
+                                      );
+                                    }}
+                                    className="h-6 w-14 text-right px-1 text-[11px] font-semibold"
+                                  />
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        );
+                      })}
+                    </div>
+                  )}
+                </ScrollArea>
               </div>
+            )}
+
+            {/* Bottom Room Config Master Link Banner */}
+            <div className="p-3 px-5 border-t bg-primary/5 flex items-center justify-between text-xs flex-shrink-0">
+              <div className="flex items-center gap-2">
+                <Sparkles size={14} className="text-primary" />
+                <span className="text-muted-foreground">
+                  Need new room types, custom bed counts, or new workforce roles?
+                </span>
+              </div>
+              <Button
+                size="xs"
+                variant="link"
+                onClick={() => setRoomConfigMasterOpen(true)}
+                className="h-auto p-0 text-xs font-semibold text-primary gap-1"
+              >
+                Manage specifications in Room Configuration Master &rarr;
+              </Button>
             </div>
           </div>
         </DialogContent>
