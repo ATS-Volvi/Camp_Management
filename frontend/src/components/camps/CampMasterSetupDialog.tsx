@@ -23,6 +23,7 @@ import { supabase } from "@/integrations/supabase/client";
 import RoomConfigMasterDialog, {
   RoomSpecification,
   getStoredRoomSpecifications,
+  saveStoredRoomSpecifications,
   DEFAULT_ROOM_SPECIFICATIONS,
 } from "./RoomConfigMasterDialog";
 import {
@@ -199,6 +200,16 @@ export default function CampMasterSetupDialog({
       rate: number;
     }>
   >([]);
+
+  // Quick In-Place Room Type Creator Modal state
+  const [quickTypeModalOpen, setQuickTypeModalOpen] = useState(false);
+  const [quickTypeTargetRoomTempId, setQuickTypeTargetRoomTempId] = useState<string | null>(null);
+  const [quickTypeName, setQuickTypeName] = useState("");
+  const [quickTypeCategory, setQuickTypeCategory] = useState("worker");
+  const [quickTypeCapacity, setQuickTypeCapacity] = useState<number>(4);
+  const [quickTypeAc, setQuickTypeAc] = useState<boolean>(true);
+  const [quickTypeBath, setQuickTypeBath] = useState<boolean>(true);
+  const [quickTypeRate, setQuickTypeRate] = useState<number>(75);
 
   // Range Tool state
   const [rangeStartRoom, setRangeStartRoom] = useState<string>("");
@@ -704,6 +715,72 @@ export default function CampMasterSetupDialog({
       setCustomRoomBath(spec.attachedBath);
       setCustomRoomRate(spec.dailyRate);
     }
+  };
+
+  // Open in-place Quick Room Type Creator
+  const openQuickTypeCreator = (targetRoomTempId?: string) => {
+    setQuickTypeTargetRoomTempId(targetRoomTempId || null);
+    setQuickTypeName("");
+    setQuickTypeCategory("worker");
+    setQuickTypeCapacity(4);
+    setQuickTypeAc(true);
+    setQuickTypeBath(true);
+    setQuickTypeRate(75);
+    setQuickTypeModalOpen(true);
+  };
+
+  // Save new room type in-place and persist to catalog
+  const handleSaveQuickType = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!quickTypeName.trim()) {
+      toast({ title: "Room type name is required", variant: "destructive" });
+      return;
+    }
+
+    const cleanName = quickTypeName.trim();
+    const cleanCode = `ROOM-${cleanName.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 4)}-${String(Date.now()).slice(-3)}`;
+
+    const newSpec: RoomSpecification = {
+      id: `spec-custom-${Date.now()}`,
+      name: cleanName,
+      code: cleanCode,
+      categoryValue: quickTypeCategory,
+      capacity: quickTypeCapacity || 4,
+      bedLayout: quickTypeCapacity <= 2 ? "single_cots" : "bunks_2tier",
+      designationLevel: "Custom Workforce Specification",
+      allowedDesignations: ["All Assigned Workers"],
+      ac: quickTypeAc,
+      acType: quickTypeAc ? "Split Unit" : "None",
+      attachedBath: quickTypeBath,
+      bathType: quickTypeBath ? "Ensuite Private" : "Shared Corridor",
+      lockers: true,
+      lockersCount: quickTypeCapacity || 4,
+      wifi: true,
+      fridge: false,
+      dailyRate: quickTypeRate || 60,
+      dailyFoodRate: 30,
+      serviceFee: 0,
+      shiftPolicy: "any",
+      status: "active",
+    };
+
+    const updatedSpecs = [newSpec, ...availableSpecs];
+    setAvailableSpecs(updatedSpecs);
+    saveStoredRoomSpecifications(updatedSpecs);
+
+    // If triggered from a specific room, apply to that room immediately
+    if (quickTypeTargetRoomTempId) {
+      applySpecToRoom(quickTypeTargetRoomTempId, newSpec);
+    }
+
+    setQuickTypeModalOpen(false);
+    setQuickTypeName("");
+    setQuickTypeTargetRoomTempId(null);
+
+    toast({
+      title: "Room Type Created & Saved",
+      description: `"${newSpec.name}" (${newSpec.capacity} Beds) is now saved and available across all camps.`,
+    });
   };
 
   const handleCreateCustomRoom = (e?: React.FormEvent) => {
@@ -1731,15 +1808,25 @@ export default function CampMasterSetupDialog({
                   <div className="flex items-center gap-2">
                     {/* Apply Preset Dropdown */}
                     <Select
-                      onValueChange={(specId) => {
-                        const targetSpec = availableSpecs.find((s) => s.id === specId);
-                        if (targetSpec) applyPresetToActiveFloor(targetSpec);
+                      onValueChange={(val) => {
+                        if (val === "__create_new__") {
+                          openQuickTypeCreator();
+                        } else {
+                          const targetSpec = availableSpecs.find((s) => s.id === val);
+                          if (targetSpec) applyPresetToActiveFloor(targetSpec);
+                        }
                       }}
                     >
-                      <SelectTrigger className="h-8 text-xs w-44">
+                      <SelectTrigger className="h-8 text-xs w-48">
                         <SelectValue placeholder="Apply Floor Preset..." />
                       </SelectTrigger>
                       <SelectContent>
+                        <SelectItem
+                          value="__create_new__"
+                          className="text-xs text-primary font-bold border-b pb-1.5 mb-1 cursor-pointer"
+                        >
+                          + Create New Room Type...
+                        </SelectItem>
                         {availableSpecs.map((s) => (
                           <SelectItem key={s.id} value={s.id} className="text-xs">
                             {s.name} ({s.capacity}B &bull; SAR {s.dailyRate})
@@ -1957,12 +2044,35 @@ export default function CampMasterSetupDialog({
                                 </div>
 
                                 <div className="flex items-center gap-1">
-                                  <Badge
-                                    variant="secondary"
-                                    className="text-[10px] px-1.5 py-0 font-bold gap-1 whitespace-nowrap"
-                                  >
-                                    <BedDouble size={11} /> {room.max_capacity}B
-                                  </Badge>
+                                  {/* Direct Bed Count Stepper */}
+                                  <div className="flex items-center border rounded bg-secondary/30 h-6 px-1 gap-0.5 text-[11px] font-bold">
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const newCap = Math.max(1, room.max_capacity - 1);
+                                        setRooms(rooms.map((r) => r.tempId === room.tempId ? { ...r, max_capacity: newCap } : r));
+                                      }}
+                                      className="px-1 text-muted-foreground hover:text-foreground text-xs hover:bg-background rounded"
+                                      title="Decrease beds"
+                                    >
+                                      -
+                                    </button>
+                                    <span className="px-0.5 font-mono text-[10px] flex items-center gap-0.5">
+                                      <BedDouble size={10} /> {room.max_capacity}B
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const newCap = Math.min(20, room.max_capacity + 1);
+                                        setRooms(rooms.map((r) => r.tempId === room.tempId ? { ...r, max_capacity: newCap } : r));
+                                      }}
+                                      className="px-1 text-muted-foreground hover:text-foreground text-xs hover:bg-background rounded"
+                                      title="Increase beds"
+                                    >
+                                      +
+                                    </button>
+                                  </div>
+
                                   <Button
                                     size="icon"
                                     variant="ghost"
@@ -1981,15 +2091,25 @@ export default function CampMasterSetupDialog({
                               <div className="space-y-1">
                                 <Select
                                   value={room.specId || ""}
-                                  onValueChange={(specId) => {
-                                    const spec = availableSpecs.find((s) => s.id === specId);
-                                    if (spec) applySpecToRoom(room.tempId, spec);
+                                  onValueChange={(val) => {
+                                    if (val === "__create_new__") {
+                                      openQuickTypeCreator(room.tempId);
+                                    } else {
+                                      const spec = availableSpecs.find((s) => s.id === val);
+                                      if (spec) applySpecToRoom(room.tempId, spec);
+                                    }
                                   }}
                                 >
                                   <SelectTrigger className="h-7 text-[11px] font-medium">
                                     <SelectValue placeholder="Room Template" />
                                   </SelectTrigger>
                                   <SelectContent>
+                                    <SelectItem
+                                      value="__create_new__"
+                                      className="text-xs text-primary font-bold border-b pb-1.5 mb-1 cursor-pointer"
+                                    >
+                                      + Create New Room Type...
+                                    </SelectItem>
                                     {availableSpecs.map((s) => (
                                       <SelectItem key={s.id} value={s.id} className="text-xs">
                                         {s.name} ({s.capacity} Beds)
@@ -2067,24 +2187,6 @@ export default function CampMasterSetupDialog({
                 </ScrollArea>
               </div>
             )}
-
-            {/* Bottom Room Config Master Link Banner */}
-            <div className="p-3 px-5 border-t bg-primary/5 flex items-center justify-between text-xs flex-shrink-0">
-              <div className="flex items-center gap-2">
-                <Sparkles size={14} className="text-primary" />
-                <span className="text-muted-foreground">
-                  Need new room types, custom bed counts, or new workforce roles?
-                </span>
-              </div>
-              <Button
-                size="xs"
-                variant="link"
-                onClick={() => setRoomConfigMasterOpen(true)}
-                className="h-auto p-0 text-xs font-semibold text-primary gap-1"
-              >
-                Manage specifications in Room Configuration Master &rarr;
-              </Button>
-            </div>
           </div>
         </DialogContent>
       </Dialog>
@@ -3008,6 +3110,144 @@ export default function CampMasterSetupDialog({
               </Button>
             )}
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ════════ QUICK IN-PLACE ROOM TYPE CREATOR MODAL ════════ */}
+      <Dialog open={quickTypeModalOpen} onOpenChange={setQuickTypeModalOpen}>
+        <DialogContent className="max-w-[480px] w-full p-0 overflow-hidden bg-background">
+          <form onSubmit={handleSaveQuickType}>
+            <DialogHeader className="p-5 pb-3 border-b bg-gradient-to-r from-blue-950/15 via-primary/5 to-transparent">
+              <div className="flex items-center gap-2 mb-1">
+                <Badge variant="secondary" className="gap-1 px-2.5 py-0.5 font-semibold text-xs bg-primary/10 text-primary border-primary/20">
+                  <Sliders size={13} /> Quick Room Type Creator
+                </Badge>
+              </div>
+              <DialogTitle className="text-base font-bold">
+                Define New Room Specification
+              </DialogTitle>
+              <DialogDescription className="text-xs text-muted-foreground">
+                Create a new reusable room template with default bed capacity, amenities, and tariff. It will be immediately available across all camps.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="p-5 space-y-4 max-h-[70vh] overflow-y-auto">
+              <div className="space-y-1.5">
+                <Label htmlFor="quick-type-name" className="text-xs font-semibold">
+                  Specification Name <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  id="quick-type-name"
+                  value={quickTypeName}
+                  onChange={(e) => setQuickTypeName(e.target.value)}
+                  placeholder="e.g. Technician 3-Bed, VIP Master Suite, Labor 10-Bed"
+                  autoFocus
+                  className="h-8 text-xs font-medium"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold">Workforce Category</Label>
+                  <Select value={quickTypeCategory} onValueChange={setQuickTypeCategory}>
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {BLOCK_TYPES.map((bt) => (
+                        <SelectItem key={bt.value} value={bt.value} className="text-xs">
+                          {bt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold flex items-center gap-1">
+                    <BedDouble size={13} /> Default Beds
+                  </Label>
+                  <div className="flex items-center gap-1.5">
+                    <Input
+                      type="number"
+                      min={1}
+                      max={20}
+                      value={quickTypeCapacity}
+                      onChange={(e) => setQuickTypeCapacity(Math.max(1, parseInt(e.target.value) || 1))}
+                      className="h-8 text-xs font-bold font-mono"
+                    />
+                    <span className="text-[11px] text-muted-foreground">Beds</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold flex items-center gap-1">
+                  <DollarSign size={13} /> Daily Rent
+                </Label>
+                <div className="flex items-center gap-1.5">
+                  <Input
+                    type="number"
+                    min={0}
+                    value={quickTypeRate}
+                    onChange={(e) => setQuickTypeRate(parseFloat(e.target.value) || 0)}
+                    className="h-8 text-xs font-bold font-mono w-32"
+                  />
+                  <span className="text-[11px] text-muted-foreground">SAR / room / day</span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 pt-1">
+                <div
+                  onClick={() => setQuickTypeAc(!quickTypeAc)}
+                  className={`p-2.5 rounded-lg border cursor-pointer flex items-center justify-between transition-all ${
+                    quickTypeAc
+                      ? "bg-cyan-500/10 border-cyan-500/30 text-cyan-700 dark:text-cyan-300"
+                      : "bg-background border-border text-muted-foreground"
+                  }`}
+                >
+                  <span className="text-xs font-semibold flex items-center gap-1.5">
+                    <Wind size={14} /> Air Conditioned
+                  </span>
+                  <Switch checked={quickTypeAc} onCheckedChange={setQuickTypeAc} />
+                </div>
+
+                <div
+                  onClick={() => setQuickTypeBath(!quickTypeBath)}
+                  className={`p-2.5 rounded-lg border cursor-pointer flex items-center justify-between transition-all ${
+                    quickTypeBath
+                      ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-300"
+                      : "bg-background border-border text-muted-foreground"
+                  }`}
+                >
+                  <span className="text-xs font-semibold flex items-center gap-1.5">
+                    <Bath size={14} /> Ensuite Bathroom
+                  </span>
+                  <Switch checked={quickTypeBath} onCheckedChange={setQuickTypeBath} />
+                </div>
+              </div>
+            </div>
+
+            <DialogFooter className="p-4 border-t bg-muted/10 flex items-center justify-between">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setQuickTypeModalOpen(false)}
+                className="text-xs"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                size="sm"
+                disabled={!quickTypeName.trim()}
+                className="text-xs gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold shadow-xs"
+              >
+                <Check size={14} /> Save & Apply Room Type
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
     </>
