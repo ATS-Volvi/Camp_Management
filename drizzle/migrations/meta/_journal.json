@@ -92,6 +92,20 @@
       "when": 1793131964872,
       "tag": "0012_camp_meal_rates",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1793880277019,
+      "tag": "0013_resolve_check_out_rpc_overload",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1793880277020,
+      "tag": "0014_real_room_types",
+      "breakpoints": true
     }
   ]
 }

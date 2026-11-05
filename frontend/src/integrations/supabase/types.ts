@@ -3929,6 +3929,12 @@ export type Database = {
         | "general_8bed"
         | "guest_single"
         | "transit_4bed"
+        | "1x1"
+        | "2x1"
+        | "3x1"
+        | "4x1"
+        | "5x1"
+        | "6x1"
       room_status:
         | "vacant"
         | "occupied"
@@ -4133,6 +4139,12 @@ export const Constants = {
         "general_8bed",
         "guest_single",
         "transit_4bed",
+        "1x1",
+        "2x1",
+        "3x1",
+        "4x1",
+        "5x1",
+        "6x1",
       ],
       room_status: [
         "vacant",

@@ -30,3 +30,6 @@ frontend/.env
 *.njsproj
 *.sln
 *.sw?
+
+# ETL reports (contain Iqama/mobile numbers)
+etl-output/

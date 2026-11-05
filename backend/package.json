@@ -7,6 +7,8 @@
     "setup-db": "tsx src/scripts/setup-db.ts",
     "migrate-neon": "tsx src/scripts/migrate-to-neon.ts",
     "migrate-csv": "tsx src/scripts/migrate-csv.ts",
+    "etl:camp": "tsx src/scripts/etl-camp-data.ts",
+    "etl:check": "tsx src/scripts/etl-camp-transform.check.ts",
     "build": "tsc",
     "start": "node dist/index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -27,7 +29,8 @@
     "jsonwebtoken": "^9.0.3",
     "pg": "^8.20.0",
     "uuid": "^14.0.0",
-    "winston": "^3.19.0"
+    "winston": "^3.19.0",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",

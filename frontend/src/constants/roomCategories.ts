@@ -72,6 +72,11 @@ export const ROOM_CATEGORIES: RoomCategoryConfig[] = [
     typicalUsage: "Short-Term / Rotation Stay",
     allowedDesignations: [],
   },
+  // Real camp room types ("Nx1" = N beds) loaded from the camp master workbooks
+  ...[1, 2, 3, 4, 5, 6].map(n => ({
+    value: `${n}x1`, label: `${n}x1 - ${n} Bed${n > 1 ? "s" : ""}`, capacity: n,
+    designationLevel: "", typicalUsage: "Camp master room type", allowedDesignations: [] as string[],
+  })),
   // Legacy categories (kept for backward compatibility)
   { value: "1_occupant", label: "1 Occupant (Legacy)", capacity: 1, designationLevel: "", typicalUsage: "", allowedDesignations: [] },
   { value: "2_occupants", label: "2 Occupants (Legacy)", capacity: 2, designationLevel: "", typicalUsage: "", allowedDesignations: [] },

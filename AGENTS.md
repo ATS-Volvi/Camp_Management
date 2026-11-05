@@ -14,8 +14,9 @@
 - Command dashboards share a paginated read-only data hook, reconstruct dated resident snapshots from occupancy events, and reuse report revenue calculations; unavailable demographics and commercial contracts must not be fabricated.
 - The Expertise board is a shared command dashboard view; its calendar-year heat map groups the same saved stay revenue calculations by camp and month, leaving future months empty.
 
-- Keep one date-aware `perform_check_in` RPC with optional trailing arguments; overlapping default-argument overloads make legacy and AI check-in calls ambiguous.
+- Keep one date-aware `perform_check_in` and one date-aware `perform_check_out` RPC with optional trailing arguments; overlapping default-argument overloads make legacy and AI check-in/check-out calls ambiguous.
 
 - Department monthly costing statements reuse the revenue report's stay and food-cost calculations, with a dedicated statement export module, so displayed and exported amounts stay consistent.
 - Check-in receipts and period reports share a PDF export module and read saved check-in records after successful transactions, so failures never appear as confirmed check-ins.- Supplier rates live in the supplier master and are matched to supplier employees by supplier name inside the shared revenue calculation, so department and supplier statements always charge the same per-meal and room amounts.
 - Camp Food Rates master (`public.camp_meal_rates`, one row per camp) sets standard per-meal prices (BF/Lunch/Dinner/Ramadan) for non-supplier staff; the shared revenue calculation and Cost Invoicing use it when present and fall back to the room's daily food rate split evenly, while supplier employees always bill at Supplier Master rates.
+- Real camp data loads through `npm run etl:camp -w backend` (dry run unless `--commit`, refuses the production `neondb` database): one Excel row per bed, so room capacity is its bed-row count; residents are rows with a SAP or passport ID; stays are inserted only for residents without an active stay, so re-runs never duplicate or move anyone.
