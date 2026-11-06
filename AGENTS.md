@@ -6,6 +6,7 @@
 - Food cancellation request filters derive departments from the selected camp's current residents and clear employee selection when either filter changes, so stale selections cannot be submitted.
 - Food cancellation submissions resolve their camp from saved stays covering the full requested dates, not the employee master; All Requests defaults to all camps and retains unlinked historical records for visibility without altering billing or approval status.
 - Invoice and shared revenue calculations enforce approved-only cancellation credits at calculation time as well as query time; approval changes invalidate both report caches so totals refresh without a reload.
+- Revenue reports share one cached, date-unbounded base load (`["revenue-data", "base"]`: check-ins, all check-outs, leaves, rates) across every date range, with only cancellations fetched per window; never filter billing inputs with large `.in(employee_id, …)` lists, and fail loudly when any billing query errors.
 - Billing cancellation inputs include source and exclude legacy auto_checkout requests through the shared approval helper; saved departures already end billing, so old checkout requests cannot credit later stays.
 
 - Dashboard theme preferences are scoped to the command dashboard container and persisted across its views, keeping application-wide branding and themes unchanged.

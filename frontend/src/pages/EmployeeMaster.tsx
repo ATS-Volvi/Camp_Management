@@ -12,6 +12,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import AddEmployeeDialog from "@/components/employees/AddEmployeeDialog";
 import BulkUploadDialog from "@/components/employees/BulkUploadDialog";
+import { TablePager, usePaged } from "@/components/TablePager";
 
 const statusColors: Record<string, string> = {
   active: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
@@ -53,14 +54,17 @@ export default function EmployeeMaster() {
     return map;
   }, [departments]);
 
-  const filtered = employees.filter(
-    (e) =>
-      e.name.toLowerCase().includes(search.toLowerCase()) ||
-      e.employee_id.toLowerCase().includes(search.toLowerCase()) ||
-      (e.designation || "").toLowerCase().includes(search.toLowerCase()) ||
-      (e.supplier_name || "").toLowerCase().includes(search.toLowerCase()) ||
-      (e.staff_role || "").toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = useMemo(() => {
+    const s = search.toLowerCase();
+    return employees.filter(
+      (e) =>
+        e.name.toLowerCase().includes(s) ||
+        e.employee_id.toLowerCase().includes(s) ||
+        (e.designation || "").toLowerCase().includes(s) ||
+        (e.supplier_name || "").toLowerCase().includes(s) ||
+        (e.staff_role || "").toLowerCase().includes(s)
+    );
+  }, [employees, search]);
 
   return (
     <div className="space-y-6">
@@ -167,6 +171,7 @@ function EmployeeTable({
   deptCodeMap: Record<string, string>;
   campMap: Record<string, string>;
 }) {
+  const paged = usePaged(employees);
   if (isLoading) {
     return <div className="text-center py-12 text-muted-foreground">Loading employees...</div>;
   }
@@ -209,7 +214,7 @@ function EmployeeTable({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {employees.map((emp) => (
+          {paged.rows.map((emp) => (
             <TableRow key={emp.id}>
               <TableCell className="font-medium">{emp.employee_id}</TableCell>
               <TableCell>{emp.name}</TableCell>
@@ -249,6 +254,7 @@ function EmployeeTable({
           ))}
         </TableBody>
       </Table>
+      <div className="p-2"><TablePager {...paged} /></div>
     </div>
   );
 }

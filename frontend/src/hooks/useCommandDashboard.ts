@@ -1,13 +1,15 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
+// Pages are large because each page is a sequential round trip; the API has no row cap.
+const PAGE = 10_000;
 async function allPages<T>(fetchPage: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: unknown }>): Promise<T[]> {
   const rows: T[] = [];
-  for (let offset = 0; ; offset += 1000) {
-    const { data, error } = await fetchPage(offset, offset + 999);
+  for (let offset = 0; ; offset += PAGE) {
+    const { data, error } = await fetchPage(offset, offset + PAGE - 1);
     if (error) throw error;
     rows.push(...(data ?? []));
-    if (!data || data.length < 1000) return rows;
+    if (!data || data.length < PAGE) return rows;
   }
 }
 

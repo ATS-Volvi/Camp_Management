@@ -1,6 +1,7 @@
 import express from 'express';
 import type { ErrorRequestHandler, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
+import compression from 'compression';
 import Database from './config/dbConn';
 import logger from './utils/logger';
 import { createError } from './utils/errors/createError';
@@ -59,6 +60,8 @@ class Server {
         };
         
         this.app.use(cors(corsOptions));
+        // @types/compression ships Express 5 types; this backend still compiles against @types/express 4.
+        this.app.use(compression() as unknown as express.RequestHandler);
         this.app.use(express.json({ limit: '50mb' }));
         this.app.use(express.urlencoded({ limit: '50mb', extended: true }));
         

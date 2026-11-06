@@ -70,13 +70,22 @@ export default function CommandDashboard({ view }: { view: View }) {
   const boardRevenue = useRevenueData(view === "expertise" ? yearStart : trendStart, safeTo);
   const data = query.data;
   const empMap = useMemo(() => new Map((data?.employees ?? []).map(e => [e.id, e])), [data]);
+  const roomMap = useMemo(() => new Map((data?.rooms ?? []).map(r => [r.id, r])), [data]);
+  const presenceByEmp = useMemo(() => {
+    const byEmp = new Map<string, NonNullable<typeof data>["presence"]>();
+    (data?.presence ?? []).forEach(l => { const list = byEmp.get(l.employee_id); if (list) list.push(l); else byEmp.set(l.employee_id, [l]); });
+    return byEmp;
+  }, [data]);
+  const presenceAt = (employeeId: string) => (presenceByEmp.get(employeeId) ?? []).filter(l => l.effective_from <= snapshotAt && (!l.effective_to || l.effective_to > snapshotAt)).sort((a, b) => b.effective_from.localeCompare(a.effective_from))[0];
   const departments = [...new Set((data?.employees ?? []).map(e => e.department).filter((d): d is string => Boolean(d)))].sort();
   const match = (campId: string | null | undefined, empId: string) => (camp === "all" || camp === campId) && (department === "all" || empMap.get(empId)?.department === department);
   const residents = residentsAt(data?.checkIns ?? [], data?.checkOuts ?? [], snapshotAt).filter(e => match(e.camp_id, e.employee_id));
   const rooms = (data?.rooms ?? []).filter(r => camp === "all" || camp === r.camp_id);
   const capacity = rooms.reduce((s, r) => s + r.max_capacity, 0);
-  const sourceMap = new Map((revenue.data?.checkIns ?? []).map(ci => [ci.id, ci]));
-  const costRows = buildRevenueRows(revenue.data, safeFrom, safeTo).filter(r => { const ci = sourceMap.get(r.id); return ci && match(ci.camp_id, ci.employee_id); });
+  // Revenue builds are the expensive part; memoize them so filter changes and keystrokes only re-filter.
+  const sourceMap = useMemo(() => new Map((revenue.data?.checkIns ?? []).map(ci => [ci.id, ci])), [revenue.data]);
+  const revenueRows = useMemo(() => buildRevenueRows(revenue.data, safeFrom, safeTo), [revenue.data, safeFrom, safeTo]);
+  const costRows = revenueRows.filter(r => { const ci = sourceMap.get(r.id); return ci && match(ci.camp_id, ci.employee_id); });
   const total = costRows.reduce((s, r) => s + r.total, 0);
   const rent = costRows.reduce((s, r) => s + r.roomRevenue, 0);
   const food = costRows.reduce((s, r) => s + r.foodRevenue, 0);
@@ -95,17 +104,21 @@ export default function CommandDashboard({ view }: { view: View }) {
   };
   const nationalities = grouping("nationality");
   const depts = grouping("department").map(d => ({ ...d, amount: costRows.filter(r => r.department === d.name).reduce((s, r) => s + r.total, 0) }));
-  const occupiedRooms = new Set(residents.map(r => r.room_id)).size;
+  const occupiedRoomIds = new Set(residents.map(r => r.room_id));
+  const occupiedRooms = occupiedRoomIds.size;
   const presence = residents.reduce<Record<string, number>>((acc, r) => {
-    const log = (data?.presence ?? []).filter(l => l.employee_id === r.employee_id && l.effective_from <= snapshotAt && (!l.effective_to || l.effective_to > snapshotAt)).sort((a, b) => b.effective_from.localeCompare(a.effective_from))[0];
+    const log = presenceAt(r.employee_id);
     const key = log?.to_status ?? "active"; acc[key] = (acc[key] ?? 0) + 1; return acc;
   }, {});
-  const trend = Array.from({ length: 6 }, (_, i) => {
+  const trendSources = useMemo(() => new Map((trendQuery.data?.checkIns ?? []).map(ci => [ci.id, ci])), [trendQuery.data]);
+  const trendMonths = useMemo(() => Array.from({ length: 6 }, (_, i) => {
     const date = subMonths(new Date(`${safeTo}T12:00:00`), 5 - i);
     const start = format(startOfMonth(date), "yyyy-MM-dd");
     const end = i === 5 ? safeTo : format(endOfMonth(date), "yyyy-MM-dd");
-    const sources = new Map((trendQuery.data?.checkIns ?? []).map(ci => [ci.id, ci]));
-    const rows = buildRevenueRows(trendQuery.data, start, end).filter(r => { const ci = sources.get(r.id); return ci && match(ci.camp_id, ci.employee_id); });
+    return { date, rows: buildRevenueRows(trendQuery.data, start, end) };
+  }), [trendQuery.data, safeTo]);
+  const trend = trendMonths.map(({ date, rows: monthRows }) => {
+    const rows = monthRows.filter(r => { const ci = trendSources.get(r.id); return ci && match(ci.camp_id, ci.employee_id); });
     return { name: format(date, "MMM yy"), Room: rows.reduce((s, r) => s + r.roomRevenue, 0), Food: rows.reduce((s, r) => s + r.foodRevenue, 0) };
   });
   const campEmpIds = new Set(residents.map(r => r.employee_id));
@@ -113,22 +126,23 @@ export default function CommandDashboard({ view }: { view: View }) {
   const contractGroups = ["Active", "Expiring ≤ 90 days", "Expired", "No end date"].map(name => ({ name, value: contracts.filter(e => e.contractStatus === name).length })).filter(r => r.value);
   const contractRows = contracts.filter(e => (status === "all" || e.contractStatus === status) && `${e.name} ${e.supplier_name ?? ""} ${e.employee_id}`.toLowerCase().includes(search.toLowerCase()));
   const isError = query.isError || (view !== "contracts" && (revenue.isError || trendQuery.isError));
-  const boardMonths = Array.from({ length: 12 }, (_, i) => new Date(`${safeTo.slice(0, 4)}-${String(i + 1).padStart(2, "0")}-01T12:00:00`));
-  const boardSources = new Map((boardRevenue.data?.checkIns ?? []).map(ci => [ci.id, ci]));
-  const boardMonthlyRows = view === "expertise" ? boardMonths.map(date => {
+  const boardMonths = useMemo(() => Array.from({ length: 12 }, (_, i) => new Date(`${safeTo.slice(0, 4)}-${String(i + 1).padStart(2, "0")}-01T12:00:00`)), [safeTo]);
+  const boardSources = useMemo(() => new Map((boardRevenue.data?.checkIns ?? []).map(ci => [ci.id, ci])), [boardRevenue.data]);
+  const boardAllRows = useMemo(() => view === "expertise" ? boardMonths.map(date => {
     const start = format(date, "yyyy-MM-dd");
     if (start > safeTo) return null;
     const end = format(endOfMonth(date), "yyyy-MM-dd");
-    return buildRevenueRows(boardRevenue.data, start, end < safeTo ? end : safeTo).filter(row => {
-      const ci = boardSources.get(row.id); return ci && match(ci.camp_id, ci.employee_id);
-    });
-  }) : [];
+    return buildRevenueRows(boardRevenue.data, start, end < safeTo ? end : safeTo);
+  }) : [], [view, boardMonths, boardRevenue.data, safeTo]);
+  const boardMonthlyRows = boardAllRows.map(rows => rows && rows.filter(row => {
+    const ci = boardSources.get(row.id); return ci && match(ci.camp_id, ci.employee_id);
+  }));
 
   const residentRecords = (events = residents) => events.flatMap(event => {
     const employee = empMap.get(event.employee_id);
-    const room = data?.rooms.find(r => r.id === event.room_id);
+    const room = roomMap.get(event.room_id);
     const campName = data?.camps.find(c => c.id === event.camp_id)?.name;
-    const log = (data?.presence ?? []).filter(l => l.employee_id === event.employee_id && l.effective_from <= snapshotAt && (!l.effective_to || l.effective_to > snapshotAt)).sort((a, b) => b.effective_from.localeCompare(a.effective_from))[0];
+    const log = presenceAt(event.employee_id);
     return employee ? [employeeRecord(employee, { Camp: campName, Room: room?.room_number, Block: room?.buildings?.name, "Check-in": event.check_in_date, "Food required": event.food_required, Presence: log?.to_status ?? "active" })] : [];
   });
   const openRevenue = (title: string, rows = costRows, description = `${safeFrom} — ${safeTo}`) => setChartSelection({ title, description, rows: rows.map(revenueRecord) });
@@ -186,12 +200,12 @@ export default function CommandDashboard({ view }: { view: View }) {
         { label: "Total Revenue", value: revenue.isLoading ? "—" : money(total), icon: DollarSign },
         { label: "Total Residents", value: residents.length, icon: Users },
         { label: "Camp Occupancy", value: percent(residents.length, capacity), icon: BedDouble },
-        { label: "Vacant Rooms", value: rooms.filter(r => !residents.some(e => e.room_id === r.id) && !["under_maintenance", "reserved"].includes(r.status)).length, icon: Building2 },
+        { label: "Vacant Rooms", value: rooms.filter(r => !occupiedRoomIds.has(r.id) && !["under_maintenance", "reserved"].includes(r.status)).length, icon: Building2 },
       ]).map(item => <Card key={item.label} className="command-panel"><div className="flex justify-between gap-3 items-start"><div className="min-w-0"><p className="text-xs text-muted-foreground font-medium">{item.label}</p><p className="text-2xl font-bold mt-2 break-words" style={{ color: "hsl(var(--kpi-tone))" }}>{item.value}</p></div><item.icon className="h-5 w-5 shrink-0" style={{ color: "hsl(var(--kpi-tone))" }} /></div></Card>)}
     </div>}
     {isError || (view === "expertise" && boardRevenue.isError) ? <p role="alert" className="py-12 text-destructive">Unable to load dashboard records. Please refresh.</p> : query.isLoading || (view !== "contracts" && revenue.isLoading) ? <p role="status" className="py-12 text-muted-foreground">Loading dashboard records…</p> : view === "expertise" ? <ExpertiseBoard onDrillDown={drillExpertise} camps={camps} total={total} room={rent} food={food} residents={residents.length} capacity={capacity} nationalities={nationalities} noFood={residents.filter(r => r.food_required === false).length} onSite={presence.on_site ?? 0} roomStatus={[
       { name: "Occupied", value: occupiedRooms },
-      { name: "Vacant", value: rooms.filter(r => !residents.some(e => e.room_id === r.id) && !["under_maintenance", "reserved"].includes(r.status)).length },
+      { name: "Vacant", value: rooms.filter(r => !occupiedRoomIds.has(r.id) && !["under_maintenance", "reserved"].includes(r.status)).length },
       { name: "Maintenance", value: rooms.filter(r => r.status === "under_maintenance").length },
       { name: "Reserved", value: rooms.filter(r => r.status === "reserved").length },
     ]} months={boardMonths.map(date => format(date, "MMM"))} loadingTrend={boardRevenue.isLoading} trend={boardMonthlyRows.flatMap((rows, i) => rows === null ? [] : [{ name: format(boardMonths[i], "MMM"), Room: rows.reduce((sum, r) => sum + r.roomRevenue, 0), Food: rows.reduce((sum, r) => sum + r.foodRevenue, 0) }])} heatMap={camps.map(c => ({ name: c.name, values: boardMonthlyRows.map(rows => rows === null ? null : rows.filter(r => boardSources.get(r.id)?.camp_id === c.id).reduce((sum, r) => sum + r.total, 0)) }))} /> : view === "contracts" ? <>
@@ -221,7 +235,7 @@ export default function CommandDashboard({ view }: { view: View }) {
       <SectionTitle>Camp utilization — Designed vs Actual</SectionTitle>
       {view === "snapshot" ? <Panel title="Camp occupancy & revenue"><div className="overflow-auto"><table className="data-table"><thead><tr>{["Camp", "Designed Beds", "Occupied Beds", "Occupancy", "Revenue", "Share"].map(h => <th key={h}>{h}</th>)}</tr></thead><tbody>{camps.map(c => <tr key={c.id}><td><Link className="text-primary" to={`/camps/${c.id}`}>{c.name}</Link></td><td>{c.cap}</td><td>{c.count}</td><td>{percent(c.count, c.cap)}</td><td className="whitespace-nowrap">{money(c.amount)}</td><td>{percent(c.amount, total)}</td></tr>)}</tbody></table></div></Panel> : <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">{camps.map(c => <Panel key={c.id} title={c.name} icon={<Building2 size={14} />}><div className="grid grid-cols-2 gap-3"><Metric label="Designed beds" value={c.cap.toLocaleString()} /><Metric label="Actual residents" value={c.count.toLocaleString()} tone="text-primary" /></div><p className="text-xs text-campgreen mt-2">{percent(c.count, c.cap)} occupied</p><Metric label="Period revenue" value={money(c.amount)} detail={`${percent(c.amount, total)} of total`} /><Button asChild variant="ghost" size="sm" className="w-full justify-between mt-2"><Link to={`/camps/${c.id}`}>View camp<ArrowUpRight /></Link></Button></Panel>)}</div>}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Panel title="Rooms & Food" icon={<UtensilsCrossed size={16} />}><div className="grid grid-cols-2 gap-x-4"><Metric label="Occupied rooms" value={occupiedRooms} /><Metric label="Vacant rooms" value={rooms.filter(r => !residents.some(e => e.room_id === r.id) && !["under_maintenance", "reserved"].includes(r.status)).length} /><Metric label="Under maintenance" value={rooms.filter(r => r.status === "under_maintenance").length} tone="text-amber" /><Metric label="Reserved rooms" value={rooms.filter(r => r.status === "reserved").length} /><Metric label="Food opted out" value={residents.filter(e => e.food_required === false).length} /><Metric label="Available bed capacity" value={Math.max(0, capacity - residents.length)} /></div></Panel>
+        <Panel title="Rooms & Food" icon={<UtensilsCrossed size={16} />}><div className="grid grid-cols-2 gap-x-4"><Metric label="Occupied rooms" value={occupiedRooms} /><Metric label="Vacant rooms" value={rooms.filter(r => !occupiedRoomIds.has(r.id) && !["under_maintenance", "reserved"].includes(r.status)).length} /><Metric label="Under maintenance" value={rooms.filter(r => r.status === "under_maintenance").length} tone="text-amber" /><Metric label="Reserved rooms" value={rooms.filter(r => r.status === "reserved").length} /><Metric label="Food opted out" value={residents.filter(e => e.food_required === false).length} /><Metric label="Available bed capacity" value={Math.max(0, capacity - residents.length)} /></div></Panel>
         <Panel title="Demographic Coverage" icon={<ShieldCheck size={16} />}><Metric label="Nationality recorded" value={percent(residents.filter(e => empMap.get(e.employee_id)?.nationality).length, residents.length)} /><Metric label="Age / Under 50 / 50+" value="Not recorded" detail="Birth dates are not available in employee records." /><Metric label="Faith mix" value="Not recorded" detail="Faith is not captured in employee records." /></Panel>
       </div>
       <div><Panel title="Departments — Residents, Value & Share"><div className="overflow-auto max-h-80"><table className="data-table"><thead><tr>{["Department", "Residents", "Period Value", "%"].map(h => <th key={h}>{h}</th>)}</tr></thead><tbody>{depts.map(d => <tr key={d.name}><td>{d.name}</td><td>{d.value}</td><td className="whitespace-nowrap">{money(d.amount)}</td><td>{percent(d.amount, total)}</td></tr>)}{!depts.length && <tr><td colSpan={4}>No resident records</td></tr>}</tbody></table></div></Panel></div>

@@ -19,4 +19,14 @@ describe("checkout billing cutoff", () => {
     const stay = { employee_id: "e", check_in_date: "2026-10-10" };
     expect(stayDeparture(stay, [{ employee_id: "e", check_out_date: "2026-10-20" }, { employee_id: "e", check_out_date: "2026-11-20" }], [stay, { employee_id: "e", check_in_date: "2026-11-10" }])).toBe("2026-10-20");
   });
+  it("keeps each employee's events separate when the same arrays are reused", () => {
+    const a = { employee_id: "a", check_in_date: "2026-10-01" };
+    const b = { employee_id: "b", check_in_date: "2026-10-05" };
+    const c = { employee_id: "c", check_in_date: "2026-10-07" };
+    const checkIns = [a, b, c, { employee_id: "b", check_in_date: "2026-10-25" }];
+    const checkOuts = [{ employee_id: "a", check_out_date: "2026-10-15" }];
+    expect(stayDeparture(a, checkOuts, checkIns)).toBe("2026-10-15");
+    expect(stayDeparture(b, checkOuts, checkIns)).toBe("2026-10-25");
+    expect(stayDeparture(c, checkOuts, checkIns)).toBeNull();
+  });
 });

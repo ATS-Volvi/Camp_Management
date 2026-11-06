@@ -78,57 +78,37 @@ export const api = {
 
     // Supabase-like helper for generic data access
     from: (table: string) => {
-        const queryParams: any = {};
+        const queryParams: Record<string, any> = {};
         let method = 'GET';
         let body: any = null;
-        
+        // A second filter on the same column (e.g. .gte(x).lt(x)) is kept as an array, not overwritten.
+        const filter = (column: string, value: string) => {
+            const prev = queryParams[column];
+            queryParams[column] = prev === undefined ? value : [prev, value].flat();
+            return builder;
+        };
+
         const builder: any = {
-            select: (columns: string = '*') => {
+            select: (columns: string = '*', opts?: { count?: string; head?: boolean }) => {
                 queryParams.select = columns;
+                if (opts?.count) queryParams.count = opts.count;
+                if (opts?.head) queryParams.head = 'true';
                 return builder;
             },
-            eq: (column: string, value: any) => {
-                queryParams[column] = `eq.${value}`;
-                return builder;
-            },
-            neq: (column: string, value: any) => {
-                queryParams[column] = `neq.${value}`;
-                return builder;
-            },
-            gt: (column: string, value: any) => {
-                queryParams[column] = `gt.${value}`;
-                return builder;
-            },
-            gte: (column: string, value: any) => {
-                queryParams[column] = `gte.${value}`;
-                return builder;
-            },
-            lt: (column: string, value: any) => {
-                queryParams[column] = `lt.${value}`;
-                return builder;
-            },
-            lte: (column: string, value: any) => {
-                queryParams[column] = `lte.${value}`;
-                return builder;
-            },
-            like: (column: string, pattern: string) => {
-                queryParams[column] = `like.${pattern}`;
-                return builder;
-            },
-            ilike: (column: string, pattern: string) => {
-                queryParams[column] = `ilike.${pattern}`;
-                return builder;
-            },
-            is: (column: string, value: any) => {
-                queryParams[column] = `is.${value === null ? 'null' : value}`;
-                return builder;
-            },
-            not: (column: string, operator: string, value: any) => {
-                queryParams[column] = `neq.${value}`;
-                return builder;
-            },
+            eq: (column: string, value: any) => filter(column, `eq.${value}`),
+            neq: (column: string, value: any) => filter(column, `neq.${value}`),
+            gt: (column: string, value: any) => filter(column, `gt.${value}`),
+            gte: (column: string, value: any) => filter(column, `gte.${value}`),
+            lt: (column: string, value: any) => filter(column, `lt.${value}`),
+            lte: (column: string, value: any) => filter(column, `lte.${value}`),
+            like: (column: string, pattern: string) => filter(column, `like.${pattern}`),
+            ilike: (column: string, pattern: string) => filter(column, `ilike.${pattern}`),
+            is: (column: string, value: any) => filter(column, `is.${value === null ? 'null' : value}`),
+            not: (column: string, operator: string, value: any) =>
+                filter(column, operator === 'is' && value === null ? 'is.not_null' : `neq.${value}`),
             order: (column: string, { ascending = true } = {}) => {
-                queryParams.order = `${column}.${ascending ? 'asc' : 'desc'}`;
+                const part = `${column}.${ascending ? 'asc' : 'desc'}`;
+                queryParams.order = queryParams.order ? `${queryParams.order},${part}` : part;
                 return builder;
             },
             limit: (count: number) => {
@@ -148,10 +128,7 @@ export const api = {
                 queryParams.single = 'true';
                 return builder;
             },
-            in: (column: string, values: any[]) => {
-                queryParams[column] = `in.(${values.join(',')})`;
-                return builder;
-            },
+            in: (column: string, values: any[]) => filter(column, `in.(${values.join(',')})`),
             insert: (data: any) => {
                 method = 'POST';
                 body = data;
@@ -175,15 +152,24 @@ export const api = {
             then: async (onfulfilled?: (value: any) => any) => {
                 try {
                     let resultData: any;
-                    const query = new URLSearchParams(queryParams).toString();
+                    const query = new URLSearchParams(
+                        Object.entries(queryParams).flatMap(([k, v]) => [v].flat().map(x => [k, String(x)]))
+                    ).toString();
                     const url = `/data/${table}${query ? `?${query}` : ''}`;
 
                     if (method === 'GET') {
-                        resultData = await api.get(url);
+                        // Long filters (e.g. .in() with thousands of ids) exceed the server's URL/header limit.
+                        resultData = url.length > 4000
+                            ? await api.post(`/data/${table}/query`, queryParams)
+                            : await api.get(url);
+                        if (queryParams.head === 'true') {
+                            const result = { data: null, count: resultData?.count ?? 0, error: null };
+                            return onfulfilled ? onfulfilled(result) : result;
+                        }
                     } else if (method === 'POST') {
                         resultData = await api.post(`/data/${table}`, body);
                     } else if (method === 'PUT') {
-                        const idFilter = Object.keys(queryParams).find(k => queryParams[k]?.startsWith('eq.'));
+                        const idFilter = Object.keys(queryParams).find(k => typeof queryParams[k] === 'string' && queryParams[k].startsWith('eq.'));
                         if (idFilter) {
                             const id = queryParams[idFilter].split('.')[1];
                             resultData = await api.put(`/data/${table}/${id}`, body);
@@ -191,7 +177,7 @@ export const api = {
                             resultData = await api.post(`/data/${table}/update`, { updates: body, filters: queryParams });
                         }
                     } else if (method === 'DELETE') {
-                        const idFilter = Object.keys(queryParams).find(k => queryParams[k]?.startsWith('eq.'));
+                        const idFilter = Object.keys(queryParams).find(k => typeof queryParams[k] === 'string' && queryParams[k].startsWith('eq.'));
                         if (idFilter) {
                             const id = queryParams[idFilter].split('.')[1];
                             resultData = await api.delete(`/data/${table}/${id}`);

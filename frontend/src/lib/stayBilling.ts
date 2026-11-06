@@ -1,6 +1,22 @@
 const DAY = 86400000;
 export function billingDay(date: string) { return new Date(date.slice(0, 10) + "T00:00:00Z"); }
 
+// Per-array employee index, so each stay only scans its own employee's events instead of every row.
+// Built once per array; callers pass query data, which is never mutated after it is fetched.
+const byEmployee = new WeakMap<object, Map<string, unknown[]>>();
+function eventsOf<T extends { employee_id: string }>(rows: T[], employeeId: string): T[] {
+  let index = byEmployee.get(rows);
+  if (!index) {
+    index = new Map();
+    for (const row of rows) {
+      const list = index.get(row.employee_id);
+      if (list) list.push(row); else index.set(row.employee_id, [row]);
+    }
+    byEmployee.set(rows, index);
+  }
+  return (index.get(employeeId) ?? []) as T[];
+}
+
 /** Match a stay to its first departure, never the latest checkout of a later stay. */
 export function stayDeparture(
   stay: { employee_id: string; check_in_date: string },
@@ -9,8 +25,8 @@ export function stayDeparture(
 ) {
   const arrival = new Date(stay.check_in_date).getTime();
   const events = [
-    ...checkOuts.filter(e => e.employee_id === stay.employee_id && new Date(e.check_out_date).getTime() >= arrival).map(e => e.check_out_date),
-    ...checkIns.filter(e => e.employee_id === stay.employee_id && new Date(e.check_in_date).getTime() > arrival).map(e => e.check_in_date),
+    ...eventsOf(checkOuts, stay.employee_id).filter(e => new Date(e.check_out_date).getTime() >= arrival).map(e => e.check_out_date),
+    ...eventsOf(checkIns, stay.employee_id).filter(e => new Date(e.check_in_date).getTime() > arrival).map(e => e.check_in_date),
   ].sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
   return events[0] ?? null;
 }

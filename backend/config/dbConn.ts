@@ -27,7 +27,9 @@ class Database {
                 ssl: isNeonOrRemote ? { rejectUnauthorized: false } : undefined,
               };
 
-        this.pool = new Pool(poolConfig);
+        // pg's default closes idle connections after 10s, so any request after a short pause paid a fresh
+        // TLS + auth handshake to Neon per parallel query (~7s cold vs ~2s warm). Keep them for 5 minutes.
+        this.pool = new Pool({ ...poolConfig, idleTimeoutMillis: 300_000, keepAlive: true });
 
         this.pool.on('error', (err) => {
             console.error('Unexpected error on idle client', err);

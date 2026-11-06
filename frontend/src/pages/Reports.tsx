@@ -16,6 +16,7 @@ import CostInvoicingTab from "@/components/reports/CostInvoicingTab";
 import RevenueReportTab from "@/components/reports/RevenueReportTab";
 import DepartmentMonthlyReportTab from "@/components/reports/DepartmentMonthlyReportTab";
 import SupplierCostingReportTab from "@/components/reports/SupplierCostingReportTab";
+import { TablePager, usePaged } from "@/components/TablePager";
 
 function useEmployeeReport(type?: string) {
   return useQuery({
@@ -35,31 +36,34 @@ function useCheckInReport(from: string, to: string) {
     queryKey: ["report-check-ins", from, to],
     queryFn: async () => {
       const records: CheckInReportRecord[] = [];
-      for (let offset = 0; ; offset += 1000) {
+      const PAGE = 10_000;
+      for (let offset = 0; ; offset += PAGE) {
         let query = supabase.from("check_ins").select(CHECK_IN_REPORT_SELECT)
           .order("check_in_date", { ascending: false }).order("id")
-          .range(offset, offset + 999);
+          .range(offset, offset + PAGE - 1);
         if (from) query = query.gte("check_in_date", `${from}T00:00:00`);
         if (to) query = query.lt("check_in_date", `${format(new Date(new Date(`${to}T00:00:00`).getTime() + 86400000), "yyyy-MM-dd")}T00:00:00`);
         const { data, error } = await query;
         if (error) throw error;
         records.push(...(data as unknown as CheckInReportRecord[]));
-        if (data.length < 1000) break;
+        if (data.length < PAGE) break;
       }
       return records;
     },
   });
 }
 
-function useCheckOutReport() {
+function useCheckOutReport(from: string, to: string) {
   return useQuery({
-    queryKey: ["report-check-outs"],
+    queryKey: ["report-check-outs", from, to],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("check_outs")
         .select("*, employees(name, employee_id, employee_type, supplier_name, designation, company, project), rooms(room_number, category), camps(name)")
-        .order("check_out_date", { ascending: false })
-        .limit(1000);
+        .order("check_out_date", { ascending: false });
+      if (from) query = query.gte("check_out_date", from);
+      if (to) query = query.lte("check_out_date", to + "T23:59:59");
+      const { data, error } = await query;
       if (error) throw error;
       return data;
     },
@@ -148,6 +152,7 @@ function EmployeeReportTab() {
       return true;
     });
   }, [employees, search, statusFilter, supplierFilter]);
+  const paged = usePaged(filtered);
 
   const stats = useMemo(() => ({
     total: filtered.length,
@@ -229,7 +234,7 @@ function EmployeeReportTab() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.map(e => (
+              {paged.rows.map(e => (
                 <TableRow key={e.id}>
                   <TableCell className="font-mono text-xs">{e.employee_id}</TableCell>
                   <TableCell className="font-medium">{e.name}</TableCell>
@@ -252,6 +257,7 @@ function EmployeeReportTab() {
           </Table>
         </div>
       )}
+      <TablePager {...paged} />
       <p className="text-xs text-muted-foreground">Showing {filtered.length} of {employees.length} employees</p>
     </div>
   );
@@ -305,6 +311,7 @@ function CheckInReportTab() {
       return true;
     });
   }, [checkIns, search, campFilter, typeFilter, supplierFilter, designationFilter, categoryFilter, companyFilter, projectFilter, invalidRange]);
+  const paged = usePaged(filtered);
 
   const periodLabel = `${bounds.from || "Beginning"} to ${bounds.to || "Present"}`;
   const exportPdf = () => {
@@ -450,7 +457,7 @@ function CheckInReportTab() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.map((ci: any) => (
+              {paged.rows.map((ci: any) => (
                 <TableRow key={ci.id}>
                   <TableCell className="text-xs">{format(new Date(ci.check_in_date), "dd MMM yyyy, HH:mm")}</TableCell>
                   <TableCell className="font-mono text-xs">{ci.employees?.employee_id || "—"}</TableCell>
@@ -469,6 +476,7 @@ function CheckInReportTab() {
           </Table>
         </div>
       )}
+      <TablePager {...paged} />
       <p className="text-xs text-muted-foreground">Showing {filtered.length} records</p>
     </div>
   );
@@ -486,7 +494,7 @@ function CheckOutReportTab() {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
 
-  const { data: checkOuts = [], isLoading } = useCheckOutReport();
+  const { data: checkOuts = [], isLoading } = useCheckOutReport(dateFrom, dateTo);
   const { data: camps = [] } = useCampsForFilter();
 
   const { suppliers, designations, categories, companies, projects } = useMemo(() => {
@@ -509,15 +517,14 @@ function CheckOutReportTab() {
       if (categoryFilter !== "all" && co.rooms?.category !== categoryFilter) return false;
       if (companyFilter !== "all" && co.employees?.company !== companyFilter) return false;
       if (projectFilter !== "all" && co.employees?.project !== projectFilter) return false;
-      if (dateFrom && co.check_out_date < dateFrom) return false;
-      if (dateTo && co.check_out_date > dateTo + "T23:59:59") return false;
       if (search) {
         const s = search.toLowerCase();
         return (co.employees?.name || "").toLowerCase().includes(s) || (co.employees?.employee_id || "").toLowerCase().includes(s);
       }
       return true;
     });
-  }, [checkOuts, search, campFilter, typeFilter, supplierFilter, designationFilter, categoryFilter, companyFilter, projectFilter, dateFrom, dateTo]);
+  }, [checkOuts, search, campFilter, typeFilter, supplierFilter, designationFilter, categoryFilter, companyFilter, projectFilter]);
+  const paged = usePaged(filtered);
 
   const handleExport = () => {
     const headers = ["Date", "Employee ID", "Name", "Type", "Company", "Supplier", "Designation", "Project", "Room", "Room Category", "Camp", "Assets Returned", "Damage Remarks", "Clearance Notes", "Feedback"];
@@ -640,7 +647,7 @@ function CheckOutReportTab() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.map((co: any) => (
+              {paged.rows.map((co: any) => (
                 <TableRow key={co.id}>
                   <TableCell className="text-xs">{format(new Date(co.check_out_date), "dd MMM yyyy, HH:mm")}</TableCell>
                   <TableCell className="font-mono text-xs">{co.employees?.employee_id || "—"}</TableCell>
@@ -663,6 +670,7 @@ function CheckOutReportTab() {
           </Table>
         </div>
       )}
+      <TablePager {...paged} />
       <p className="text-xs text-muted-foreground">Showing {filtered.length} records</p>
     </div>
   );

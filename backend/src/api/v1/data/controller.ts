@@ -11,6 +11,13 @@ class DataController {
         }
     }
 
+    static async queryData(req: Request, res: Response, next: NextFunction) {
+        const result = await DataService.getData(req.params.table, req.body ?? {}, next);
+        if (result) {
+            res.status(StatusCodes.OK).json(result);
+        }
+    }
+
     static async createData(req: Request, res: Response, next: NextFunction) {
         const result = await DataService.createData(req.params.table, req.body, next);
         if (result) {

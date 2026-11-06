@@ -11,45 +11,48 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Download, DollarSign, Users, BedDouble, UtensilsCrossed } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 
+// Throw on any failed query: silently missing check-outs or leaves would mis-bill every stay.
+export function rowsOf<T>({ data, error }: { data: T[] | null; error: unknown }): T[] {
+  if (error) throw error;
+  return data ?? [];
+}
+
+/** Everything revenue needs except cancellations. Not date-bound: stays outside a window bill 0 days. */
+async function fetchRevenueBase() {
+  const [checkIns, checkOuts, rates, categories, suppliers, ramadan, campMealRates, leaves] = await Promise.all([
+    supabase.from("check_ins").select("id, employee_id, room_id, camp_id, check_in_date, food_required, employees(id, employee_id, name, department, supplier_name, employee_type, project), rooms(id, room_number, category, daily_food_rate), camps(id, name)").then(rowsOf),
+    supabase.from("check_outs").select("employee_id, check_out_date").then(rowsOf),
+    supabase.from("camp_room_rates").select("*").then(rowsOf),
+    supabase.from("room_categories").select("code, category_key, holding_charge").then(rowsOf),
+    supabase.from("clients").select("id, code, name, breakfast_rate, lunch_rate, dinner_rate, ramadan_rate, is_active, client_room_rates(room_category_code, daily_rate)").then(rowsOf),
+    supabase.from("camp_food_cancellation_settings").select("camp_id, ramadan_mode, ramadan_start, ramadan_end").then(rowsOf),
+    supabase.from("camp_meal_rates").select("camp_id, breakfast_rate, lunch_rate, dinner_rate, ramadan_rate").then(rowsOf),
+    supabase.from("employee_status_log").select("employee_id, to_status, effective_from, effective_to").in("to_status", LEAVE_STATUSES as any).then(rowsOf),
+  ]);
+  return { checkIns, checkOuts, rates, categories, suppliers, ramadan, campMealRates, leaves };
+}
+
 export function useRevenueData(fromDate: string, toDate: string) {
+  const qc = useQueryClient();
   return useQuery({
     queryKey: ["revenue-data", fromDate, toDate],
     queryFn: async () => {
-      const { data: checkIns, error } = await supabase
-        .from("check_ins")
-        .select("id, employee_id, room_id, camp_id, check_in_date, food_required, employees(id, employee_id, name, department, supplier_name, employee_type, project), rooms(id, room_number, category, daily_food_rate), camps(id, name)")
-        .lte("check_in_date", toDate + "T23:59:59");
-      if (error) throw error;
-
-      const empIds = Array.from(new Set((checkIns || []).map((c: any) => c.employee_id)));
-      const { data: checkOuts } = await supabase
-        .from("check_outs")
-        .select("employee_id, check_out_date")
-        .in("employee_id", empIds.length ? empIds : ["00000000-0000-0000-0000-000000000000"]);
-
-      const { data: rates } = await supabase.from("camp_room_rates").select("*");
-      const { data: categories } = await supabase.from("room_categories").select("code, category_key, holding_charge");
-      const { data: clients } = await supabase.from("clients").select("id, code, name, breakfast_rate, lunch_rate, dinner_rate, ramadan_rate, is_active, client_room_rates(room_category_code, daily_rate)");
-      const { data: ramadan } = await supabase.from("camp_food_cancellation_settings").select("camp_id, ramadan_mode, ramadan_start, ramadan_end");
-      const { data: campMealRates } = await supabase.from("camp_meal_rates").select("camp_id, breakfast_rate, lunch_rate, dinner_rate, ramadan_rate");
-      const { data: leaves } = await supabase
-        .from("employee_status_log")
-        .select("employee_id, to_status, effective_from, effective_to")
-        .in("to_status", LEAVE_STATUSES as any)
-        .in("employee_id", empIds.length ? empIds : ["00000000-0000-0000-0000-000000000000"]);
-
-      const { data: cancellations } = await supabase
-        .from("food_cancellation_requests")
-        .select("id, employee_id, from_date, to_date, status, source, reason, food_cancellation_request_meals(meal_type)")
-        .eq("status", "approved")
-        .lte("from_date", toDate)
-        .gte("to_date", fromDate);
-
-      return { checkIns: checkIns || [], checkOuts: checkOuts || [], rates: rates || [], cancellations: cancellations || [], categories: categories || [], leaves: leaves || [], suppliers: clients || [], ramadan: ramadan || [], campMealRates: campMealRates || [] };
+      // Every date range shares one cached base load; invalidating ["revenue-data"] refreshes it too.
+      const [base, cancellations] = await Promise.all([
+        qc.fetchQuery({ queryKey: ["revenue-data", "base"], queryFn: fetchRevenueBase, staleTime: 60_000 }),
+        supabase
+          .from("food_cancellation_requests")
+          .select("id, employee_id, from_date, to_date, status, source, reason, food_cancellation_request_meals(meal_type)")
+          .eq("status", "approved")
+          .lte("from_date", toDate)
+          .gte("to_date", fromDate)
+          .then(rowsOf),
+      ]);
+      return { ...base, cancellations };
     },
   });
 }

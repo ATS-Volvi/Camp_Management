@@ -12,6 +12,7 @@ import { format, parseISO, eachDayOfInterval } from "date-fns";
 import { getRoomCategoryLabel } from "@/constants/roomCategories";
 import { billableStayWindow, stayDeparture } from "@/lib/stayBilling";
 import { approvedFoodCancellations } from "@/lib/approvedFoodCancellations";
+import { rowsOf } from "@/components/reports/RevenueReportTab";
 
 const MEAL_TYPES = ["breakfast", "lunch", "dinner"] as const;
 type MealType = (typeof MEAL_TYPES)[number];
@@ -46,38 +47,33 @@ function useInvoiceData(fromDate: string, toDate: string, campId: string) {
   return useQuery({
     queryKey: ["invoice-data", fromDate, toDate, campId],
     queryFn: async () => {
-      // Fetch active check-ins overlapping window
+      // Check-ins up to the window end (stays that left earlier bill 0 days), plus every check-out:
+      // a stay's departure may come from any camp, so check-outs aren't camp- or id-filtered.
       let q = supabase
         .from("check_ins")
         .select("id, employee_id, room_id, camp_id, check_in_date, food_required, employees(id, employee_id, name, department, project, employee_type), rooms(id, room_number, category, daily_food_rate), camps(id, name)")
         .lte("check_in_date", toDate + "T23:59:59")
         .order("check_in_date", { ascending: false });
       if (campId !== "all") q = q.eq("camp_id", campId);
-      const { data: checkIns, error } = await q;
-      if (error) throw error;
 
-      // Fetch related check-outs
-      const empIds = Array.from(new Set((checkIns || []).map((c: any) => c.employee_id)));
-      const { data: checkOuts } = await supabase
-        .from("check_outs")
-        .select("employee_id, check_out_date, room_id")
-        .in("employee_id", empIds.length ? empIds : ["00000000-0000-0000-0000-000000000000"]);
+      const [checkIns, checkOuts, rates, campMealRates, cancellations] = await Promise.all([
+        q.then(rowsOf),
+        supabase.from("check_outs").select("employee_id, check_out_date, room_id").then(rowsOf),
+        // Camp room rates
+        supabase.from("camp_room_rates").select("*").then(rowsOf),
+        // Camp Food Rates master (per-meal prices per camp)
+        supabase.from("camp_meal_rates").select("camp_id, breakfast_rate, lunch_rate, dinner_rate").then(rowsOf),
+        // Approved cancellations in range
+        supabase
+          .from("food_cancellation_requests")
+          .select("id, employee_id, from_date, to_date, reason, remarks, status, source, food_cancellation_request_meals(meal_type)")
+          .eq("status", "approved")
+          .lte("from_date", toDate)
+          .gte("to_date", fromDate)
+          .then(rowsOf),
+      ]);
 
-      // Camp room rates
-      const { data: rates } = await supabase.from("camp_room_rates").select("*");
-
-      // Camp Food Rates master (per-meal prices per camp)
-      const { data: campMealRates } = await supabase.from("camp_meal_rates").select("camp_id, breakfast_rate, lunch_rate, dinner_rate");
-
-      // Approved cancellations in range
-      const { data: cancellations } = await supabase
-        .from("food_cancellation_requests")
-        .select("id, employee_id, from_date, to_date, reason, remarks, status, source, food_cancellation_request_meals(meal_type)")
-        .eq("status", "approved")
-        .lte("from_date", toDate)
-        .gte("to_date", fromDate);
-
-      return { checkIns: checkIns || [], checkOuts: checkOuts || [], rates: rates || [], cancellations: cancellations || [], campMealRates: campMealRates || [] };
+      return { checkIns, checkOuts, rates, cancellations, campMealRates };
     },
   });
 }

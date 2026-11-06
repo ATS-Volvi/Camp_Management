@@ -48,7 +48,10 @@ import NotFound from "./pages/NotFound";
 
 import ErrorBoundary from "./components/ErrorBoundary";
 
-const queryClient = new QueryClient();
+// Reuse fetched data for 30s and don't re-download on window focus; mutations still invalidate.
+const queryClient = new QueryClient({
+  defaultOptions: { queries: { staleTime: 30_000, refetchOnWindowFocus: false } },
+});
 
 const App = () => (
   <QueryClientProvider client={queryClient}>

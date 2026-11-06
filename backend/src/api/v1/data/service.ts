@@ -24,12 +24,17 @@ const SAFE_TABLES = [
     'asset_maintenance_log', 'room_category_master', 'camp_meal_rates'
 ];
 
+const IDENT = /^[A-Za-z_]\w*$/;
+// Reverse joins whose child FK isn't `<parent singular>_id`, keyed by child table.
+const REVERSE_FK: Record<string, string> = { food_cancellation_request_meals: 'request_id' };
+const RESERVED_KEYS = new Set(['select', 'order', 'limit', 'offset', 'single', 'maybeSingle', 'count', 'head']);
+
 class DataService {
     static async getData(table: string, filters: any, next: NextFunction) {
         if (!SAFE_TABLES.includes(table)) return next(createError({ status: 403, message: 'Unauthorized table' }));
         try {
             const select = filters.select || '*';
-            let query = `SELECT * FROM ${table}`; 
+            let query = `SELECT * FROM ${table}`;
             const values: any[] = [];
             const where: string[] = [];
 
@@ -37,84 +42,96 @@ class DataService {
                 '_gte': '>=', '_gt': '>', '_lte': '<=', '_lt': '<', '_neq': '!='
             };
 
-            for (const [key, val] of Object.entries(filters)) {
-                if (key === 'select' || key === 'order' || key === 'limit' || key === 'offset' || key === 'single' || key === 'maybeSingle') continue;
-
-                let column = key;
-                let operator = '=';
-                let value: any = val;
-
-                // Handle dot-notation in filters (e.g. meal_orders.employee_id)
-                if (column.includes('.')) {
-                    const [refTable, refColumn] = column.split('.');
-                    let fk = `${refTable.replace(/s$/, '')}_id`;
-                    if (refTable === 'meal_orders') fk = 'meal_order_id';
-                    
-                    const op = typeof val === 'string' && val.includes('.') ? val.split('.')[0] : 'eq';
-                    const actualVal = typeof val === 'string' && val.includes('.') ? val.split('.').slice(1).join('.') : val;
-                    const sqlOp = op === 'eq' ? '=' : op === 'gt' ? '>' : op === 'gte' ? '>=' : op === 'lt' ? '<' : op === 'lte' ? '<=' : '=';
-                    
-                    values.push(actualVal);
-                    where.push(`${fk} IN (SELECT id FROM ${refTable} WHERE ${refColumn} ${sqlOp} $${values.length})`);
-                    continue;
+            for (const [key, rawVal] of Object.entries(filters)) {
+                if (RESERVED_KEYS.has(key)) continue;
+                if (!key.split('.').every(part => IDENT.test(part))) {
+                    return next(createError({ status: 400, message: `Invalid filter column: ${key}` }));
                 }
 
-                let suffixHandled = false;
-                for (const [suffix, op] of Object.entries(SUFFIX_OPS)) {
-                    if (key.endsWith(suffix)) {
-                        column = key.slice(0, -suffix.length);
-                        operator = op;
-                        suffixHandled = true;
-                        break;
-                    }
-                }
+                // Repeated keys (e.g. check_in_date=gte.X&check_in_date=lt.Y) arrive as arrays.
+                for (const val of [rawVal].flat()) {
+                    let column = key;
+                    let operator = '=';
+                    let value: any = val;
 
-                if (!suffixHandled && typeof val === 'string' && val.includes('.')) {
-                    const parts = val.split('.');
-                    const op = parts[0];
-                    const rest = parts.slice(1).join('.');
-
-                    if (op === 'is') {
-                        if (rest === 'null') {
-                            where.push(`${column} IS NULL`);
-                        } else {
-                            where.push(`${column} IS NOT NULL`);
-                        }
+                    // Handle dot-notation in filters (e.g. meal_orders.employee_id)
+                    if (column.includes('.')) {
+                        const [refTable, refColumn] = column.split('.');
+                        let fk = `${refTable.replace(/s$/, '')}_id`;
+                        if (refTable === 'meal_orders') fk = 'meal_order_id';
+                        
+                        const op = typeof val === 'string' && val.includes('.') ? val.split('.')[0] : 'eq';
+                        const actualVal = typeof val === 'string' && val.includes('.') ? val.split('.').slice(1).join('.') : val;
+                        const sqlOp = op === 'eq' ? '=' : op === 'gt' ? '>' : op === 'gte' ? '>=' : op === 'lt' ? '<' : op === 'lte' ? '<=' : '=';
+                        
+                        values.push(actualVal);
+                        where.push(`${fk} IN (SELECT id FROM ${refTable} WHERE ${refColumn} ${sqlOp} $${values.length})`);
                         continue;
                     }
 
-                    if (['eq', 'neq', 'gt', 'gte', 'lt', 'lte', 'like', 'ilike', 'in'].includes(op)) {
-                        column = key;
-                        if (op === 'in') {
-                            operator = 'IN';
-                            const valuesArray = rest.replace(/^\(|\)$/g, '').split(',');
-                            const placeholders = valuesArray.map((_, j) => `$${values.length + j + 1}`).join(', ');
-                            where.push(`${column} IN (${placeholders})`);
-                            values.push(...valuesArray);
-                            continue;
-                        } else {
-                            operator = op === 'eq' ? '=' : op === 'neq' ? '!=' : op === 'gt' ? '>' : op === 'gte' ? '>=' : op === 'lt' ? '<' : op === 'lte' ? '<=' : op.toUpperCase();
-                            value = rest;
-                            if (op === 'like' || op === 'ilike') value = `%${value}%`;
+                    let suffixHandled = false;
+                    for (const [suffix, op] of Object.entries(SUFFIX_OPS)) {
+                        if (key.endsWith(suffix)) {
+                            column = key.slice(0, -suffix.length);
+                            operator = op;
+                            suffixHandled = true;
+                            break;
                         }
                     }
-                }
 
-                values.push(value);
-                where.push(`${column} ${operator} $${values.length}`);
+                    if (!suffixHandled && typeof val === 'string' && val.includes('.')) {
+                        const parts = val.split('.');
+                        const op = parts[0];
+                        const rest = parts.slice(1).join('.');
+
+                        if (op === 'is') {
+                            if (rest === 'null') {
+                                where.push(`${column} IS NULL`);
+                            } else {
+                                where.push(`${column} IS NOT NULL`);
+                            }
+                            continue;
+                        }
+
+                        if (['eq', 'neq', 'gt', 'gte', 'lt', 'lte', 'like', 'ilike', 'in'].includes(op)) {
+                            column = key;
+                            if (op === 'in') {
+                                values.push(rest.replace(/^\(|\)$/g, '').split(','));
+                                where.push(`${column} = ANY($${values.length})`);
+                                continue;
+                            } else {
+                                operator = op === 'eq' ? '=' : op === 'neq' ? '!=' : op === 'gt' ? '>' : op === 'gte' ? '>=' : op === 'lt' ? '<' : op === 'lte' ? '<=' : op.toUpperCase();
+                                value = rest;
+                                if (op === 'like' || op === 'ilike') value = `%${value}%`;
+                            }
+                        }
+                    }
+
+                    values.push(value);
+                    where.push(`${column} ${operator} $${values.length}`);
+                }
             }
 
             if (where.length > 0) {
                 query += ` WHERE ` + where.join(' AND ');
             }
 
+            if (String(filters.head) === 'true') {
+                const rows = await DataDatabase.getData(query.replace('SELECT *', 'SELECT count(*)::int AS count'), values);
+                return { count: rows[0]?.count ?? 0 };
+            }
+
             if (filters.order) {
-                const orderParts = filters.order.split('.');
-                if (orderParts.length === 2) {
-                    query += ` ORDER BY ${orderParts[0]} ${orderParts[1].toUpperCase()}`;
-                } else {
-                    query += ` ORDER BY ${filters.order}`;
+                // Comma list of `column[.asc|.desc]`, e.g. check_in_date.desc,id.asc
+                const orderBy: string[] = [];
+                for (const part of [filters.order].flat().join(',').split(',')) {
+                    const [col, dir = 'asc'] = part.trim().split('.');
+                    if (!IDENT.test(col) || !/^(asc|desc)$/i.test(dir)) {
+                        return next(createError({ status: 400, message: `Invalid order: ${part}` }));
+                    }
+                    orderBy.push(`${col} ${dir.toUpperCase()}`);
                 }
+                query += ` ORDER BY ${orderBy.join(', ')}`;
             }
             if (filters.limit) {
                 query += ` LIMIT ${parseInt(filters.limit, 10)}`;
@@ -128,8 +145,9 @@ class DataService {
             // Handle Joins
             if (select !== '*' && data.length > 0) {
                 // regex to match table(cols), table!inner(cols), or alias:foreignKey(cols)
-                const joinMatches = select.matchAll(/([\w!:]+)\(([^)]+)\)/g);
-                for (const match of joinMatches) {
+                const joinMatches = [...select.matchAll(/([\w!:]+)\(([^)]+)\)/g)];
+                // Each join fills its own key on the rows, so they can run concurrently.
+                await Promise.all(joinMatches.map(async (match) => {
                     let target = match[1];
                     const columns = match[2];
                     
@@ -197,7 +215,7 @@ class DataService {
                         } else {
                             // Reverse join: relatedTable.table_id -> table.id
                             const tableSingular = table.replace(/s$/, '');
-                            const reverseFk = `${tableSingular}_id`;
+                            const reverseFk = REVERSE_FK[relatedTable] ?? `${tableSingular}_id`;
                             const ids = data.map(r => r.id);
                             const selectColsRev = columns === '*' || validCols.length === 0 ? '*' : `${reverseFk}, ${validCols.join(', ')}`;
                             const { rows: relatedData } = await pool.query(
@@ -219,7 +237,7 @@ class DataService {
                     } catch (joinErr: any) {
                         console.warn(`Join error for ${relatedTable}:`, joinErr.message);
                     }
-                }
+                }));
             }
 
             return data;
