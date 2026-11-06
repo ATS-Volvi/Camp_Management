@@ -1,4 +1,5 @@
 import { computeMealCost, defaultMealRates, type MealRates } from "@/lib/mealCosting";
+import { getExcelTierRates, getExcelMealRates } from "@/lib/excelRates";
 import { approvedFoodCancellations } from "@/lib/approvedFoodCancellations";
 import { billableStayWindow, stayDeparture } from "@/lib/stayBilling";
 import { LEAVE_STATUSES, leaveDaysWithin, leaveRangesWithin, dmy, roomCostWithHolding, type LeavePeriod } from "@/lib/roomHolding";
@@ -96,11 +97,13 @@ export function buildRevenueRows(data: any, fromDate: string, toDate: string): a
       // Supplier employees are charged at their supplier's rates from the Supplier Master; own staff use standard rates.
       const client = emp.employee_type === "supplier" && emp.supplier_name ? supplierByName[String(emp.supplier_name).trim().toLowerCase()] ?? null : null;
       const clientRoom = client?.client_room_rates?.find((r: any) => r.room_category_code === codeByKey[room.category]);
-      const dailyRoom = clientRoom ? Number(clientRoom.daily_rate) || 0 : rateMap[`${ci.camp_id}-${room.category}`] || 0;
+      const standardRates = getExcelTierRates(room.category, room.max_capacity);
+      const configuredDailyRoom = rateMap[`${ci.camp_id}-${room.category}`];
+      const dailyRoom = clientRoom ? Number(clientRoom.daily_rate) || 0 : (configuredDailyRoom && configuredDailyRoom > 0 ? configuredDailyRoom : standardRates.accommodationRate);
       const baseFood = ci.food_required ? Number(room.daily_food_rate) || 0 : 0;
       const mealRates: MealRates = !ci.food_required ? { breakfast: 0, lunch: 0, dinner: 0, ramadan: 0 }
         : client ? { breakfast: Number(client.breakfast_rate) || 0, lunch: Number(client.lunch_rate) || 0, dinner: Number(client.dinner_rate) || 0, ramadan: Number(client.ramadan_rate) || 0 }
-        : campMealByCamp[ci.camp_id] ?? defaultMealRates(baseFood);
+        : campMealByCamp[ci.camp_id] ?? (baseFood > 0 ? defaultMealRates(baseFood) : getExcelMealRates(room.category, room.max_capacity));
       const dailyFood = mealRates.breakfast + mealRates.lunch + mealRates.dinner;
       const leaves = leaveRangesWithin(leaveByEmp[ci.employee_id] || [], stayStart, stayEnd);
       // Leave days automatically remove every meal for those days; the room is charged at the holding rate.
@@ -109,7 +112,7 @@ export function buildRevenueRows(data: any, fromDate: string, toDate: string): a
          ...leaves.map(l => ({ from: l.from, to: l.to, meals: [] as string[] }))],
         ramadanByCamp[ci.camp_id]);
       const mealsCancelled = meal.mealsCancelled;
-      const holdingCharge = holdingMap[room.category] || 0;
+      const holdingCharge = (holdingMap[room.category] && holdingMap[room.category] > 0) ? holdingMap[room.category] : standardRates.holdingRate;
       const leaveDays = Math.min(stayDays, leaveDaysWithin(leaveByEmp[ci.employee_id] || [], stayStart, stayEnd));
       const roomRevenue = roomCostWithHolding(stayDays, leaveDays, dailyRoom, holdingCharge);
       const foodRevenue = meal.net;

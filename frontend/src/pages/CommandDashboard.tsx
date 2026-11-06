@@ -1,26 +1,33 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useMemo, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { format, startOfYear, startOfMonth, endOfMonth, subMonths } from "date-fns";
-import { Building2, DollarSign, Users, BedDouble, Globe2, FileClock, RefreshCw, ArrowUpRight, UtensilsCrossed, ShieldCheck, Sun, Moon } from "lucide-react";
+import { Building2, DollarSign, Users, BedDouble, Globe2, FileClock, RefreshCw, ArrowUpRight, UtensilsCrossed, ShieldCheck, Sun, Moon, Download, Loader2 } from "lucide-react";
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from "recharts";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
 import { useCommandDashboard } from "@/hooks/useCommandDashboard";
+import { useDepartments } from "@/hooks/useDepartments";
+import { departmentDisplayName, departmentLabel } from "@/lib/departmentLabels";
+import { buildDashboardPdf, collectDashboardCharts } from "@/lib/dashboardPdf";
 import { useRevenueData, buildRevenueRows } from "@/components/reports/RevenueReportTab";
 import { residentsAt, contractStatus } from "@/lib/commandDashboard";
 import "@/components/dashboard/command-dashboard.css";
 import { DashboardBarChart } from "@/components/dashboard/DashboardBarChart";
 import { ChartDrilldown, type ChartSelection } from "@/components/dashboard/ChartDrilldown";
-import { employeeRecord, revenueRecord, roomRecord, selectChartRecords } from "@/lib/dashboardDrilldown";
+import { employeeRecord, revenueRecord, roomRecord } from "@/lib/dashboardDrilldown";
 import { ExpertiseBoard } from "@/components/dashboard/ExpertiseBoard";
 
 type View = "board" | "utilization" | "snapshot" | "contracts" | "expertise";
 const titles: Record<View, string> = { board: "Board Overview", utilization: "Camp Utilization & Departments", snapshot: "Monthly Board Snapshot", contracts: "Contract Overview", expertise: "Expertise Camps — Board Dashboard" };
 const colors = [1, 2, 3, 4, 5].map(i => `hsl(var(--chart-${i}))`);
 const money = (n: number) => `SAR ${n.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+/** Short form for the KPI tiles, which are too narrow for a full figure. */
+const moneyShort = (n: number) => n >= 1_000_000 ? `SAR ${(n / 1_000_000).toFixed(2)}M` : n >= 10_000 ? `SAR ${(n / 1000).toFixed(1)}K` : money(n);
 const percent = (n: number, total: number) => total ? `${(n / total * 100).toFixed(1)}%` : "0.0%";
 const tooltip = { background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", color: "hsl(var(--foreground))", borderRadius: 8 };
 
@@ -39,6 +46,8 @@ function Donut({ rows, onDrillDown }: { rows: { name: string; value: number }[];
 
 export default function CommandDashboard({ view }: { view: View }) {
   const [chartSelection, setChartSelection] = useState<ChartSelection | null>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const [exporting, setExporting] = useState(false);
   const [dashboardTheme, setDashboardTheme] = useState<"light" | "dark">(() => {
     try { return localStorage.getItem("camp365-dashboard-theme") === "dark" ? "dark" : "light"; }
     catch { return "light"; }
@@ -70,22 +79,13 @@ export default function CommandDashboard({ view }: { view: View }) {
   const boardRevenue = useRevenueData(view === "expertise" ? yearStart : trendStart, safeTo);
   const data = query.data;
   const empMap = useMemo(() => new Map((data?.employees ?? []).map(e => [e.id, e])), [data]);
-  const roomMap = useMemo(() => new Map((data?.rooms ?? []).map(r => [r.id, r])), [data]);
-  const presenceByEmp = useMemo(() => {
-    const byEmp = new Map<string, NonNullable<typeof data>["presence"]>();
-    (data?.presence ?? []).forEach(l => { const list = byEmp.get(l.employee_id); if (list) list.push(l); else byEmp.set(l.employee_id, [l]); });
-    return byEmp;
-  }, [data]);
-  const presenceAt = (employeeId: string) => (presenceByEmp.get(employeeId) ?? []).filter(l => l.effective_from <= snapshotAt && (!l.effective_to || l.effective_to > snapshotAt)).sort((a, b) => b.effective_from.localeCompare(a.effective_from))[0];
   const departments = [...new Set((data?.employees ?? []).map(e => e.department).filter((d): d is string => Boolean(d)))].sort();
   const match = (campId: string | null | undefined, empId: string) => (camp === "all" || camp === campId) && (department === "all" || empMap.get(empId)?.department === department);
   const residents = residentsAt(data?.checkIns ?? [], data?.checkOuts ?? [], snapshotAt).filter(e => match(e.camp_id, e.employee_id));
   const rooms = (data?.rooms ?? []).filter(r => camp === "all" || camp === r.camp_id);
   const capacity = rooms.reduce((s, r) => s + r.max_capacity, 0);
-  // Revenue builds are the expensive part; memoize them so filter changes and keystrokes only re-filter.
-  const sourceMap = useMemo(() => new Map((revenue.data?.checkIns ?? []).map(ci => [ci.id, ci])), [revenue.data]);
-  const revenueRows = useMemo(() => buildRevenueRows(revenue.data, safeFrom, safeTo), [revenue.data, safeFrom, safeTo]);
-  const costRows = revenueRows.filter(r => { const ci = sourceMap.get(r.id); return ci && match(ci.camp_id, ci.employee_id); });
+  const sourceMap = new Map((revenue.data?.checkIns ?? []).map(ci => [ci.id, ci]));
+  const costRows = buildRevenueRows(revenue.data, safeFrom, safeTo).filter(r => { const ci = sourceMap.get(r.id); return ci && match(ci.camp_id, ci.employee_id); });
   const total = costRows.reduce((s, r) => s + r.total, 0);
   const rent = costRows.reduce((s, r) => s + r.roomRevenue, 0);
   const food = costRows.reduce((s, r) => s + r.foodRevenue, 0);
@@ -103,22 +103,37 @@ export default function CommandDashboard({ view }: { view: View }) {
     return [...map].map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
   };
   const nationalities = grouping("nationality");
-  const depts = grouping("department").map(d => ({ ...d, amount: costRows.filter(r => r.department === d.name).reduce((s, r) => s + r.total, 0) }));
-  const occupiedRoomIds = new Set(residents.map(r => r.room_id));
-  const occupiedRooms = occupiedRoomIds.size;
+  const deptMaster = useDepartments();
+  const labelFor = (raw?: string | null) => departmentLabel(raw, deptMaster.data ?? []);
+  const deptGroups = useMemo(() => {
+    const map = new Map<string, { short: string; name: string; raws: Set<string>; value: number; amount: number }>();
+    const touch = (raw: string | null | undefined) => {
+      const label = departmentLabel(raw, deptMaster.data ?? []);
+      let group = map.get(label.short);
+      if (!group) { group = { short: label.short, name: label.name, raws: new Set<string>(), value: 0, amount: 0 }; map.set(label.short, group); }
+      group.raws.add((raw ?? "").trim() || "Not recorded");
+      return group;
+    };
+    residents.forEach(r => { touch(empMap.get(r.employee_id)?.department).value += 1; });
+    costRows.forEach(r => { touch(r.department).amount += r.total; });
+    return [...map.values()].sort((a, b) => b.amount - a.amount || b.value - a.value);
+  }, [residents, costRows, empMap, deptMaster.data]);
+  const deptTooltipLabels = Object.fromEntries(deptGroups.map(g => [g.short, departmentDisplayName(g)]));
+  const openDepartment = (key: string) => {
+    const group = deptGroups.find(g => g.short === key || departmentDisplayName(g) === key);
+    if (group) openRevenue(`${group.name} (${group.short}) revenue`, costRows.filter(r => group.raws.has((r.department ?? "").trim() || "Not recorded")));
+  };
+  const occupiedRooms = new Set(residents.map(r => r.room_id)).size;
   const presence = residents.reduce<Record<string, number>>((acc, r) => {
-    const log = presenceAt(r.employee_id);
+    const log = (data?.presence ?? []).filter(l => l.employee_id === r.employee_id && l.effective_from <= snapshotAt && (!l.effective_to || l.effective_to > snapshotAt)).sort((a, b) => b.effective_from.localeCompare(a.effective_from))[0];
     const key = log?.to_status ?? "active"; acc[key] = (acc[key] ?? 0) + 1; return acc;
   }, {});
-  const trendSources = useMemo(() => new Map((trendQuery.data?.checkIns ?? []).map(ci => [ci.id, ci])), [trendQuery.data]);
-  const trendMonths = useMemo(() => Array.from({ length: 6 }, (_, i) => {
+  const trend = Array.from({ length: 6 }, (_, i) => {
     const date = subMonths(new Date(`${safeTo}T12:00:00`), 5 - i);
     const start = format(startOfMonth(date), "yyyy-MM-dd");
     const end = i === 5 ? safeTo : format(endOfMonth(date), "yyyy-MM-dd");
-    return { date, rows: buildRevenueRows(trendQuery.data, start, end) };
-  }), [trendQuery.data, safeTo]);
-  const trend = trendMonths.map(({ date, rows: monthRows }) => {
-    const rows = monthRows.filter(r => { const ci = trendSources.get(r.id); return ci && match(ci.camp_id, ci.employee_id); });
+    const sources = new Map((trendQuery.data?.checkIns ?? []).map(ci => [ci.id, ci]));
+    const rows = buildRevenueRows(trendQuery.data, start, end).filter(r => { const ci = sources.get(r.id); return ci && match(ci.camp_id, ci.employee_id); });
     return { name: format(date, "MMM yy"), Room: rows.reduce((s, r) => s + r.roomRevenue, 0), Food: rows.reduce((s, r) => s + r.foodRevenue, 0) };
   });
   const campEmpIds = new Set(residents.map(r => r.employee_id));
@@ -126,23 +141,72 @@ export default function CommandDashboard({ view }: { view: View }) {
   const contractGroups = ["Active", "Expiring ≤ 90 days", "Expired", "No end date"].map(name => ({ name, value: contracts.filter(e => e.contractStatus === name).length })).filter(r => r.value);
   const contractRows = contracts.filter(e => (status === "all" || e.contractStatus === status) && `${e.name} ${e.supplier_name ?? ""} ${e.employee_id}`.toLowerCase().includes(search.toLowerCase()));
   const isError = query.isError || (view !== "contracts" && (revenue.isError || trendQuery.isError));
-  const boardMonths = useMemo(() => Array.from({ length: 12 }, (_, i) => new Date(`${safeTo.slice(0, 4)}-${String(i + 1).padStart(2, "0")}-01T12:00:00`)), [safeTo]);
-  const boardSources = useMemo(() => new Map((boardRevenue.data?.checkIns ?? []).map(ci => [ci.id, ci])), [boardRevenue.data]);
-  const boardAllRows = useMemo(() => view === "expertise" ? boardMonths.map(date => {
+  const boardMonths = Array.from({ length: 12 }, (_, i) => new Date(`${safeTo.slice(0, 4)}-${String(i + 1).padStart(2, "0")}-01T12:00:00`));
+  const boardSources = new Map((boardRevenue.data?.checkIns ?? []).map(ci => [ci.id, ci]));
+  const boardMonthlyRows = view === "expertise" ? boardMonths.map(date => {
     const start = format(date, "yyyy-MM-dd");
     if (start > safeTo) return null;
     const end = format(endOfMonth(date), "yyyy-MM-dd");
-    return buildRevenueRows(boardRevenue.data, start, end < safeTo ? end : safeTo);
-  }) : [], [view, boardMonths, boardRevenue.data, safeTo]);
-  const boardMonthlyRows = boardAllRows.map(rows => rows && rows.filter(row => {
-    const ci = boardSources.get(row.id); return ci && match(ci.camp_id, ci.employee_id);
-  }));
+    return buildRevenueRows(boardRevenue.data, start, end < safeTo ? end : safeTo).filter(row => {
+      const ci = boardSources.get(row.id); return ci && match(ci.camp_id, ci.employee_id);
+    });
+  }) : [];
+
+  const tickets = useQuery({
+    queryKey: ["board-maintenance-tickets", trendStart, safeTo],
+    enabled: view === "board",
+    queryFn: async () => {
+      const { data, error } = await supabase.from("maintenance_tickets").select("id, camp_id, category, description, priority, status, created_at").gte("created_at", `${trendStart}T00:00:00`).lte("created_at", `${safeTo}T23:59:59`).limit(5000);
+      if (error) throw error; return data ?? [];
+    },
+  });
+  const ticketLabel = (s: string) => s === "completed" ? "Completed" : s === "in_progress" ? "In Progress" : "Open";
+  const ticketMonths = Array.from({ length: 6 }, (_, i) => {
+    const name = format(subMonths(new Date(`${safeTo}T12:00:00`), 5 - i), "MMM yy");
+    const list = (tickets.data ?? []).filter(t => (camp === "all" || t.camp_id === camp) && format(new Date(t.created_at), "MMM yy") === name);
+    return { name, Open: list.filter(t => ticketLabel(t.status) === "Open").length, "In Progress": list.filter(t => ticketLabel(t.status) === "In Progress").length, Completed: list.filter(t => ticketLabel(t.status) === "Completed").length };
+  });
+  const vacantRooms = rooms.filter(r => !residents.some(e => e.room_id === r.id) && !["under_maintenance", "reserved"].includes(r.status)).length;
+  const kpiItems = view === "contracts" ? [
+    { label: "Active", value: contracts.filter(e => e.contractStatus === "Active").length, icon: FileClock },
+    { label: "Expiring ≤ 90 days", value: contracts.filter(e => e.contractStatus === "Expiring ≤ 90 days").length, icon: FileClock },
+    { label: "Expired", value: contracts.filter(e => e.contractStatus === "Expired").length, icon: FileClock },
+    { label: "No end date", value: contracts.filter(e => e.contractStatus === "No end date").length, icon: FileClock },
+  ] : [
+    { label: "Total Revenue", value: revenue.isLoading ? "—" : moneyShort(total), icon: DollarSign },
+    { label: "Total Residents", value: residents.length, icon: Users },
+    { label: "Camp Occupancy", value: percent(residents.length, capacity), icon: BedDouble },
+    { label: "Vacant Rooms", value: vacantRooms, icon: Building2 },
+    ...(view === "board" ? [
+      { label: "Total Food Cost", value: moneyShort(food), icon: UtensilsCrossed },
+      { label: "Total Room Cost", value: moneyShort(rent), icon: BedDouble },
+      { label: "Total Rooms", value: rooms.length, icon: Building2 },
+    ] : []),
+  ];
+  const kpiCompact = kpiItems.length > 4;
+  const exportPdf = async () => {
+    const root = rootRef.current;
+    if (!root || exporting) return;
+    setExporting(true);
+    try {
+      const charts = await collectDashboardCharts(root);
+      buildDashboardPdf({
+        title: `Camp-365 — ${titles[view]}`,
+        subtitle: view === "contracts" ? "Employee contract expiry · Current records" : `${safeFrom} — ${safeTo} · Occupancy as of ${snapshotAt.slice(0, 10)}`,
+        kpis: kpiItems.map(item => ({ label: item.label, value: item.value })),
+        charts,
+        fileName: `camp365-${view}-dashboard.pdf`,
+      });
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const residentRecords = (events = residents) => events.flatMap(event => {
     const employee = empMap.get(event.employee_id);
-    const room = roomMap.get(event.room_id);
+    const room = data?.rooms.find(r => r.id === event.room_id);
     const campName = data?.camps.find(c => c.id === event.camp_id)?.name;
-    const log = presenceAt(event.employee_id);
+    const log = (data?.presence ?? []).filter(l => l.employee_id === event.employee_id && l.effective_from <= snapshotAt && (!l.effective_to || l.effective_to > snapshotAt)).sort((a, b) => b.effective_from.localeCompare(a.effective_from))[0];
     return employee ? [employeeRecord(employee, { Camp: campName, Room: room?.room_number, Block: room?.buildings?.name, "Check-in": event.check_in_date, "Food required": event.food_required, Presence: log?.to_status ?? "active" })] : [];
   });
   const openRevenue = (title: string, rows = costRows, description = `${safeFrom} — ${safeTo}`) => setChartSelection({ title, description, rows: rows.map(revenueRecord) });
@@ -176,36 +240,27 @@ export default function CommandDashboard({ view }: { view: View }) {
     }
   };
 
-  return <div className="command-dashboard space-y-5" data-dashboard-theme={dashboardTheme}>
+  return <div className="command-dashboard space-y-5" data-dashboard-theme={dashboardTheme} ref={rootRef}>
     <div className="flex justify-end">
       <div role="group" aria-label="Dashboard theme" className="inline-flex items-center gap-1 rounded-md border bg-card p-1">
         <Button size="sm" variant={dashboardTheme === "light" ? "default" : "ghost"} aria-pressed={dashboardTheme === "light"} onClick={() => changeDashboardTheme("light")}><Sun size={16} />Classic Light</Button>
         <Button size="sm" variant={dashboardTheme === "dark" ? "default" : "ghost"} aria-pressed={dashboardTheme === "dark"} onClick={() => changeDashboardTheme("dark")}><Moon size={16} />Soft Dark</Button>
       </div>
     </div>
-    <header className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-xs text-primary flex items-center gap-2 mb-2"><Building2 size={14} /> CAMP-365 COMMAND CENTER</p><h1 className="text-2xl font-bold">{titles[view]}</h1><p className="text-xs text-muted-foreground mt-2">{view === "contracts" ? "Employee contract expiry · Current records" : `${safeFrom} — ${safeTo} · Occupancy as of ${snapshotAt.slice(0, 10)}`}</p></div><Button variant="ghost" size="icon" aria-label="Refresh dashboard" onClick={() => { void query.refetch(); void revenue.refetch(); void trendQuery.refetch(); }}><RefreshCw /></Button></header>
+    <header className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-xs text-primary flex items-center gap-2 mb-2"><Building2 size={14} /> CAMP-365 COMMAND CENTER</p><h1 className="text-2xl font-bold">{titles[view]}</h1><p className="text-xs text-muted-foreground mt-2">{view === "contracts" ? "Employee contract expiry · Current records" : `${safeFrom} — ${safeTo} · Occupancy as of ${snapshotAt.slice(0, 10)}`}</p></div><Button variant="outline" size="sm" onClick={exportPdf} disabled={exporting || query.isLoading || (view !== "contracts" && revenue.isLoading)}><Download size={16} />{exporting ? "Preparing PDF…" : "Export PDF"}</Button>
+      <Button variant="ghost" size="icon" aria-label="Refresh dashboard" onClick={() => { void query.refetch(); void revenue.refetch(); void trendQuery.refetch(); }}><RefreshCw /></Button></header>
     <div className="flex flex-wrap items-end gap-3 border-b pb-4">
       {view !== "contracts" && (view === "snapshot" ? <div className="space-y-1"><Label htmlFor="billing-month">Month</Label><Input id="billing-month" type="month" value={month} onChange={e => setMonth(e.target.value)} className="w-44" /></div> : <><div className="space-y-1"><Label htmlFor="dashboard-from">From</Label><Input id="dashboard-from" type="date" value={from} onChange={e => setFrom(e.target.value)} className="w-40" /></div><div className="space-y-1"><Label htmlFor="dashboard-to">To</Label><Input id="dashboard-to" type="date" value={to} onChange={e => setTo(e.target.value)} className="w-40" /></div><Button variant="outline" size="sm" onClick={() => { setFrom(format(startOfYear(new Date()), "yyyy-MM-dd")); setTo(today); }}>YTD</Button><Button variant="outline" size="sm" onClick={() => { setFrom(format(startOfMonth(new Date()), "yyyy-MM-dd")); setTo(today); }}>This month</Button></>)}
       <Select value={camp} onValueChange={setCamp}><SelectTrigger aria-label="Camp filter" className="w-48"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">All Camps</SelectItem>{(data?.camps ?? []).map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent></Select>
-      <Select value={department} onValueChange={setDepartment}><SelectTrigger aria-label="Department filter" className="w-48"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">All Departments</SelectItem>{departments.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent></Select>
+      <Select value={department} onValueChange={setDepartment}><SelectTrigger aria-label="Department filter" className="w-48"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">All Departments</SelectItem>{departments.map(d => <SelectItem key={d} value={d}>{departmentDisplayName(labelFor(d))}</SelectItem>)}</SelectContent></Select>
     </div>
     {!validDates && <p role="alert" className="text-destructive">Choose a valid date range; From must not be later than To.</p>}
-    {view !== "expertise" && !isError && !query.isLoading && <div className="command-kpis grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-      {(view === "contracts" ? [
-        { label: "Active", value: contracts.filter(e => e.contractStatus === "Active").length, icon: FileClock },
-        { label: "Expiring ≤ 90 days", value: contracts.filter(e => e.contractStatus === "Expiring ≤ 90 days").length, icon: FileClock },
-        { label: "Expired", value: contracts.filter(e => e.contractStatus === "Expired").length, icon: FileClock },
-        { label: "No end date", value: contracts.filter(e => e.contractStatus === "No end date").length, icon: FileClock },
-      ] : [
-        { label: "Total Revenue", value: revenue.isLoading ? "—" : money(total), icon: DollarSign },
-        { label: "Total Residents", value: residents.length, icon: Users },
-        { label: "Camp Occupancy", value: percent(residents.length, capacity), icon: BedDouble },
-        { label: "Vacant Rooms", value: rooms.filter(r => !occupiedRoomIds.has(r.id) && !["under_maintenance", "reserved"].includes(r.status)).length, icon: Building2 },
-      ]).map(item => <Card key={item.label} className="command-panel"><div className="flex justify-between gap-3 items-start"><div className="min-w-0"><p className="text-xs text-muted-foreground font-medium">{item.label}</p><p className="text-2xl font-bold mt-2 break-words" style={{ color: "hsl(var(--kpi-tone))" }}>{item.value}</p></div><item.icon className="h-5 w-5 shrink-0" style={{ color: "hsl(var(--kpi-tone))" }} /></div></Card>)}
+    {view !== "expertise" && !isError && !query.isLoading && <div className={`command-kpis grid grid-cols-2 gap-3 md:grid-cols-4 ${kpiCompact ? "command-kpis-compact xl:grid-cols-7" : "xl:grid-cols-4"}`}>
+      {kpiItems.map(item => <Card key={item.label} className="command-panel"><div className="flex justify-between gap-2 items-start"><div className="min-w-0"><p className="text-xs text-muted-foreground font-medium">{item.label}</p><p className={`font-bold mt-2 whitespace-nowrap ${kpiCompact ? "text-base" : "text-2xl"}`} style={{ color: "hsl(var(--kpi-tone))" }}>{item.value}</p></div><item.icon className={`${kpiCompact ? "h-4 w-4" : "h-5 w-5"} shrink-0`} style={{ color: "hsl(var(--kpi-tone))" }} /></div></Card>)}
     </div>}
     {isError || (view === "expertise" && boardRevenue.isError) ? <p role="alert" className="py-12 text-destructive">Unable to load dashboard records. Please refresh.</p> : query.isLoading || (view !== "contracts" && revenue.isLoading) ? <p role="status" className="py-12 text-muted-foreground">Loading dashboard records…</p> : view === "expertise" ? <ExpertiseBoard onDrillDown={drillExpertise} camps={camps} total={total} room={rent} food={food} residents={residents.length} capacity={capacity} nationalities={nationalities} noFood={residents.filter(r => r.food_required === false).length} onSite={presence.on_site ?? 0} roomStatus={[
       { name: "Occupied", value: occupiedRooms },
-      { name: "Vacant", value: rooms.filter(r => !occupiedRoomIds.has(r.id) && !["under_maintenance", "reserved"].includes(r.status)).length },
+      { name: "Vacant", value: rooms.filter(r => !residents.some(e => e.room_id === r.id) && !["under_maintenance", "reserved"].includes(r.status)).length },
       { name: "Maintenance", value: rooms.filter(r => r.status === "under_maintenance").length },
       { name: "Reserved", value: rooms.filter(r => r.status === "reserved").length },
     ]} months={boardMonths.map(date => format(date, "MMM"))} loadingTrend={boardRevenue.isLoading} trend={boardMonthlyRows.flatMap((rows, i) => rows === null ? [] : [{ name: format(boardMonths[i], "MMM"), Room: rows.reduce((sum, r) => sum + r.roomRevenue, 0), Food: rows.reduce((sum, r) => sum + r.foodRevenue, 0) }])} heatMap={camps.map(c => ({ name: c.name, values: boardMonthlyRows.map(rows => rows === null ? null : rows.filter(r => boardSources.get(r.id)?.camp_id === c.id).reduce((sum, r) => sum + r.total, 0)) }))} /> : view === "contracts" ? <>
@@ -219,10 +274,16 @@ export default function CommandDashboard({ view }: { view: View }) {
       <SectionTitle>Charts & insights</SectionTitle>
       <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
         <Panel title="Revenue Trend — Last 6 Months"><DashboardBarChart rows={trend} series={["Room", "Food"]} money stacked onDrillDown={(row, series) => openTrend(String(row.name), series)} /></Panel>
+        {view === "board" && <>
+          <Panel title="Department Revenue"><DashboardBarChart rows={deptGroups.map(g => ({ name: g.short, Revenue: g.amount }))} series={["Revenue"]} money tooltipLabels={deptTooltipLabels} minBarSlot={42} onDrillDown={row => openDepartment(String(row.name))} /></Panel>
+          <Panel title="Revenue by Camps"><DashboardBarChart rows={[...camps].sort((a, b) => b.amount - a.amount).map(c => ({ name: c.name, Revenue: c.amount }))} series={["Revenue"]} money horizontal onDrillDown={row => openRevenue(`${row.name} revenue`, costRows.filter(r => r.camp === row.name))} /></Panel>
+          <Panel title="Revenue Mix"><Donut rows={[{ name: "Room", value: rent }, { name: "Food", value: food }].filter(r => r.value > 0)} onDrillDown={name => openRevenue(`${name} revenue`)} /></Panel>
+        </>}
         <Panel title="Designed vs Occupied Beds"><DashboardBarChart rows={camps.map(c => ({ name: c.name, Designed: c.cap, Occupied: c.count }))} series={["Designed", "Occupied"]} horizontal onDrillDown={(row, series) => { const c = camps.find(c => c.name === row.name); if (!c) return; if (series === "Occupied") openResidents(`${c.name} residents`, residents.filter(r => r.camp_id === c.id)); else openRooms(`${c.name} rooms`, rooms.filter(r => r.camp_id === c.id)); }} /></Panel>
-        <Panel title="Revenue Mix"><Donut rows={[{ name: "Room", value: rent }, { name: "Food", value: food }].filter(r => r.value > 0)} onDrillDown={name => openRevenue(`${name} revenue`)} /></Panel>
+        {view === "board" && <Panel title="Maintenance Requests — Month-wise"><DashboardBarChart rows={ticketMonths} series={["Open", "In Progress", "Completed"]} stacked onDrillDown={(row, series) => { const t = (tickets.data ?? []).filter(x => format(new Date(x.created_at), "MMM yy") === row.name && ticketLabel(x.status) === series); setChartSelection({ title: `${row.name} · ${series} tickets`, description: "Maintenance requests", rows: t.map(x => ({ id: x.id, label: x.category, fields: { Description: x.description, Camp: data?.camps.find(c => c.id === x.camp_id)?.name ?? "—", Priority: x.priority, Status: x.status, Created: x.created_at.slice(0, 10) } })) }); }} /></Panel>}
+        {view !== "board" && <Panel title="Revenue Mix"><Donut rows={[{ name: "Room", value: rent }, { name: "Food", value: food }].filter(r => r.value > 0)} onDrillDown={name => openRevenue(`${name} revenue`)} /></Panel>}
         <Panel title="Nationality Mix" icon={<Globe2 size={16} />}><Donut rows={nationalities} onDrillDown={name => openResidents(`${name} residents`, residents.filter(r => (empMap.get(r.employee_id)?.nationality || "Not recorded") === name))} /></Panel>
-        <Panel title="Department Revenue"><DashboardBarChart rows={depts.map(d => ({ name: d.name, Revenue: d.amount }))} series={["Revenue"]} money horizontal onDrillDown={row => openRevenue(`${row.name} revenue`, selectChartRecords(costRows, r => r.department, String(row.name)))} /></Panel>
+        <Panel title="Revenue by Business Units"><Donut rows={deptGroups.filter(g => g.amount > 0).map(g => ({ name: departmentDisplayName(g), value: Math.round(g.amount) }))} onDrillDown={name => openDepartment(name)} /></Panel>
         <Panel title="Resident Status"><Donut rows={[["Active", "active"], ["Vacation", "vacation"], ["On Site", "on_site"], ["Away", "away"]].map(([name, key]) => ({ name, value: presence[key] ?? 0 })).filter(r => r.value > 0)} onDrillDown={name => { const key = ({ Active: "active", Vacation: "vacation", "On Site": "on_site", Away: "away" } as Record<string, string>)[name]; openResidents(`${name} residents`, residents.filter(r => residentRecords([r])[0]?.fields.Presence === key)); }} /></Panel>
       </div>
       <SectionTitle>Revenue & resident overview</SectionTitle>
@@ -235,10 +296,10 @@ export default function CommandDashboard({ view }: { view: View }) {
       <SectionTitle>Camp utilization — Designed vs Actual</SectionTitle>
       {view === "snapshot" ? <Panel title="Camp occupancy & revenue"><div className="overflow-auto"><table className="data-table"><thead><tr>{["Camp", "Designed Beds", "Occupied Beds", "Occupancy", "Revenue", "Share"].map(h => <th key={h}>{h}</th>)}</tr></thead><tbody>{camps.map(c => <tr key={c.id}><td><Link className="text-primary" to={`/camps/${c.id}`}>{c.name}</Link></td><td>{c.cap}</td><td>{c.count}</td><td>{percent(c.count, c.cap)}</td><td className="whitespace-nowrap">{money(c.amount)}</td><td>{percent(c.amount, total)}</td></tr>)}</tbody></table></div></Panel> : <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">{camps.map(c => <Panel key={c.id} title={c.name} icon={<Building2 size={14} />}><div className="grid grid-cols-2 gap-3"><Metric label="Designed beds" value={c.cap.toLocaleString()} /><Metric label="Actual residents" value={c.count.toLocaleString()} tone="text-primary" /></div><p className="text-xs text-campgreen mt-2">{percent(c.count, c.cap)} occupied</p><Metric label="Period revenue" value={money(c.amount)} detail={`${percent(c.amount, total)} of total`} /><Button asChild variant="ghost" size="sm" className="w-full justify-between mt-2"><Link to={`/camps/${c.id}`}>View camp<ArrowUpRight /></Link></Button></Panel>)}</div>}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Panel title="Rooms & Food" icon={<UtensilsCrossed size={16} />}><div className="grid grid-cols-2 gap-x-4"><Metric label="Occupied rooms" value={occupiedRooms} /><Metric label="Vacant rooms" value={rooms.filter(r => !occupiedRoomIds.has(r.id) && !["under_maintenance", "reserved"].includes(r.status)).length} /><Metric label="Under maintenance" value={rooms.filter(r => r.status === "under_maintenance").length} tone="text-amber" /><Metric label="Reserved rooms" value={rooms.filter(r => r.status === "reserved").length} /><Metric label="Food opted out" value={residents.filter(e => e.food_required === false).length} /><Metric label="Available bed capacity" value={Math.max(0, capacity - residents.length)} /></div></Panel>
+        <Panel title="Rooms & Food" icon={<UtensilsCrossed size={16} />}><div className="grid grid-cols-2 gap-x-4"><Metric label="Occupied rooms" value={occupiedRooms} /><Metric label="Vacant rooms" value={rooms.filter(r => !residents.some(e => e.room_id === r.id) && !["under_maintenance", "reserved"].includes(r.status)).length} /><Metric label="Under maintenance" value={rooms.filter(r => r.status === "under_maintenance").length} tone="text-amber" /><Metric label="Reserved rooms" value={rooms.filter(r => r.status === "reserved").length} /><Metric label="Food opted out" value={residents.filter(e => e.food_required === false).length} /><Metric label="Available bed capacity" value={Math.max(0, capacity - residents.length)} /></div></Panel>
         <Panel title="Demographic Coverage" icon={<ShieldCheck size={16} />}><Metric label="Nationality recorded" value={percent(residents.filter(e => empMap.get(e.employee_id)?.nationality).length, residents.length)} /><Metric label="Age / Under 50 / 50+" value="Not recorded" detail="Birth dates are not available in employee records." /><Metric label="Faith mix" value="Not recorded" detail="Faith is not captured in employee records." /></Panel>
       </div>
-      <div><Panel title="Departments — Residents, Value & Share"><div className="overflow-auto max-h-80"><table className="data-table"><thead><tr>{["Department", "Residents", "Period Value", "%"].map(h => <th key={h}>{h}</th>)}</tr></thead><tbody>{depts.map(d => <tr key={d.name}><td>{d.name}</td><td>{d.value}</td><td className="whitespace-nowrap">{money(d.amount)}</td><td>{percent(d.amount, total)}</td></tr>)}{!depts.length && <tr><td colSpan={4}>No resident records</td></tr>}</tbody></table></div></Panel></div>
+      <div><Panel title="Departments — Residents, Value & Share"><div className="overflow-auto max-h-80"><table className="data-table"><thead><tr>{["Department", "Residents", "Period Value", "%"].map(h => <th key={h}>{h}</th>)}</tr></thead><tbody>{deptGroups.map(g => <tr key={g.short}><td><span className="font-semibold">{g.short}</span> <span className="text-muted-foreground">{g.name}</span></td><td>{g.value}</td><td className="whitespace-nowrap">{money(g.amount)}</td><td>{percent(g.amount, total)}</td></tr>)}{!deptGroups.length && <tr><td colSpan={4}>No resident records</td></tr>}</tbody></table></div></Panel></div>
     </>}
     <ChartDrilldown selection={chartSelection} onClose={() => setChartSelection(null)} theme={dashboardTheme} />
   </div>;

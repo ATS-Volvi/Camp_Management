@@ -92,6 +92,66 @@ export function getRoomCategoryLabel(value: string): string {
   return ROOM_CATEGORIES.find(c => c.value === value)?.label || value;
 }
 
+export function getRoomCategoryMultiplier(value: string): string {
+  const cap = getRoomCategoryCapacity(value);
+  return `${cap}x1`;
+}
+
+/**
+ * Maps raw room types from Excel or manual input (e.g. '1x1', '2x1', '3x1', '4x1', '5x1', '6x1', '8x1', or category values)
+ * to a valid database room_category and integer bed capacity.
+ */
+export function mapRawRoomTypeToCategory(rawType: string | number): { category: string; capacity: number; label: string } {
+  const norm = String(rawType ?? "").toLowerCase().trim();
+  
+  if (norm === "1x1" || norm === "1") return { category: "executive_single", capacity: 1, label: "Executive Single (1x1)" };
+  if (norm === "2x1" || norm === "2") return { category: "supervisor_twin", capacity: 2, label: "Supervisor Twin (2x1)" };
+  if (norm === "3x1" || norm === "3") return { category: "supervisor_twin", capacity: 3, label: "Triple Sharing (3x1)" };
+  if (norm === "4x1" || norm === "4") return { category: "staff_4bed", capacity: 4, label: "Staff 4-Bed (4x1)" };
+  if (norm === "5x1" || norm === "5") return { category: "skilled_6bed", capacity: 5, label: "5-Bed Sharing (5x1)" };
+  if (norm === "6x1" || norm === "6") return { category: "skilled_6bed", capacity: 6, label: "Skilled 6-Bed (6x1)" };
+  if (norm === "8x1" || norm === "8") return { category: "general_8bed", capacity: 8, label: "General 8-Bed (8x1)" };
+
+  const matched = ROOM_CATEGORIES.find(c => c.value === norm);
+  if (matched) return { category: matched.value, capacity: matched.capacity, label: `${matched.label} (${matched.capacity}x1)` };
+
+  // Fallback default
+  return { category: "staff_4bed", capacity: 4, label: "Staff 4-Bed (4x1)" };
+}
+
+/**
+ * Parses floor input from Excel or user entries. Supports 'G' (Ground), 'F' (First), 'S' (Second), '0', '1', '2', etc.
+ */
+export function parseFloorInput(rawFloor: any): { floorNumber: number; floorCode: string; displayName: string } {
+  const str = String(rawFloor ?? "").trim().toUpperCase();
+  if (str === "G" || str === "GROUND" || str === "GF" || str === "0") {
+    return { floorNumber: 1, floorCode: "G", displayName: "Floor G (Ground)" };
+  }
+  if (str === "F" || str === "FIRST" || str === "1F") {
+    return { floorNumber: 2, floorCode: "F", displayName: "Floor F (First)" };
+  }
+  if (str === "S" || str === "SECOND" || str === "2F") {
+    return { floorNumber: 3, floorCode: "S", displayName: "Floor S (Second)" };
+  }
+  if (str === "T" || str === "THIRD" || str === "3F") {
+    return { floorNumber: 4, floorCode: "T", displayName: "Floor T (Third)" };
+  }
+  const parsed = parseInt(str);
+  if (!isNaN(parsed) && parsed > 0) {
+    const code = parsed === 1 ? "G" : parsed === 2 ? "F" : parsed === 3 ? "S" : String(parsed);
+    return { floorNumber: parsed, floorCode: code, displayName: getFloorDisplayName(parsed) };
+  }
+  return { floorNumber: 1, floorCode: "G", displayName: "Floor G (Ground)" };
+}
+
+export function getFloorDisplayName(floorNumber: number): string {
+  if (floorNumber === 1) return "Floor G (Ground)";
+  if (floorNumber === 2) return "Floor F (First)";
+  if (floorNumber === 3) return "Floor S (Second)";
+  if (floorNumber === 4) return "Floor T (Third)";
+  return `Floor ${floorNumber}`;
+}
+
 export function getRoomCategoryCapacity(value: string): number {
   return ROOM_CATEGORIES.find(c => c.value === value)?.capacity || 4;
 }

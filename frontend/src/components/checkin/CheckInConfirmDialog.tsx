@@ -75,7 +75,14 @@ export default function CheckInConfirmDialog({
         .eq("camp_id", camp.id)
         .eq("room_category", room.category)
         .maybeSingle();
-      return data?.daily_rate ?? null;
+      if (data) return data.daily_rate;
+      // No camp override: fall back to the Room Category Master default rate.
+      const { data: master } = await supabase
+        .from("room_categories")
+        .select("daily_rate")
+        .eq("category_key", room.category)
+        .maybeSingle();
+      return master?.daily_rate ?? null;
     },
     enabled: open && !!camp?.id && !!room?.category,
   });

@@ -10,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
 import { format, differenceInDays } from "date-fns";
+import { resolveDailyRoomRate } from "@/lib/roomRateFallback";
 
 interface Props {
   open: boolean;
@@ -67,6 +68,12 @@ export default function BulkCheckoutDialog({ open, onOpenChange, campId, campNam
         .eq("camp_id", campId);
       const ratesMap = new Map((ratesData || []).map((r: any) => [r.room_category, r.daily_rate]));
 
+      // Room Category Master defaults — used when this camp has no saved override
+      const { data: masterCats } = await supabase
+        .from("room_categories")
+        .select("category_key, daily_rate");
+      const masterRateMap = new Map((masterCats || []).filter((c: any) => c.category_key).map((c: any) => [c.category_key, Number(c.daily_rate) || 0]));
+
       // Get room categories
       const roomIds = [...new Set([...empMap.values()].map(v => v.room_id))];
       const { data: roomsData } = await supabase
@@ -78,7 +85,12 @@ export default function BulkCheckoutDialog({ open, onOpenChange, campId, campNam
       return (employees || []).map((emp: any) => {
         const ciInfo = empMap.get(emp.id)!;
         const room = roomMap.get(ciInfo.room_id);
-        const dailyRate = room ? (ratesMap.get(room.category) || 0) : 0;
+        const dailyRate = room
+          ? resolveDailyRoomRate(
+              ratesMap.has(room.category) ? Number(ratesMap.get(room.category)) || 0 : undefined,
+              masterRateMap.get(room.category)
+            )
+          : 0;
         return {
           ...emp,
           room_id: ciInfo.room_id,

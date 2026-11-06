@@ -25,7 +25,7 @@ export default function AuditExecutionTab() {
   const [auditType, setAuditType] = useState("daily");
 
   const { data: camps = [] } = useQuery({
-    queryKey: ["camps-list"],
+    queryKey: ["camps-dropdown"],
     queryFn: async () => {
       const { data } = await supabase.from("camps").select("id, name").order("name");
       return data || [];

@@ -1,3 +1,4 @@
+import ExcelRateBanner from "./ExcelRateBanner";
 import { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
@@ -13,6 +14,7 @@ import { getRoomCategoryLabel } from "@/constants/roomCategories";
 import { billableStayWindow, stayDeparture } from "@/lib/stayBilling";
 import { approvedFoodCancellations } from "@/lib/approvedFoodCancellations";
 import { rowsOf } from "@/components/reports/RevenueReportTab";
+import { getExcelTierRates, getExcelMealRates } from "@/lib/excelRates";
 
 const MEAL_TYPES = ["breakfast", "lunch", "dinner"] as const;
 type MealType = (typeof MEAL_TYPES)[number];
@@ -118,9 +120,13 @@ export default function CostInvoicingTab() {
       const { start: stayStart, end: stayEnd, days: stayDays } = billableStayWindow(ci.check_in_date, coDate, fromDate, toDate);
       if (stayDays === 0) return null;
 
+      const standardRates = getExcelTierRates(ci.rooms?.category, ci.rooms?.max_capacity);
       const rate = rates.find((r: any) => r.camp_id === ci.camp_id && r.room_category === ci.rooms?.category);
-      const dailyRoomRate = Number(rate?.daily_rate || 0);
-      const dailyFoodRate = campFoodByCamp.get(ci.camp_id) ?? Number(ci.rooms?.daily_food_rate || 0);
+      const configuredDailyRoom = Number(rate?.daily_rate || 0);
+      const dailyRoomRate = configuredDailyRoom > 0 ? configuredDailyRoom : standardRates.accommodationRate;
+      const campFood = campFoodByCamp.get(ci.camp_id);
+      const roomFood = Number(ci.rooms?.daily_food_rate || 0);
+      const dailyFoodRate = campFood && campFood > 0 ? campFood : (roomFood > 0 ? roomFood : standardRates.cateringRate);
       const mealUnitRate = dailyFoodRate / 3;
 
       // Build set of cancelled (date, meal)
@@ -288,6 +294,8 @@ export default function CostInvoicingTab() {
 
   return (
     <div className="space-y-4 mt-4">
+            <ExcelRateBanner />
+
       {/* KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         <KpiCard label="Employees" value={String(totals.employees)} icon={<FileText size={16} />} />

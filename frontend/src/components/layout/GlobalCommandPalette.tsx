@@ -11,7 +11,7 @@ import {
   ClipboardList, UtensilsCrossed, ChefHat, Ban, UserCheck, Sparkles,
   AlertTriangle, ShieldCheck, LineChart, BarChart3, Activity, Bell,
   UserCog, Shield, FileText, Truck, BedDouble, Search, PlusCircle,
-  TrendingUp, MapPin
+  TrendingUp, MapPin, Briefcase
 } from "lucide-react";
 
 interface Props {

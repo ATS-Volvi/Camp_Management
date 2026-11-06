@@ -47,7 +47,7 @@ export default function PreventiveMaintenance() {
   const filterCamp = campId === "all" ? undefined : campId;
 
   const { data: camps = [] } = useQuery({
-    queryKey: ["camps-list"],
+    queryKey: ["camps-dropdown"],
     queryFn: async () => {
       const { data, error } = await supabase.from("camps").select("id, name").order("name");
       if (error) throw error;

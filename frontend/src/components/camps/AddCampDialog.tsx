@@ -8,6 +8,7 @@ import { Switch } from "@/components/ui/switch";
 import VoiceDictationButton from "@/components/maintenance/VoiceDictationButton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAddCamp, useUpdateCamp, type Camp } from "@/hooks/useCampManagement";
+import { useCampAttributes } from "@/hooks/useCampAttributes";
 import { Sparkles } from "lucide-react";
 
 interface Props {
@@ -22,6 +23,9 @@ const CAMP_TYPES = ["Executive", "Staff", "Worker", "Mixed"];
 export default function AddCampDialog({ open, onOpenChange, editCamp, onCampCreated }: Props) {
   const addCamp = useAddCamp();
   const updateCamp = useUpdateCamp();
+  const { getOptionsFor } = useCampAttributes();
+  const masterCampTypes = getOptionsFor("camp_type");
+  const masterLocations = getOptionsFor("location");
   const isEdit = !!editCamp;
   const [launchMasterSetup, setLaunchMasterSetup] = useState(true);
 
@@ -91,7 +95,12 @@ export default function AddCampDialog({ open, onOpenChange, editCamp, onCampCrea
           </div>
           <div className="space-y-1.5">
             <Label>Location *</Label>
-            <Input value={form.location} onChange={(e) => update("location", e.target.value)} placeholder="Riyadh, KSA" />
+            <Input list="camp-master-locations" value={form.location} onChange={(e) => update("location", e.target.value)} placeholder="e.g. Jubail Industrial City" />
+            <datalist id="camp-master-locations">
+              {masterLocations.map((loc) => (
+                <option key={loc} value={loc} />
+              ))}
+            </datalist>
           </div>
           <div className="space-y-1.5">
             <Label>Project Name</Label>

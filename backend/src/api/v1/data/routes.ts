@@ -1,7 +1,11 @@
 import express from 'express';
 import DataController from './controller';
+import { requireAuth } from '../../../../middleware/auth';
 
 const router = express.Router();
+
+// Enforce authentication across all data access endpoints
+router.use(requireAuth);
 
 router.get('/:table', DataController.getData);
 router.get('/:table/:id', DataController.getDataById);

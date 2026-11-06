@@ -36,7 +36,7 @@ export default function OperationsPulseTicker() {
       const { data, error } = await supabase
         .from("maintenance_tickets")
         .select("id, priority, status")
-        .in("status", ["reported", "assigned", "in_progress"]);
+        .in("status", ["open", "in_progress"]);
       if (error) return { openCount: 0, criticalCount: 0 };
       const openCount = data.length;
       const criticalCount = data.filter((t) => t.priority === "high" || t.priority === "critical").length;

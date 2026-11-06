@@ -7,6 +7,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { usePermissions } from "@/hooks/usePermissions";
 import {
   Building2, BedDouble, Users, DoorOpen, Plus, ArrowLeft, Edit,
   ChevronRight, Search, Filter, MapPin, Phone, Mail, Calendar,
@@ -122,17 +123,8 @@ export default function CampDetails() {
   const [roomConfigMasterOpen, setRoomConfigMasterOpen] = useState(false);
 
   // Check if user is admin
-  const { data: userRoles = [] } = useQuery({
-    queryKey: ["user-roles", user?.id],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("user_roles").select("role").eq("user_id", user!.id);
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!user,
-  });
-
-  const isAdmin = userRoles.some(r => r.role === "super_admin" || r.role === "camp_manager");
+  const { userRoles, isSuperAdmin } = usePermissions();
+  const isAdmin = isSuperAdmin || userRoles.includes("camp_manager");
 
   const { data: camp, isLoading: campLoading } = useQuery({
     queryKey: ["camp", campId],

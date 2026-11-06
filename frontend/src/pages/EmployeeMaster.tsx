@@ -34,7 +34,7 @@ export default function EmployeeMaster() {
   const { data: departments = [] } = useDepartments();
 
   const { data: camps = [] } = useQuery({
-    queryKey: ["camps-list"],
+    queryKey: ["camps-dropdown"],
     queryFn: async () => {
       const { data, error } = await supabase.from("camps").select("id, name").order("name");
       if (error) throw error;
@@ -62,7 +62,10 @@ export default function EmployeeMaster() {
         e.employee_id.toLowerCase().includes(s) ||
         (e.designation || "").toLowerCase().includes(s) ||
         (e.supplier_name || "").toLowerCase().includes(s) ||
-        (e.staff_role || "").toLowerCase().includes(s)
+        (e.staff_role || "").toLowerCase().includes(s) ||
+        (e.nationality || "").toLowerCase().includes(s) ||
+        (e.passport_number || "").toLowerCase().includes(s) ||
+        (e.iqama_number || "").toLowerCase().includes(s)
     );
   }, [employees, search]);
 

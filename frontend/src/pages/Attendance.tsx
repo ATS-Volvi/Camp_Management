@@ -10,7 +10,8 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useCamps } from "@/hooks/useCampManagement";
-import { format, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay } from "date-fns";
+import { format, endOfDay, eachDayOfInterval, isSameDay } from "date-fns";
+import { attendanceDateAllowed, attendanceDateRange } from "@/lib/attendanceDates";
 import { CalendarIcon, ClipboardList, Users, UserCheck, UserMinus, Building2, Search, Download } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
@@ -23,7 +24,11 @@ export default function Attendance() {
   const [campId, setCampId] = useState<string>("all");
   const [viewMode, setViewMode] = useState<ViewMode>("daily");
   const [searchQuery, setSearchQuery] = useState("");
+  const [employeeTypeFilter, setEmployeeTypeFilter] = useState<string>("all");
   const [supplierFilter, setSupplierFilter] = useState<string>("all");
+  const [departmentFilter, setDepartmentFilter] = useState<string>("all");
+  const [nationalityFilter, setNationalityFilter] = useState<string>("all");
+  const [designationFilter, setDesignationFilter] = useState<string>("all");
 
   const { data: camps = [] } = useCamps();
 
@@ -33,14 +38,9 @@ export default function Attendance() {
   }, [campId, camps]);
 
   // Compute date range based on view mode
-  const dateRange = useMemo(() => {
-    if (viewMode === "daily") return { start: startOfDay(date), end: endOfDay(date) };
-    if (viewMode === "weekly") return { start: startOfWeek(date, { weekStartsOn: 0 }), end: endOfWeek(date, { weekStartsOn: 0 }) };
-    return { start: startOfMonth(date), end: endOfMonth(date) };
-  }, [date, viewMode]);
+  const dateRange = attendanceDateRange(date, viewMode);
 
   const days = useMemo(() => {
-    if (viewMode === "daily") return [date];
     return eachDayOfInterval({ start: dateRange.start, end: dateRange.end });
   }, [date, viewMode, dateRange]);
 
@@ -50,19 +50,35 @@ export default function Attendance() {
     queryFn: async () => {
       if (activeCampIds.length === 0) return [];
 
-      const { data: checkIns, error: ciErr } = await supabase
-        .from("check_ins")
-        .select("employee_id, room_id, check_in_date, camp_id")
-        .in("camp_id", activeCampIds)
-        .order("check_in_date", { ascending: false });
-      if (ciErr) throw ciErr;
+      const PAGE = 1000;
+      const fetchAll = async (table: "check_ins" | "check_outs", cols: string, dateCol: string) => {
+        const out: any[] = [];
+        for (let from = 0; ; from += PAGE) {
+          const { data, error } = await supabase
+            .from(table)
+            .select(cols)
+            .in("camp_id", activeCampIds)
+            .order(dateCol, { ascending: false })
+            .order("id", { ascending: true })
+            .range(from, from + PAGE - 1);
+          if (error) throw error;
+          out.push(...(data || []));
+          if (!data || data.length < PAGE) break;
+        }
+        return out;
+      };
+      const fetchByIds = async (table: "employees" | "rooms", cols: string, ids: string[]) => {
+        const out: any[] = [];
+        for (let i = 0; i < ids.length; i += 200) {
+          const { data, error } = await supabase.from(table).select(cols).in("id", ids.slice(i, i + 200));
+          if (error) throw error;
+          out.push(...(data || []));
+        }
+        return out;
+      };
 
-      const { data: checkOuts, error: coErr } = await supabase
-        .from("check_outs")
-        .select("employee_id, check_out_date")
-        .in("camp_id", activeCampIds)
-        .order("check_out_date", { ascending: false });
-      if (coErr) throw coErr;
+      const checkIns = await fetchAll("check_ins", "id, employee_id, room_id, check_in_date, camp_id", "check_in_date");
+      const checkOuts = await fetchAll("check_outs", "id, employee_id, check_out_date", "check_out_date");
 
       const latestCheckOut = new Map<string, string>();
       (checkOuts || []).forEach((co: any) => {
@@ -83,15 +99,19 @@ export default function Attendance() {
       if (empMap.size === 0) return [];
 
       const empIds = [...empMap.keys()];
-      const { data: empData, error: empErr } = await supabase
-        .from("employees")
-        .select("id, name, employee_id, designation, company, employee_type, supplier_name, department")
-        .in("id", empIds);
-      if (empErr) throw empErr;
+      const empData = await fetchByIds("employees", "id, name, employee_id, designation, company, employee_type, supplier_name, department, nationality", empIds);
+
+      const roomIds = [...new Set([...empMap.values()].map((v) => v.room_id).filter(Boolean))];
+      const roomMap = new Map<string, string>();
+      if (roomIds.length > 0) {
+        const roomData = await fetchByIds("rooms", "id, room_number", roomIds);
+        (roomData || []).forEach((r: any) => roomMap.set(r.id, r.room_number));
+      }
 
       return (empData || []).map((emp: any) => ({
         ...emp,
         room_id: empMap.get(emp.id)?.room_id,
+        room_number: roomMap.get(empMap.get(emp.id)?.room_id || "") || null,
         check_in_date: empMap.get(emp.id)?.check_in_date,
         camp_id: empMap.get(emp.id)?.camp_id,
       }));
@@ -104,13 +124,21 @@ export default function Attendance() {
     queryKey: ["attendance-range-checkins", activeCampIds.join(","), dateRange.start.toISOString(), dateRange.end.toISOString()],
     queryFn: async () => {
       if (activeCampIds.length === 0) return [];
-      const { data } = await supabase
-        .from("check_ins")
-        .select("employee_id, check_in_date")
-        .in("camp_id", activeCampIds)
-        .gte("check_in_date", dateRange.start.toISOString())
-        .lte("check_in_date", dateRange.end.toISOString());
-      return data || [];
+      const out: any[] = [];
+      for (let from = 0; ; from += 1000) {
+        const { data, error } = await supabase
+          .from("check_ins")
+          .select("id, employee_id, check_in_date")
+          .in("camp_id", activeCampIds)
+          .gte("check_in_date", dateRange.start.toISOString())
+          .lte("check_in_date", dateRange.end.toISOString())
+          .order("id", { ascending: true })
+          .range(from, from + 999);
+        if (error) throw error;
+        out.push(...(data || []));
+        if (!data || data.length < 1000) break;
+      }
+      return out;
     },
     enabled: activeCampIds.length > 0,
   });
@@ -120,24 +148,44 @@ export default function Attendance() {
     queryKey: ["attendance-range-checkouts", activeCampIds.join(","), dateRange.start.toISOString(), dateRange.end.toISOString()],
     queryFn: async () => {
       if (activeCampIds.length === 0) return [];
-      const { data } = await supabase
-        .from("check_outs")
-        .select("employee_id, check_out_date")
-        .in("camp_id", activeCampIds)
-        .gte("check_out_date", dateRange.start.toISOString())
-        .lte("check_out_date", dateRange.end.toISOString());
-      return data || [];
+      const out: any[] = [];
+      for (let from = 0; ; from += 1000) {
+        const { data, error } = await supabase
+          .from("check_outs")
+          .select("id, employee_id, check_out_date")
+          .in("camp_id", activeCampIds)
+          .gte("check_out_date", dateRange.start.toISOString())
+          .lte("check_out_date", dateRange.end.toISOString())
+          .order("id", { ascending: true })
+          .range(from, from + 999);
+        if (error) throw error;
+        out.push(...(data || []));
+        if (!data || data.length < 1000) break;
+      }
+      return out;
     },
     enabled: activeCampIds.length > 0,
   });
 
-  // Unique supplier names for filter
+  // Unique filter options from current occupants
   const supplierNames = useMemo(() => {
     const names = new Set<string>();
     currentOccupants.forEach((e: any) => {
       if (e.employee_type === "supplier" && e.supplier_name) names.add(e.supplier_name);
     });
     return [...names].sort();
+  }, [currentOccupants]);
+
+  const departmentOptions = useMemo(() => {
+    return [...new Set(currentOccupants.map((e: any) => e.department).filter(Boolean))].sort();
+  }, [currentOccupants]);
+
+  const nationalityOptions = useMemo(() => {
+    return [...new Set(currentOccupants.map((e: any) => e.nationality).filter(Boolean))].sort();
+  }, [currentOccupants]);
+
+  const designationOptions = useMemo(() => {
+    return [...new Set(currentOccupants.map((e: any) => e.designation).filter(Boolean))].sort();
   }, [currentOccupants]);
 
   // Build per-day check-in/out sets
@@ -161,13 +209,25 @@ export default function Attendance() {
     return map;
   }, [rangeCheckOuts]);
 
-  // Filter by search + supplier
+  // Filter by type, supplier, department, nationality, designation and search
   const filteredOccupants = useMemo(() => {
     let list = currentOccupants;
-    if (supplierFilter === "own") {
+    if (employeeTypeFilter === "own") {
       list = list.filter((e: any) => e.employee_type === "own");
-    } else if (supplierFilter !== "all") {
-      list = list.filter((e: any) => e.employee_type === "supplier" && e.supplier_name === supplierFilter);
+    } else if (employeeTypeFilter === "supplier") {
+      list = list.filter((e: any) => e.employee_type === "supplier");
+    }
+    if (supplierFilter !== "all") {
+      list = list.filter((e: any) => e.supplier_name === supplierFilter);
+    }
+    if (departmentFilter !== "all") {
+      list = list.filter((e: any) => e.department === departmentFilter);
+    }
+    if (nationalityFilter !== "all") {
+      list = list.filter((e: any) => e.nationality === nationalityFilter);
+    }
+    if (designationFilter !== "all") {
+      list = list.filter((e: any) => e.designation === designationFilter);
     }
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
@@ -176,19 +236,29 @@ export default function Attendance() {
       );
     }
     return list;
-  }, [currentOccupants, searchQuery, supplierFilter]);
+  }, [currentOccupants, searchQuery, supplierFilter, employeeTypeFilter, departmentFilter, nationalityFilter, designationFilter]);
 
-  // Stats
-  const totalPresent = currentOccupants.length;
-  const todayCheckIns = checkInsByDay.get(format(date, "yyyy-MM-dd"))?.size || 0;
-  const todayCheckOuts = checkOutsByDay.get(format(date, "yyyy-MM-dd"))?.size || 0;
+  // Stats — follow the active filters
+  const filteredIds = useMemo(() => new Set(filteredOccupants.map((e: any) => e.id)), [filteredOccupants]);
+  const totalPresent = filteredOccupants.length;
+  const todayKey = format(date, "yyyy-MM-dd");
+  const todayCheckIns = [...(checkInsByDay.get(todayKey) || [])].filter((id) => filteredIds.has(id)).length;
+  const todayCheckOuts = [...(checkOutsByDay.get(todayKey) || [])].filter((id) => filteredIds.has(id)).length;
 
   const getStatusForDay = (empId: string, day: Date) => {
+    if (!attendanceDateAllowed(day)) return "future";
     const dayKey = format(day, "yyyy-MM-dd");
-    if (checkOutsByDay.get(dayKey)?.has(empId)) return "out";
-    if (checkInsByDay.get(dayKey)?.has(empId)) return "in";
     const emp = currentOccupants.find((e: any) => e.id === empId);
-    if (emp && new Date(emp.check_in_date) <= endOfDay(day)) return "present";
+    if (!emp) return "absent";
+    // Ignore historic in/out cycles from before (or on the first day of) the employee's current stay
+    if (emp.check_in_date && new Date(dayKey) <= new Date(emp.check_in_date)) {
+      // On the check-in day itself, check-ins still show
+      if (format(new Date(emp.check_in_date), "yyyy-MM-dd") !== dayKey) return "absent";
+    }
+    if (checkOutsByDay.get(dayKey)?.has(empId) && emp.check_in_date && new Date(dayKey) > new Date(emp.check_in_date)) return "out";
+    if (checkOutsByDay.get(dayKey)?.has(empId) && !emp.check_in_date) return "out";
+    if (checkInsByDay.get(dayKey)?.has(empId)) return "in";
+    if (new Date(emp.check_in_date) <= endOfDay(day)) return "present";
     return "absent";
   };
 
@@ -210,6 +280,7 @@ export default function Attendance() {
       case "in": return "Checked In";
       case "out": return "Checked Out";
       case "present": return "Present";
+      case "future": return "";
       default: return "Absent";
     }
   };
@@ -221,7 +292,7 @@ export default function Attendance() {
       return;
     }
     const campName = campId === "all" ? "All Camps" : camps.find((c: any) => c.id === campId)?.name || "Camp";
-    const headers = ["#", "Employee Name", "Employee ID", "Designation", "Type", "Supplier",
+    const headers = ["#", "Employee Name", "Employee ID", "Designation", "Room", "Type", "Supplier",
       ...days.map(d => format(d, viewMode === "daily" ? "dd MMM yyyy" : viewMode === "weekly" ? "EEE dd MMM" : "dd MMM"))
     ];
     const rows = filteredOccupants.map((emp: any, idx: number) => [
@@ -229,6 +300,7 @@ export default function Attendance() {
       emp.name,
       emp.employee_id,
       emp.designation || "",
+      emp.room_number || "",
       emp.employee_type === "supplier" ? "Supplier" : "Own",
       emp.supplier_name || "",
       ...days.map(d => statusText(getStatusForDay(emp.id, d)))
@@ -283,7 +355,7 @@ export default function Attendance() {
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar mode="single" selected={date} onSelect={(d) => d && setDate(d)} initialFocus className="p-3 pointer-events-auto" />
+                  <Calendar mode="single" selected={date} disabled={(d) => !attendanceDateAllowed(d)} onSelect={(d) => d && attendanceDateAllowed(d) && setDate(d)} initialFocus className="p-3 pointer-events-auto" />
                 </PopoverContent>
               </Popover>
             </div>
@@ -301,13 +373,59 @@ export default function Attendance() {
             </div>
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-muted-foreground">Employee Type</label>
-              <Select value={supplierFilter} onValueChange={setSupplierFilter}>
-                <SelectTrigger className="w-[180px] h-9"><SelectValue /></SelectTrigger>
+              <Select value={employeeTypeFilter} onValueChange={setEmployeeTypeFilter}>
+                <SelectTrigger className="w-[150px] h-9"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Types</SelectItem>
                   <SelectItem value="own">Own Employees</SelectItem>
+                  <SelectItem value="supplier">Supplier</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Supplier</label>
+              <Select value={supplierFilter} onValueChange={setSupplierFilter}>
+                <SelectTrigger className="w-[180px] h-9"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Suppliers</SelectItem>
                   {supplierNames.map((s) => (
                     <SelectItem key={s} value={s}>{s}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Department</label>
+              <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
+                <SelectTrigger className="w-[160px] h-9"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Departments</SelectItem>
+                  {departmentOptions.map((d) => (
+                    <SelectItem key={d} value={d}>{d}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Nationality</label>
+              <Select value={nationalityFilter} onValueChange={setNationalityFilter}>
+                <SelectTrigger className="w-[150px] h-9"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Nationalities</SelectItem>
+                  {nationalityOptions.map((n) => (
+                    <SelectItem key={n} value={n}>{n}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Designation</label>
+              <Select value={designationFilter} onValueChange={setDesignationFilter}>
+                <SelectTrigger className="w-[160px] h-9"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Designations</SelectItem>
+                  {designationOptions.map((d) => (
+                    <SelectItem key={d} value={d}>{d}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -395,17 +513,18 @@ export default function Attendance() {
       ) : (
         <Card className="border shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
-            <Table>
+            <Table className="table-fixed w-full">
               <TableHeader>
                 <TableRow className="bg-muted/50">
-                  <TableHead className="text-xs font-semibold sticky left-0 bg-muted/50 z-10 min-w-[50px]">#</TableHead>
-                  <TableHead className="text-xs font-semibold sticky left-[50px] bg-muted/50 z-10 min-w-[180px]">Employee Name</TableHead>
-                  <TableHead className="text-xs font-semibold min-w-[100px]">ID</TableHead>
-                  <TableHead className="text-xs font-semibold min-w-[120px]">Designation</TableHead>
-                  <TableHead className="text-xs font-semibold min-w-[80px]">Type</TableHead>
+                  <TableHead className="text-xs font-semibold sticky left-0 bg-muted/50 z-10 w-[28px] px-1">#</TableHead>
+                  <TableHead className="text-xs font-semibold sticky left-[28px] bg-muted/50 z-10 w-[120px]">Employee Name</TableHead>
+                  <TableHead className="text-xs font-semibold w-[70px] px-1.5">ID</TableHead>
+                  <TableHead className="text-xs font-semibold w-[90px] px-1.5">Designation</TableHead>
+                  <TableHead className="text-xs font-semibold w-[64px] px-1.5">Room</TableHead>
+                  <TableHead className="text-xs font-semibold w-[110px] px-1.5">Type</TableHead>
                   {days.map((day) => (
                     <TableHead key={day.toISOString()} className={cn(
-                      "text-xs font-semibold text-center min-w-[50px]",
+                      "text-xs font-semibold text-center px-0.5",
                       isSameDay(day, new Date()) && "bg-primary/10"
                     )}>
                       {viewMode === "daily"
@@ -415,33 +534,36 @@ export default function Attendance() {
                           : format(day, "dd")}
                     </TableHead>
                   ))}
+                  <TableHead className="w-auto p-0" />
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredOccupants.map((emp: any, idx: number) => (
                   <TableRow key={emp.id} className={idx % 2 === 0 ? "bg-background" : "bg-muted/20"}>
-                    <TableCell className="text-xs font-medium sticky left-0 z-10 bg-inherit py-2">{idx + 1}</TableCell>
-                    <TableCell className="text-sm font-semibold sticky left-[50px] z-10 bg-inherit py-2">
+                    <TableCell className="text-xs font-medium sticky left-0 z-10 bg-inherit py-2 px-1">{idx + 1}</TableCell>
+                    <TableCell className="text-xs font-semibold sticky left-[28px] z-10 bg-inherit py-2 truncate max-w-[120px] w-[120px]">
                       {emp.name}
                     </TableCell>
-                    <TableCell className="text-xs py-2 text-muted-foreground">{emp.employee_id}</TableCell>
-                    <TableCell className="text-xs py-2 text-muted-foreground">{emp.designation || "—"}</TableCell>
-                    <TableCell className="text-xs py-2">
-                      <Badge variant={emp.employee_type === "supplier" ? "secondary" : "outline"} className="text-[10px]">
-                        {emp.employee_type === "supplier" ? emp.supplier_name || "Supplier" : "Own"}
+                    <TableCell className="text-xs py-2 px-1.5 text-muted-foreground truncate">{emp.employee_id}</TableCell>
+                    <TableCell className="text-xs py-2 px-1.5 text-muted-foreground truncate">{emp.designation || "—"}</TableCell>
+                    <TableCell className="text-xs py-2 px-1.5 text-muted-foreground truncate">{emp.room_number || "—"}</TableCell>
+                    <TableCell className="text-xs py-2 px-1.5">
+                      <Badge variant={emp.employee_type === "supplier" ? "secondary" : "outline"} className="text-[10px] px-1.5 max-w-full">
+                        <span className="truncate">{emp.employee_type === "supplier" ? emp.supplier_name || "Supplier" : "Own"}</span>
                       </Badge>
                     </TableCell>
                     {days.map((day) => {
                       const status = getStatusForDay(emp.id, day);
                       return (
                         <TableCell key={day.toISOString()} className={cn(
-                          "py-2 text-center",
+                          "py-2 text-center px-0.5",
                           isSameDay(day, new Date()) && "bg-primary/5"
                         )}>
                           {statusCell(status)}
                         </TableCell>
                       );
                     })}
+                    <TableCell className="p-0" />
                   </TableRow>
                 ))}
               </TableBody>

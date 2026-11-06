@@ -23,7 +23,7 @@ export default function FoodSafetyDashboard() {
   const [campFilter, setCampFilter] = useState<string>("all");
   const [drilldown, setDrilldown] = useState<FsKpiType>(null);
   const { data: camps = [] } = useQuery({
-    queryKey: ["camps-list"],
+    queryKey: ["camps-dropdown"],
     queryFn: async () => {
       const { data } = await supabase.from("camps").select("id, name").order("name");
       return data || [];

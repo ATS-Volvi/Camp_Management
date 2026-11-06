@@ -145,6 +145,76 @@
     --chart-5: 0 84% 60%;
   }
 
+  /* Expertise Theme - Indigo Navy + Vivid Orange */
+  .theme-expertise {
+    --background: 220 33% 98%;
+    --foreground: 230 35% 14%;
+    --card: 0 0% 100%;
+    --card-foreground: 230 35% 14%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 230 35% 14%;
+    --primary: 25 95% 53%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 225 30% 95%;
+    --secondary-foreground: 230 40% 20%;
+    --muted: 225 30% 96%;
+    --muted-foreground: 225 15% 45%;
+    --accent: 25 100% 95%;
+    --accent-foreground: 25 90% 40%;
+    --destructive: 0 80% 58%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 225 25% 91%;
+    --input: 225 25% 91%;
+    --ring: 25 95% 53%;
+    --radius: 0.9rem;
+
+    --campman-blue: 232 50% 22%;
+    --campman-amber: 25 95% 53%;
+    --campman-green: 152 65% 38%;
+    --campman-red: 0 80% 58%;
+    --campman-yellow: 42 95% 52%;
+    --campman-gray: 225 25% 91%;
+
+    --status-assigned: 232 50% 22%;
+    --status-available: 225 20% 76%;
+    --status-maintenance: 0 80% 58%;
+    --status-reserved: 42 95% 52%;
+    --status-vacant: 152 65% 38%;
+    --status-occupied: 25 95% 53%;
+
+    --priority-high: 0 80% 58%;
+    --priority-medium: 42 95% 52%;
+    --priority-low: 152 65% 38%;
+
+    --sidebar-background: 232 52% 14%;
+    --sidebar-foreground: 225 30% 92%;
+    --sidebar-primary: 25 95% 53%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 232 40% 22%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 232 35% 24%;
+    --sidebar-ring: 25 95% 53%;
+    --sidebar-active-bg: 232 40% 22%;
+  }
+
+  .dark.theme-expertise {
+    --background: 232 40% 9%;
+    --foreground: 225 30% 94%;
+    --card: 232 38% 13%;
+    --card-foreground: 225 30% 94%;
+    --popover: 232 38% 13%;
+    --popover-foreground: 225 30% 94%;
+    --secondary: 232 30% 18%;
+    --secondary-foreground: 225 30% 94%;
+    --muted: 232 30% 18%;
+    --muted-foreground: 225 15% 65%;
+    --accent: 25 60% 20%;
+    --accent-foreground: 25 95% 70%;
+    --border: 232 30% 22%;
+    --input: 232 30% 22%;
+    --sidebar-background: 232 45% 7%;
+  }
+
   /* CampMan Dark Mode */
   .dark.theme-campman,
   .dark:not([class*="theme-"]) {

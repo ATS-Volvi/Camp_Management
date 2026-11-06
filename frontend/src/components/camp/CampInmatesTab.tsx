@@ -1,18 +1,23 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { useInmatesReport } from "@/hooks/useInmatesReport";
+import { matchesInmateLocation } from "@/lib/inmatesReport";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import * as XLSX from "xlsx";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Search, LogOut, MessageCircle, Phone, Upload } from "lucide-react";
+import { Search, LogOut, MessageCircle, Phone, Upload, Download, FileText, RotateCcw } from "lucide-react";
 import { getRoomCategoryLabel } from "@/constants/roomCategories";
 import CampBulkUploadDialog from "@/components/camp/CampBulkUploadDialog";
 import InmateCheckoutDialog from "@/components/camp/InmateCheckoutDialog";
 import PresenceStatusCell from "@/components/employees/PresenceStatusCell";
 
 interface Props {
-  campId: string;
+  campId?: string;
   campName?: string;
 }
 
@@ -22,79 +27,30 @@ export default function CampInmatesTab({ campId, campName }: Props) {
   const [checkoutDialogOpen, setCheckoutDialogOpen] = useState(false);
   const [selectedInmate, setSelectedInmate] = useState<any>(null);
 
-  // Fetch all checked-in employees for this camp
-  const { data: inmates = [], isLoading } = useQuery({
-    queryKey: ["camp-inmates", campId],
-    queryFn: async () => {
-      // Get all check-ins for this camp
-      const { data: checkIns, error: ciErr } = await supabase
-        .from("check_ins")
-        .select("employee_id, room_id, check_in_date")
-        .eq("camp_id", campId)
-        .order("check_in_date", { ascending: false });
-      if (ciErr) throw ciErr;
-
-      // Get all check-outs for this camp
-      const { data: checkOuts, error: coErr } = await supabase
-        .from("check_outs")
-        .select("employee_id, room_id, check_out_date")
-        .eq("camp_id", campId);
-      if (coErr) throw coErr;
-
-      // Build a per-(employee, room) latest check-out lookup so a check-out from
-      // one room never accidentally cancels an active check-in in a different room.
-      const latestCheckOutByPair = new Map<string, string>();
-      (checkOuts || []).forEach(co => {
-        const key = `${co.employee_id}|${co.room_id}`;
-        const existing = latestCheckOutByPair.get(key);
-        if (!existing || new Date(co.check_out_date) > new Date(existing)) {
-          latestCheckOutByPair.set(key, co.check_out_date);
-        }
-      });
-
-      // Active = latest check-in for an (employee, room) pair has no later check-out
-      // for the same pair. Then dedupe to keep the most recent active stay per employee.
-      const empMap = new Map<string, { room_id: string; check_in_date: string }>();
-      (checkIns || []).forEach(ci => {
-        const key = `${ci.employee_id}|${ci.room_id}`;
-        const lastOut = latestCheckOutByPair.get(key);
-        const isActive = !lastOut || new Date(ci.check_in_date) > new Date(lastOut);
-        if (!isActive) return;
-        if (empMap.has(ci.employee_id)) return;
-        empMap.set(ci.employee_id, { room_id: ci.room_id, check_in_date: ci.check_in_date });
-      });
-
-      if (empMap.size === 0) return [];
-
-      const empIds = [...empMap.keys()];
-      const roomIds = [...new Set([...empMap.values()].map(v => v.room_id))];
-
-      const [empRes, roomRes] = await Promise.all([
-        supabase.from("employees").select("*").in("id", empIds),
-        supabase.from("rooms").select("id, room_number, category, daily_rate, daily_food_rate").in("id", roomIds),
-      ]);
-
-      if (empRes.error) throw empRes.error;
-      if (roomRes.error) throw roomRes.error;
-
-      const roomMap = new Map((roomRes.data || []).map(r => [r.id, r]));
-
-      return (empRes.data || []).map(emp => {
-        const ciData = empMap.get(emp.id)!;
-        const room = roomMap.get(ciData.room_id);
-        return {
-          ...emp,
-          check_in_date: ciData.check_in_date,
-          room_id: ciData.room_id,
-          room_number: room?.room_number || "—",
-          room_category: room?.category || "—",
-          daily_rate: room?.daily_rate || 0,
-          daily_food_rate: room?.daily_food_rate || 0,
-        };
-      });
-    },
-    enabled: !!campId,
-  });
+  const [campFilter, setCampFilter] = useState("all");
+  const [blockFilter, setBlockFilter] = useState("all");
+  const [floorFilter, setFloorFilter] = useState("all");
+  const [roomFilter, setRoomFilter] = useState("all");
+  const { data: inmates = [], isLoading, isError, refetch } = useInmatesReport(campId);
+  const resetLocations = () => { setBlockFilter("all"); setFloorFilter("all"); setRoomFilter("all"); };
+  const scope = { camp: campId ?? campFilter, block: blockFilter, floor: floorFilter, room: roomFilter };
+  const options = (rows: any[], key: string, label: (row: any) => string) =>
+    [...new Map(rows.map(row => [row[key], { value: row[key], label: label(row) }])).values()]
+      .filter(o => o.value).sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true }));
+  const campRows = inmates.filter(row => matchesInmateLocation(row, { ...scope, block: "all", floor: "all", room: "all" }));
+  const blockRows = campRows.filter(row => blockFilter === "all" || row.block_id === blockFilter);
+  const floorRows = blockRows.filter(row => floorFilter === "all" || row.floor_key === floorFilter);
+  const filterSelect = (label: string, value: string, change: (value: string) => void, items: { value: string; label: string }[]) => (
+    <div className="min-w-0 space-y-1">
+      <Label>{label}</Label>
+      <Select value={value} onValueChange={change}>
+        <SelectTrigger aria-label={label}><SelectValue /></SelectTrigger>
+        <SelectContent><SelectItem value="all">All {label === "Camp" ? "Camps" : label === "Block" ? "Blocks" : label === "Floor" ? "Floors" : "Rooms"}</SelectItem>
+          {items.map(item => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}
+        </SelectContent>
+      </Select>
+    </div>
+  );
 
   const handleCheckoutClick = (inmate: any) => {
     setSelectedInmate(inmate);
@@ -102,6 +58,7 @@ export default function CampInmatesTab({ campId, campName }: Props) {
   };
 
   const filtered = inmates.filter((i: any) => {
+    if (!matchesInmateLocation(i, scope)) return false;
     if (!search) return true;
     const s = search.toLowerCase();
     return (
@@ -114,6 +71,30 @@ export default function CampInmatesTab({ campId, campName }: Props) {
     );
   });
 
+  const exportRows = filtered.map((i: any) => ({
+    "Employee ID": i.employee_id, Name: i.name, Camp: i.camp_name, Block: i.block_name,
+    Floor: i.floor_name, Room: i.room_number, "Room Type": getRoomCategoryLabel(i.room_category),
+    Project: i.project ?? "", Supplier: i.employee_type === "own" ? "Own" : i.supplier_name ?? "",
+    "Check-In Date": new Date(i.check_in_date).toLocaleDateString("en-GB"),
+    "Passport / Iqama": i.passport_number || i.iqama_number || "", Presence: i.presence_status ?? "active",
+    "Room Rate / Day (SAR)": i.daily_rate, "Food Rate / Day (SAR)": i.daily_food_rate,
+    "Tariff / Day (SAR)": Number((i.daily_rate + i.daily_food_rate).toFixed(2)),
+  }));
+  const exportExcel = () => {
+    const book = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(book, XLSX.utils.json_to_sheet(exportRows), "Inmates");
+    XLSX.writeFile(book, "Inmates_Report.xlsx");
+  };
+  const exportPdf = () => {
+    const doc = new jsPDF({ orientation: "landscape" });
+    doc.setFontSize(16); doc.text(`Inmates Report — ${campName ?? "All Camps"}`, 14, 16);
+    doc.setFontSize(9); doc.text(`${filtered.length} inmates • ${new Date().toLocaleDateString("en-GB")}`, 14, 23);
+    const columns = Object.keys(exportRows[0] ?? {});
+    autoTable(doc, { startY: 28, head: [columns], body: exportRows.map(row => Object.values(row)),
+      styles: { fontSize: 7 }, headStyles: { fillColor: [99, 165, 218] } });
+    doc.save("Inmates_Report.pdf");
+  };
+
   const formatPhone = (phone: string | null) => {
     if (!phone) return null;
     return phone.replace(/[^0-9+]/g, "");
@@ -121,14 +102,16 @@ export default function CampInmatesTab({ campId, campName }: Props) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-lg font-semibold">
-          Inmates ({inmates.length})
+          Inmates ({filtered.length})
         </h2>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => setBulkUploadOpen(true)} className="gap-1.5">
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="outline" size="sm" onClick={exportExcel} disabled={!filtered.length || isLoading || isError} className="gap-1.5"><Download size={14} /> Excel</Button>
+          <Button variant="outline" size="sm" onClick={exportPdf} disabled={!filtered.length || isLoading || isError} className="gap-1.5"><FileText size={14} /> PDF</Button>
+          {campId && <Button variant="outline" size="sm" onClick={() => setBulkUploadOpen(true)} className="gap-1.5">
             <Upload size={14} /> Bulk Upload
-          </Button>
+          </Button>}
           <div className="relative w-72">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
             <Input
@@ -141,7 +124,15 @@ export default function CampInmatesTab({ campId, campName }: Props) {
         </div>
       </div>
 
-      {isLoading ? (
+      <div className={`grid gap-3 items-end ${campId ? "sm:grid-cols-4" : "sm:grid-cols-2 xl:grid-cols-5"}`}>
+        {!campId && filterSelect("Camp", campFilter, value => { setCampFilter(value); resetLocations(); }, options(inmates, "camp_id", row => row.camp_name))}
+        {filterSelect("Block", blockFilter, value => { setBlockFilter(value); setFloorFilter("all"); setRoomFilter("all"); }, options(campRows, "block_id", row => !campId && campFilter === "all" ? `${row.camp_name} / ${row.block_name}` : row.block_name))}
+        {filterSelect("Floor", floorFilter, value => { setFloorFilter(value); setRoomFilter("all"); }, options(blockRows, "floor_key", row => blockFilter === "all" ? `${row.block_name} / ${row.floor_name}` : row.floor_name))}
+        {filterSelect("Room", roomFilter, setRoomFilter, options(floorRows, "room_id", row => `${row.block_name} / ${row.floor_name} / ${row.room_number}`))}
+        <Button variant="outline" onClick={() => { setCampFilter("all"); resetLocations(); setSearch(""); }} className="gap-2"><RotateCcw size={14} /> Reset</Button>
+      </div>
+
+      {isError ? <div className="text-sm text-destructive py-8 text-center">Unable to load inmates. <Button variant="outline" size="sm" onClick={() => refetch()}>Retry</Button></div> : isLoading ? (
         <p className="text-muted-foreground text-sm text-center py-8">Loading inmates...</p>
       ) : filtered.length === 0 ? (
         <p className="text-muted-foreground text-sm text-center py-8">No inmates found.</p>
@@ -156,13 +147,16 @@ export default function CampInmatesTab({ campId, campName }: Props) {
                 <TableHead>Project</TableHead>
                 <TableHead>Supplier</TableHead>
                 <TableHead>Check-In Date</TableHead>
+                {!campId && <TableHead>Camp</TableHead>}
+                <TableHead>Block</TableHead>
+                <TableHead>Floor</TableHead>
                 <TableHead>Room</TableHead>
                 <TableHead>Room Type</TableHead>
                 <TableHead>Food</TableHead>
                 <TableHead>Presence</TableHead>
                 <TableHead className="text-right">Tariff/Day</TableHead>
                 <TableHead>Contact</TableHead>
-                <TableHead className="text-center">Actions</TableHead>
+                {campId && <TableHead className="text-center">Actions</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -193,6 +187,9 @@ export default function CampInmatesTab({ campId, campName }: Props) {
                         day: "numeric", month: "short", year: "numeric",
                       })}
                     </TableCell>
+                    {!campId && <TableCell className="text-sm whitespace-nowrap">{inmate.camp_name}</TableCell>}
+                    <TableCell>{inmate.block_name}</TableCell>
+                    <TableCell>{inmate.floor_name}</TableCell>
                     <TableCell className="font-mono text-sm">{inmate.room_number}</TableCell>
                     <TableCell className="text-xs">
                       {getRoomCategoryLabel(inmate.room_category)}
@@ -209,10 +206,10 @@ export default function CampInmatesTab({ campId, campName }: Props) {
                       )}
                     </TableCell>
                     <TableCell>
-                      <PresenceStatusCell employeeId={inmate.id} status={inmate.presence_status} />
+                      {campId ? <PresenceStatusCell employeeId={inmate.id} status={inmate.presence_status} /> : <Badge variant="secondary">{inmate.presence_status?.replace("_", " ") ?? "active"}</Badge>}
                     </TableCell>
                     <TableCell className="text-right font-medium text-sm">
-                      {(inmate.daily_rate + inmate.daily_food_rate).toFixed(0)} SAR
+                      {(inmate.daily_rate + inmate.daily_food_rate).toFixed(2)} SAR
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
@@ -235,7 +232,7 @@ export default function CampInmatesTab({ campId, campName }: Props) {
                         {!phone && <span className="text-xs text-muted-foreground">—</span>}
                       </div>
                     </TableCell>
-                    <TableCell className="text-center">
+                    {campId && <TableCell className="text-center">
                       <Button
                         variant="destructive"
                         size="sm"
@@ -245,7 +242,7 @@ export default function CampInmatesTab({ campId, campName }: Props) {
                         <LogOut size={12} />
                         Check Out
                       </Button>
-                    </TableCell>
+                    </TableCell>}
                   </TableRow>
                 );
               })}
@@ -254,6 +251,7 @@ export default function CampInmatesTab({ campId, campName }: Props) {
         </div>
       )}
 
+      {campId && <>
       <CampBulkUploadDialog
         open={bulkUploadOpen}
         onOpenChange={setBulkUploadOpen}
@@ -268,6 +266,7 @@ export default function CampInmatesTab({ campId, campName }: Props) {
         campId={campId}
         campName={campName || "Camp"}
       />
+      </>}
     </div>
   );
 }

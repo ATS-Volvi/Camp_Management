@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { api } from "@/lib/apiClient";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 
 export const CAMP_STAFF_ROLES = [
@@ -30,13 +30,16 @@ export interface Employee {
   iqama_number: string | null;
   is_blacklisted: boolean | null;
   status: string;
-  presence_status?: "active" | "on_site" | "vacation" | "away";
   join_date: string | null;
   contract_end_date: string | null;
   camp_id: string | null;
   room_id: string | null;
   supplier_name: string | null;
   project: string | null;
+  sap_department: string | null;
+  employee_group: string | null;
+  current_location: string | null;
+  remarks: string | null;
   id_document_url: string | null;
   staff_role: string | null;
   created_at: string;
@@ -47,15 +50,22 @@ export function useEmployees(type?: "own" | "supplier" | "camp_staff") {
   return useQuery({
     queryKey: ["employees", type],
     queryFn: async () => {
-      let endpoint = `/employees`;
-      const params = new URLSearchParams();
-      if (type) params.append("employee_type", type);
-
-      const queryString = params.toString();
-      if (queryString) endpoint += `?${queryString}`;
-
-      const data: any[] = await api.get(endpoint);
-      return (data ?? []) as Employee[];
+      const employees: Employee[] = [];
+      const pageSize = 1000;
+      for (let offset = 0; ; offset += pageSize) {
+        let q = supabase.from("employees").select("*")
+          .order("created_at", { ascending: false })
+          .order("id", { ascending: false });
+        if (type) {
+          q = q.eq("employee_type", type);
+        }
+        const { data, error } = await q.range(offset, offset + pageSize - 1);
+        if (error) throw error;
+        const page = (data ?? []) as Employee[];
+        employees.push(...page);
+        if (page.length < pageSize) break;
+      }
+      return employees;
     },
   });
 }
@@ -64,7 +74,8 @@ export function useAddEmployee() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (emp: Partial<Employee>) => {
-      const data = await api.post("/employees", emp);
+      const { data, error } = await supabase.from("employees").insert(emp as any).select().single();
+      if (error) throw error;
       return data;
     },
     onSuccess: () => {
@@ -79,7 +90,8 @@ export function useBulkInsertEmployees() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (employees: Partial<Employee>[]) => {
-      const data = await api.post("/employees", employees);
+      const { data, error } = await supabase.from("employees").insert(employees as any[]).select();
+      if (error) throw error;
       return data;
     },
     onSuccess: (data) => {
@@ -94,7 +106,8 @@ export function useUpdateEmployee() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, ...updates }: Partial<Employee> & { id: string }) => {
-      const data = await api.put(`/employees/${id}`, updates);
+      const { data, error } = await supabase.from("employees").update(updates as any).eq("id", id).select().single();
+      if (error) throw error;
       return data;
     },
     onSuccess: () => {
@@ -102,24 +115,5 @@ export function useUpdateEmployee() {
       toast({ title: "Employee updated successfully" });
     },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
-  });
-}
-
-export function useChangePresenceStatus() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async (params: { employeeId: string; status: "active" | "on_site" | "vacation" | "away"; reason?: string }) => {
-      const data = await api.put(`/employees/${params.employeeId}/status`, {
-        status: params.status,
-        reason: params.reason
-      });
-      return data;
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["employees"] });
-      qc.invalidateQueries({ queryKey: ["kitchen-meal-count"] });
-      toast({ title: "Employee status updated" });
-    },
-    onError: (e: any) => toast({ title: "Status update failed", description: e.message, variant: "destructive" }),
   });
 }

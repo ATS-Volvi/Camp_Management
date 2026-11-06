@@ -88,7 +88,16 @@ export default function RoomOccupantsDialog({ open, onOpenChange, room, campId }
         .eq("room_category", room!.category)
         .maybeSingle();
 
-      const dailyRate = (rateData as any)?.daily_rate || 0;
+      let dailyRate = (rateData as any)?.daily_rate;
+      if (dailyRate == null) {
+        // No camp override: fall back to the Room Category Master default rate.
+        const { data: master } = await supabase
+          .from("room_categories")
+          .select("daily_rate")
+          .eq("category_key", room!.category)
+          .maybeSingle();
+        dailyRate = (master as any)?.daily_rate ?? 0;
+      }
 
       return (employees || []).map((emp: any) => ({
         ...emp,

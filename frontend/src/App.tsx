@@ -16,6 +16,8 @@ import RepairMaintenance from "./pages/RepairMaintenance";
 import AssetManagement from "./pages/AssetManagement";
 import AssetDetails from "./pages/AssetDetails";
 import CheckInOut from "./pages/CheckInOut";
+import BulkCheckInOut from "./pages/BulkCheckInOut";
+import InmatesReport from "./pages/InmatesReport";
 import InventoryManagement from "./pages/InventoryManagement";
 import EmployeeMaster from "./pages/EmployeeMaster";
 import Reports from "./pages/Reports";
@@ -43,6 +45,9 @@ import RoomCategoryMaster from "./pages/RoomCategoryMaster";
 import SupplierMaster from "./pages/SupplierMaster";
 import CampFoodRates from "./pages/CampFoodRates";
 import DesignationRoomMapping from "./pages/DesignationRoomMapping";
+import ProjectMaster from "./pages/ProjectMaster";
+import EmployeeMasterData from "./pages/EmployeeMasterData";
+import CampMasterData from "./pages/CampMasterData";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 
@@ -95,6 +100,8 @@ const App = () => (
               <Route path="/assets" element={<AssetManagement />} />
               <Route path="/assets/:id" element={<AssetDetails />} />
               <Route path="/check-in-out" element={<CheckInOut />} />
+              <Route path="/check-in-out/bulk" element={<BulkCheckInOut />} />
+              <Route path="/inmates-report" element={<InmatesReport />} />
               <Route path="/inventory" element={<InventoryManagement />} />
               <Route path="/employees" element={<EmployeeMaster />} />
               <Route path="/item-assignments" element={<ItemAssignments />} />
@@ -122,6 +129,12 @@ const App = () => (
               <Route path="/admin/camp-food-rates" element={<CampFoodRates />} />
               <Route path="/admin/clients" element={<Navigate to="/admin/suppliers" replace />} />
               <Route path="/admin/designation-mapping" element={<DesignationRoomMapping />} />
+              <Route path="/admin/projects" element={<ProjectMaster />} />
+              <Route path="/admin/project-master-data" element={<ProjectMaster />} />
+              <Route path="/admin/employees" element={<EmployeeMasterData />} />
+              <Route path="/admin/employee-master-data" element={<EmployeeMasterData />} />
+              <Route path="/admin/camps" element={<CampMasterData />} />
+              <Route path="/admin/camp-master-data" element={<CampMasterData />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>

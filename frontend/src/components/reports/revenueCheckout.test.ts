@@ -42,4 +42,76 @@ describe("report billing stops at checkout", () => {
     const input = { ...data, cancellations: data.cancellations.map(c => ({ ...c, status })) };
     expect(buildRevenueRows(input, "2026-10-10", "2026-10-19")[0]).toMatchObject({ foodRevenue: 300, mealsCancelled: 0, total: 1300 });
   });
+
+  it("calculates room and food cost strictly as per Excel rates when rates not explicitly configured", () => {
+    // 1x1: 17 acco, 13 food (2.6 breakfast, 5.2 lunch, 5.2 dinner), total 30
+    const stay1x1 = {
+      checkIns: [{
+        id: "s1", employee_id: "e1", camp_id: "c1", check_in_date: "2026-10-01T00:00:00Z", food_required: true,
+        employees: { name: "User 1", employee_id: "E1", employee_type: "own" },
+        rooms: { room_number: "A-101", category: "1x1" },
+        camps: { name: "Camp 1" }
+      }],
+      checkOuts: [{ employee_id: "e1", check_out_date: "2026-10-11T00:00:00Z" }], // 10 days
+      rates: [],
+      cancellations: [],
+    };
+    const row1x1 = buildRevenueRows(stay1x1, "2026-10-01", "2026-10-31")[0];
+    expect(row1x1.stayDays).toBe(10);
+    expect(row1x1.dailyRoom).toBe(17);
+    expect(row1x1.roomRevenue).toBe(170); // 10 * 17
+    expect(row1x1.dailyFood).toBe(13);
+    expect(row1x1.breakfastCost).toBeCloseTo(26.0); // 10 * 2.6
+    expect(row1x1.lunchCost).toBeCloseTo(52.0);     // 10 * 5.2
+    expect(row1x1.dinnerCost).toBeCloseTo(52.0);    // 10 * 5.2
+    expect(row1x1.foodRevenue).toBeCloseTo(130.0);  // 10 * 13
+    expect(row1x1.total).toBeCloseTo(300.0);        // 170 + 130 = 300 (SAR 30/day)
+
+    // 2x1: 12 acco, 13 food, total 25
+    const stay2x1 = {
+      ...stay1x1,
+      checkIns: [{ ...stay1x1.checkIns[0], rooms: { room_number: "A-102", category: "2x1" } }],
+    };
+    const row2x1 = buildRevenueRows(stay2x1, "2026-10-01", "2026-10-31")[0];
+    expect(row2x1.dailyRoom).toBe(12);
+    expect(row2x1.roomRevenue).toBe(120);
+    expect(row2x1.foodRevenue).toBeCloseTo(130.0);
+    expect(row2x1.total).toBeCloseTo(250.0); // SAR 25/day
+
+    // 3x1: 11 acco, 11 food (2.2, 4.4, 4.4), total 22
+    const stay3x1 = {
+      ...stay1x1,
+      checkIns: [{ ...stay1x1.checkIns[0], rooms: { room_number: "A-103", category: "3x1" } }],
+    };
+    const row3x1 = buildRevenueRows(stay3x1, "2026-10-01", "2026-10-31")[0];
+    expect(row3x1.dailyRoom).toBe(11);
+    expect(row3x1.roomRevenue).toBe(110);
+    expect(row3x1.breakfastCost).toBeCloseTo(22.0); // 10 * 2.2
+    expect(row3x1.lunchCost).toBeCloseTo(44.0);     // 10 * 4.4
+    expect(row3x1.dinnerCost).toBeCloseTo(44.0);    // 10 * 4.4
+    expect(row3x1.foodRevenue).toBeCloseTo(110.0);
+    expect(row3x1.total).toBeCloseTo(220.0); // SAR 22/day
+
+    // 4x1: 10 acco, 10 food (2, 4, 4), total 20
+    const stay4x1 = {
+      ...stay1x1,
+      checkIns: [{ ...stay1x1.checkIns[0], rooms: { room_number: "A-104", category: "4x1" } }],
+    };
+    const row4x1 = buildRevenueRows(stay4x1, "2026-10-01", "2026-10-31")[0];
+    expect(row4x1.dailyRoom).toBe(10);
+    expect(row4x1.roomRevenue).toBe(100);
+    expect(row4x1.foodRevenue).toBeCloseTo(100.0);
+    expect(row4x1.total).toBeCloseTo(200.0); // SAR 20/day
+
+    // 6x1: 9 acco, 10 food (2, 4, 4), total 19
+    const stay6x1 = {
+      ...stay1x1,
+      checkIns: [{ ...stay1x1.checkIns[0], rooms: { room_number: "A-106", category: "6x1" } }],
+    };
+    const row6x1 = buildRevenueRows(stay6x1, "2026-10-01", "2026-10-31")[0];
+    expect(row6x1.dailyRoom).toBe(9);
+    expect(row6x1.roomRevenue).toBe(90);
+    expect(row6x1.foodRevenue).toBeCloseTo(100.0);
+    expect(row6x1.total).toBeCloseTo(190.0); // SAR 19/day
+  });
 });

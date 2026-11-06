@@ -1,3 +1,4 @@
+import ExcelRateBanner from "./ExcelRateBanner";
 import { Fragment, useMemo, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
@@ -113,6 +114,8 @@ export default function DepartmentMonthlyReportTab() {
           <Button variant="outline" disabled={unavailable || !selected} onClick={() => { if (selected) printStatement(selected); }}><Printer size={16} className="mr-1" /> Print Department</Button>
         </CardContent>
       </Card>
+
+      <ExcelRateBanner />
 
       <h3 className="font-semibold">Department Monthly Costing — {format(monthDate, "MMMM yyyy")}</h3>
       {!isLoading && !isError && shown.length > 0 && (

@@ -20,6 +20,12 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import * as XLSX from "xlsx";
+import {
+  parseFloorInput,
+  mapRawRoomTypeToCategory,
+  getFloorDisplayName,
+} from "@/constants/roomCategories";
 import RoomConfigMasterDialog, {
   RoomSpecification,
   getStoredRoomSpecifications,
@@ -92,7 +98,7 @@ export interface BlockHierarchyItem {
   floors: number;
   supervisor_name: string;
   prefix: string;
-  numberingFormat: "3digit" | "4digit" | "g_style" | "sequential";
+  numberingFormat: "3digit" | "4digit" | "g_style" | "sequential" | "compact_2digit";
   isExisting?: boolean;
 }
 
@@ -164,7 +170,7 @@ export default function CampMasterSetupDialog({
   const [batchFloors, setBatchFloors] = useState<number>(3);
   const [batchRoomsPerFloor, setBatchRoomsPerFloor] = useState<number>(8);
   const [batchSpecId, setBatchSpecId] = useState<string>("");
-  const [batchNumberingFormat, setBatchNumberingFormat] = useState<"3digit" | "4digit" | "g_style" | "sequential">("3digit");
+  const [batchNumberingFormat, setBatchNumberingFormat] = useState<"3digit" | "4digit" | "g_style" | "sequential" | "compact_2digit">("compact_2digit");
 
   // Room Matrix Items
   const [rooms, setRooms] = useState<GeneratedRoomItem[]>([]);
@@ -249,6 +255,9 @@ export default function CampMasterSetupDialog({
       const flrStr = String(floor).padStart(2, "0");
       const idxStr = String(index).padStart(2, "0");
       return `${cleanPrefix}${flrStr}${idxStr}`;
+    }
+    if (format === "compact_2digit") {
+      return `${prefix.trim()}${String(index).padStart(2, "0")}`;
     }
     if (format === "g_style") {
       if (floor === 1) {
@@ -985,6 +994,112 @@ export default function CampMasterSetupDialog({
     });
   };
 
+  // Full Excel Camp Import directly into the interactive workbench
+  const handleExcelWorkbenchImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const wb = XLSX.read(evt.target?.result, { type: "binary" });
+        const sheetName = wb.SheetNames.find((s) => s.toLowerCase() === "rooms") || wb.SheetNames[0];
+        const ws = wb.Sheets[sheetName];
+        const json = XLSX.utils.sheet_to_json<any>(ws);
+
+        if (!json || json.length === 0) {
+          toast({ title: "Empty Spreadsheet", description: "No room rows found in the uploaded file.", variant: "destructive" });
+          return;
+        }
+
+        const blockMap = new Map<string, { maxFloor: number; rows: any[] }>();
+        json.forEach((row: any) => {
+          const bName = String(row.block_name || row.block || row.Building || row.Block || row.Wing || "").trim();
+          if (!bName) return;
+          const rawFloor = row.floor || row.Floor || "G";
+          const fInfo = parseFloorInput(rawFloor);
+          const existing = blockMap.get(bName) || { maxFloor: 1, rows: [] };
+          existing.maxFloor = Math.max(existing.maxFloor, fInfo.floorNumber);
+          existing.rows.push(row);
+          blockMap.set(bName, existing);
+        });
+
+        if (blockMap.size === 0) {
+          toast({ title: "Invalid Format", description: "Could not find block names in the sheet.", variant: "destructive" });
+          return;
+        }
+
+        const specsList = availableSpecs.length > 0 ? availableSpecs : DEFAULT_ROOM_SPECIFICATIONS;
+        const newBlocks: BlockHierarchyItem[] = Array.from(blockMap.entries()).map(([name, data]) => ({
+          id: `imp-block-${name}`,
+          name: name.length === 1 ? `Block ${name}` : name,
+          block_type: "staff",
+          floors: Math.max(data.maxFloor, 3),
+          supervisor_name: "",
+          prefix: name,
+          numberingFormat: "compact_2digit",
+        }));
+
+        const newRooms: GeneratedRoomItem[] = [];
+        Array.from(blockMap.entries()).forEach(([name, data]) => {
+          const blockTempId = `imp-block-${name}`;
+          const bItem = newBlocks.find((b) => b.id === blockTempId)!;
+
+          data.rows.forEach((r: any, rIdx: number) => {
+            const roomNumber = String(
+              r.room_number || r.room || r["Room No"] || r["Room #"] || ""
+            ).trim();
+            if (!roomNumber) return;
+
+            const rawType = String(r.room_type || r.type || r["Room Type"] || "4x1").trim();
+            const rawFloor = r.floor || r.Floor || "G";
+            const fInfo = parseFloorInput(rawFloor);
+            const tInfo = mapRawRoomTypeToCategory(rawType);
+
+            const matchedSpec = specsList.find((s) => s.capacity === tInfo.capacity) || specsList[0];
+            const isAc = ["yes", "true", "1", "y"].includes(String(r.ac || "no").toLowerCase().trim());
+            const isBath = ["yes", "true", "1", "y"].includes(
+              String(r.attached_bathroom || r.bathroom || "no").toLowerCase().trim()
+            );
+
+            newRooms.push({
+              tempId: `imp-room-${name}-${roomNumber}-${rIdx}`,
+              blockTempId: blockTempId,
+              blockName: bItem.name,
+              floor: fInfo.floorNumber,
+              room_number: roomNumber,
+              specId: matchedSpec.id,
+              category: tInfo.category,
+              categoryLabel: tInfo.label,
+              max_capacity: tInfo.capacity,
+              ac: isAc,
+              attached_bathroom: isBath,
+              daily_rate: parseFloat(r.daily_rate) || matchedSpec.dailyRate || 0,
+              daily_food_rate: parseFloat(r.daily_food_rate) || matchedSpec.dailyFoodRate || 0,
+            });
+          });
+        });
+
+        setBlocks(newBlocks);
+        setRooms(newRooms);
+        if (newBlocks.length > 0) {
+          setActiveBlockId(newBlocks[0].id);
+          setActiveFloor(1);
+        }
+        setCurrentView("rooms");
+
+        toast({
+          title: `🎉 Loaded ${newRooms.length} Rooms Across ${newBlocks.length} Blocks!`,
+          description: `Imported from ${file.name}. Review cards and click 'Deploy Camp Hierarchy' when ready.`,
+        });
+      } catch (err: any) {
+        toast({ title: "Import Error", description: err.message, variant: "destructive" });
+      }
+    };
+    reader.readAsBinaryString(file);
+    e.target.value = "";
+  };
+
   // Apply a room specification to a room item
   const applySpecToRoom = (tempId: string, spec: RoomSpecification) => {
     setRooms((prev) =>
@@ -1428,6 +1543,22 @@ export default function CampMasterSetupDialog({
                     &larr; Back to {currentView === "rooms" ? "Floors" : "Blocks"}
                   </Button>
                 )}
+                {/* Excel Quick Import Trigger */}
+                <div className="flex items-center">
+                  <Label htmlFor="camp-workbench-excel-file" className="cursor-pointer">
+                    <div className="h-7 px-2.5 rounded-md border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-semibold text-xs flex items-center gap-1.5 transition-colors">
+                      <FileSpreadsheet size={13} /> Import Excel (.xlsx)
+                    </div>
+                  </Label>
+                  <input
+                    id="camp-workbench-excel-file"
+                    type="file"
+                    accept=".xlsx,.xls,.csv"
+                    onChange={handleExcelWorkbenchImport}
+                    className="hidden"
+                  />
+                </div>
+
                 <div className="text-[11px] font-mono text-muted-foreground bg-muted px-2.5 py-1 rounded border hidden sm:flex items-center gap-1.5">
                   <span className="font-semibold text-foreground">{campName}</span>
                   <ChevronRight size={11} />
@@ -1725,7 +1856,7 @@ export default function CampMasterSetupDialog({
                                   <Layers size={18} />
                                 </div>
                                 <div>
-                                  <h4 className="font-bold text-sm text-foreground">Floor {flr}</h4>
+                                  <h4 className="font-bold text-sm text-foreground">{getFloorDisplayName(flr)}</h4>
                                   <span className="text-[11px] text-muted-foreground font-mono">
                                     {flrRooms.length} Rooms &bull; {sampleStart}{sampleEnd && sampleEnd !== sampleStart ? ` ➔ ${sampleEnd}` : ""}
                                   </span>
@@ -1796,7 +1927,7 @@ export default function CampMasterSetupDialog({
                     <div>
                       <h3 className="font-bold text-sm text-foreground flex items-center gap-2">
                         <BedDouble size={16} className="text-primary" />
-                        {currentBlock.name} &mdash; Floor {activeFloor} Rooms
+                        {currentBlock.name} &mdash; {getFloorDisplayName(activeFloor)} Rooms
                       </h3>
                       <p className="text-[11px] text-muted-foreground">
                         Every room can be individually customized: edit room numbers, assign specifications, adjust beds, and toggle amenities.
@@ -2387,6 +2518,9 @@ export default function CampMasterSetupDialog({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="compact_2digit" className="text-xs font-mono">
+                      Direct Compact (e.g. A01, A02, A14, B01...)
+                    </SelectItem>
                     <SelectItem value="3digit" className="text-xs font-mono">
                       3-Digit Standard (e.g. C-101, C-102, C-201...)
                     </SelectItem>
@@ -2586,7 +2720,7 @@ export default function CampMasterSetupDialog({
                     <SelectContent>
                       {Array.from({ length: currentBlock.floors }, (_, i) => i + 1).map((f) => (
                         <SelectItem key={f} value={String(f)} className="text-xs">
-                          Floor {f}
+                          {getFloorDisplayName(f)}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -2776,7 +2910,7 @@ export default function CampMasterSetupDialog({
                 <SelectContent>
                   {Array.from({ length: currentBlock.floors }, (_, i) => i + 1).map((f) => (
                     <SelectItem key={f} value={String(f)} className="text-xs">
-                      Floor {f}
+                      {getFloorDisplayName(f)}
                     </SelectItem>
                   ))}
                 </SelectContent>

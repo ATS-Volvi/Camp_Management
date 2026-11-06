@@ -1,9 +1,9 @@
 import { NavLink, useLocation } from "react-router-dom";
 import {
-  Home, Building2, Truck, Users, Wrench, Package, Settings as SettingsIcon,
+  Home, Upload, Building2, Truck, Users, Wrench, Package, Settings as SettingsIcon,
   BarChart3, Activity, Bell, HelpCircle, ChevronDown, Search, Box, LogIn, ClipboardList, Sparkles, UtensilsCrossed, UserCheck,
   Shield, UserCog, FileText, AlertTriangle, ChefHat, ShieldCheck, LineChart, Cog, Gauge, BedDouble, Link2, Ban,
-  LayoutDashboard, PieChart, CalendarDays
+  LayoutDashboard, PieChart, CalendarDays, Briefcase
 } from "lucide-react";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useEffect, useState } from "react";
@@ -25,7 +25,9 @@ const navGroups: {
       { label: "Employee Master", icon: Users, path: "/employees" },
       { label: "Camp Management", icon: Building2, path: "/camps" },
       { label: "Check-In / Out", icon: LogIn, path: "/check-in-out" },
+      { label: "Bulk Check-In / Out", icon: Upload, path: "/check-in-out/bulk" },
       { label: "Attendance", icon: ClipboardList, path: "/attendance" },
+      { label: "Inmates Report", icon: FileText, path: "/inmates-report" },
       { label: "Visitor Management", icon: UserCheck, path: "/visitors" },
     ],
   },
@@ -80,13 +82,16 @@ const dashboardNav = [
 ];
 
 const adminNav = [
+  { label: "Employee Master Data", icon: Users, path: "/admin/employees" },
+  { label: "Camp Master Data", icon: Building2, path: "/admin/camps" },
+  { label: "Project Master Data", icon: Briefcase, path: "/admin/projects" },
+  { label: "Room Category Master", icon: BedDouble, path: "/admin/room-categories" },
+  { label: "Supplier Master", icon: Truck, path: "/admin/suppliers" },
+  { label: "Designation Mapping", icon: Link2, path: "/admin/designation-mapping" },
+  { label: "Camp Food Rates", icon: UtensilsCrossed, path: "/admin/camp-food-rates" },
   { label: "User Management", icon: UserCog, path: "/admin/users" },
   { label: "Permission Matrix", icon: Shield, path: "/admin/permissions" },
   { label: "Audit Logs", icon: FileText, path: "/admin/audit-logs" },
-  { label: "Room Category Master", icon: BedDouble, path: "/admin/room-categories" },
-  { label: "Supplier Master", icon: Truck, path: "/admin/suppliers" },
-  { label: "Camp Food Rates", icon: UtensilsCrossed, path: "/admin/camp-food-rates" },
-  { label: "Designation Mapping", icon: Link2, path: "/admin/designation-mapping" },
 ];
 
 const footerNav = [
@@ -200,7 +205,7 @@ export default function AppSidebar() {
 
         {navGroups.map((group, i) => renderGroup(group.label, group.icon, group.items, i + 1))}
 
-        {isSuperAdmin && renderGroup("Administration", Shield, adminNav, navGroups.length + 1)}
+        {renderGroup("Administration", Shield, adminNav, navGroups.length + 1)}
 
         <div className="pt-4 space-y-0.5">
           {bottomNav.map(item => (
