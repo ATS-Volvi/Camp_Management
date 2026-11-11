@@ -2,7 +2,11 @@ import React, { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Download, Printer, Filter, RefreshCw, CheckCircle2, FileSpreadsheet, Building2, Users, LogIn, LogOut, Receipt, TrendingUp, Truck } from "lucide-react";
+import { Download, Printer, Filter, RefreshCw, CheckCircle2, FileSpreadsheet, Building2, Users, LogIn, LogOut, Receipt, TrendingUp, Truck, SlidersHorizontal, Palmtree, UtensilsCrossed, Plus, Minus, Search, RotateCcw, UserMinus, UserCheck, Check, Sparkles } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format, parseISO, differenceInCalendarDays } from "date-fns";
@@ -93,6 +97,12 @@ export default function ExpertiseOccupancyStatementTab({
   const [customFrom, setCustomFrom] = useState<string>("2026-08-26");
   const [customTo, setCustomTo] = useState<string>("2026-09-25");
   const [officeLunchOverride, setOfficeLunchOverride] = useState<number>(1466);
+  const [vacationAdjustments, setVacationAdjustments] = useState<Record<string, number>>({});
+  const [missedLunchDeduction, setMissedLunchDeduction] = useState<number>(0);
+  const [adjustmentsOpen, setAdjustmentsOpen] = useState<boolean>(false);
+  const [attendantSearch, setAttendantSearch] = useState<string>("");
+  const [adjustmentsTab, setAdjustmentsTab] = useState<"tiers" | "attendants">("tiers");
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState<string | null>(null);
   const [isExportingAll, setIsExportingAll] = useState<boolean>(false);
 
   const { data: deptList = [] } = useDepartments();
@@ -348,6 +358,27 @@ export default function ExpertiseOccupancyStatementTab({
       });
     }
 
+    // Apply manual vacation adjustments per tier across all modes (benchmark or live)
+    ORDERED_TIERS.forEach((tier) => {
+      if (vacationAdjustments[tier] !== undefined) {
+        const curVac = counts[tier]?.onVacation || 0;
+        const curActive = counts[tier]?.active || 0;
+        const targetVac = Math.max(0, vacationAdjustments[tier]);
+        const delta = targetVac - curVac;
+        counts[tier] = {
+          ...counts[tier],
+          onVacation: targetVac,
+          active: Math.max(0, curActive - delta),
+        };
+      }
+    });
+
+    // Apply missed lunch deductions
+    if (counts["1x1"]) {
+      const baseLunch = counts["1x1"].officeLunchMeals || 0;
+      counts["1x1"].officeLunchMeals = Math.max(0, baseLunch - missedLunchDeduction);
+    }
+
     return buildStatementSummary(
       counts,
       fromDateFormatted,
@@ -368,6 +399,8 @@ export default function ExpertiseOccupancyStatementTab({
     toIso,
     daysInPeriod,
     officeLunchOverride,
+    vacationAdjustments,
+    missedLunchDeduction,
   ]);
 
   // Department monthly costing dynamic aggregation for the chosen date range
@@ -434,6 +467,109 @@ export default function ExpertiseOccupancyStatementTab({
       };
     });
   }, [deptList, revenueRows, daysInPeriod, fromIso]);
+
+  const totalVacationAdjustmentsCount = useMemo(() => {
+    return Object.values(vacationAdjustments).reduce((sum, v) => sum + v, 0);
+  }, [vacationAdjustments]);
+
+  const currentTierData = useMemo(() => {
+    return ORDERED_TIERS.map((tier) => {
+      const summaryRow = computedSummary.rows.find((r) => r.category === tier);
+      const rates = EXCEL_STANDARD_RATES[tier] || EXCEL_STANDARD_RATES["4x1"];
+      const curVac = summaryRow?.onVacation || 0;
+      const curActive = summaryRow?.active || 0;
+      const curOnSite = summaryRow?.onSite || 0;
+      const vacRate = rates.holdingRate;
+      const catRate = rates.cateringRate;
+      return {
+        tier,
+        label: rates.label,
+        active: curActive,
+        onSite: curOnSite,
+        onVacation: curVac,
+        holdingRate: vacRate,
+        cateringRate: catRate,
+        vacationCharges: summaryRow?.onVacationCharges || 0,
+        cateringCharges: summaryRow?.cateringCharges || 0,
+      };
+    });
+  }, [computedSummary]);
+
+  const filteredAttendants = useMemo(() => {
+    return liveCheckIns.filter((ci: any) => {
+      const emp = ci.employees;
+      if (!emp) return false;
+      if (selectedDept !== "(All)" && selectedDept !== "all") {
+        const empDept = emp.department || "";
+        if (!empDept.toUpperCase().includes(selectedDept.toUpperCase())) return false;
+      }
+      if (attendantSearch) {
+        const s = attendantSearch.toLowerCase();
+        const matchesName = (emp.name || "").toLowerCase().includes(s);
+        const matchesId = (emp.employee_id || "").toLowerCase().includes(s);
+        const matchesDept = (emp.department || "").toLowerCase().includes(s);
+        const matchesRoom = (ci.rooms?.room_number || "").toLowerCase().includes(s);
+        if (!matchesName && !matchesId && !matchesDept && !matchesRoom) return false;
+      }
+      return true;
+    });
+  }, [liveCheckIns, selectedDept, attendantSearch]);
+
+  const handleSetTierVacation = (tier: string, value: number) => {
+    const val = Math.max(0, value);
+    setVacationAdjustments((prev) => ({
+      ...prev,
+      [tier]: val,
+    }));
+  };
+
+  const handleToggleAttendantVacation = async (emp: any, currentStatus: string, roomCategory: string) => {
+    const newStatus = currentStatus === "vacation" ? "active" : "vacation";
+    const tier = resolveRoomTypeTier(roomCategory) as "1x1" | "2x1" | "3x1" | "4x1" | "5x1" | "6x1";
+    setIsUpdatingStatus(emp.id);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const { error } = await supabase.rpc("change_presence_status", {
+        p_employee_id: emp.id,
+        p_new_status: newStatus,
+        p_reason: newStatus === "vacation" ? "Vacation leave recorded from Statement" : "Returned from vacation",
+        p_changed_by: user?.id || null,
+      } as any);
+      if (error) {
+        await supabase.from("employees").update({ presence_status: newStatus } as any).eq("id", emp.id);
+      }
+
+      setVacationAdjustments((prev) => {
+        const curTierBase = computedSummary.rows.find((r) => r.category === tier)?.onVacation || 0;
+        const curVal = prev[tier] !== undefined ? prev[tier] : curTierBase;
+        return {
+          ...prev,
+          [tier]: Math.max(0, newStatus === "vacation" ? curVal + 1 : curVal - 1),
+        };
+      });
+
+      toast.success(
+        newStatus === "vacation"
+          ? `${emp.name} marked On-Vacation: Room holding billed, catering charges removed.`
+          : `${emp.name} restored to Active: Full accommodation & catering resumed.`
+      );
+    } catch (e: any) {
+      toast.error("Failed to update status: " + (e?.message || "unknown error"));
+    } finally {
+      setIsUpdatingStatus(null);
+    }
+  };
+
+  const handleLogMissedLunch = (emp: any) => {
+    setMissedLunchDeduction((prev) => prev + 1);
+    toast.success(`Deducted 1 lunch meal for ${emp.name} (-SAR 5.20 from Office Lunch total).`);
+  };
+
+  const handleResetAdjustments = () => {
+    setVacationAdjustments({});
+    setMissedLunchDeduction(0);
+    toast.success("Reset statement to document benchmark values.");
+  };
 
   const handleDownloadCsv = () => {
     const csvContent = buildExpertiseStatementCsv(computedSummary);
@@ -512,15 +648,34 @@ export default function ExpertiseOccupancyStatementTab({
           )}
 
           {activeSheet === "occupancy-charges" && (
-            <div className="flex items-center gap-1.5 pl-2 border-l border-slate-300">
-              <span className="text-xs font-semibold text-slate-600">Office Lunch:</span>
-              <Input
-                type="number"
-                value={officeLunchOverride}
-                onChange={(e) => setOfficeLunchOverride(Number(e.target.value) || 0)}
-                className="w-20 h-8 text-xs bg-white font-mono"
-              />
-            </div>
+            <>
+              <div className="flex items-center gap-1.5 pl-2 border-l border-slate-300">
+                <span className="text-xs font-semibold text-slate-600">Office Lunch:</span>
+                <Input
+                  type="number"
+                  value={officeLunchOverride}
+                  onChange={(e) => setOfficeLunchOverride(Number(e.target.value) || 0)}
+                  className="w-20 h-8 text-xs bg-white font-mono"
+                  title="Base office lunch meals"
+                />
+              </div>
+
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setAdjustmentsOpen(true)}
+                className="h-8 border-orange-300 text-orange-950 bg-orange-50/80 hover:bg-orange-100 font-semibold shadow-xs flex items-center gap-1.5 text-xs"
+                title="Decide attendants missing lunch or away on vacation"
+              >
+                <SlidersHorizontal size={13} className="text-orange-600" />
+                <span>Adjust Vacation & Missed Meals</span>
+                {(Object.keys(vacationAdjustments).length > 0 || missedLunchDeduction > 0) && (
+                  <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-[#ea580c] text-white">
+                    Adjusted
+                  </span>
+                )}
+              </Button>
+            </>
           )}
         </div>
 
@@ -1367,6 +1522,300 @@ export default function ExpertiseOccupancyStatementTab({
         )}
 
       </div>
+
+      {/* Vacation & Missed Meal Adjustments Dialog */}
+      <Dialog open={adjustmentsOpen} onOpenChange={setAdjustmentsOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <div className="flex items-center justify-between pr-6 flex-wrap gap-2">
+              <div>
+                <DialogTitle className="text-lg font-bold flex items-center gap-2 text-slate-900">
+                  <SlidersHorizontal className="h-5 w-5 text-[#ea580c]" />
+                  Vacation & Missed Meal Adjustments
+                </DialogTitle>
+                <DialogDescription className="text-xs text-slate-500 mt-1">
+                  Adjust attendants on vacation or missing lunches. When on vacation, catering charges are automatically exempted and only room holding is billed.
+                </DialogDescription>
+              </div>
+              {(totalVacationAdjustmentsCount > 0 || missedLunchDeduction > 0) && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={handleResetAdjustments}
+                  className="text-xs text-slate-600 hover:text-red-600 flex items-center gap-1.5 h-8 border border-slate-200"
+                >
+                  <RotateCcw size={13} /> Reset All to Benchmark
+                </Button>
+              )}
+            </div>
+          </DialogHeader>
+
+          <Tabs value={adjustmentsTab} onValueChange={(t) => setAdjustmentsTab(t as "tiers" | "attendants")}>
+            <TabsList className="grid grid-cols-2 w-full mb-4">
+              <TabsTrigger value="tiers" className="text-xs font-semibold flex items-center gap-1.5">
+                <Palmtree size={14} className="text-orange-500" />
+                Quick Tier Adjustments
+              </TabsTrigger>
+              <TabsTrigger value="attendants" className="text-xs font-semibold flex items-center gap-1.5">
+                <Users size={14} className="text-blue-500" />
+                Attendant Roster Selector ({filteredAttendants.length})
+              </TabsTrigger>
+            </TabsList>
+
+            {/* TAB 1: Quick Tier & Lunch Adjustments */}
+            <TabsContent value="tiers" className="space-y-5 mt-0">
+              {/* Summary stat cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="bg-amber-50/70 border border-amber-200 rounded-lg p-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-amber-900 flex items-center gap-1.5">
+                      <Palmtree size={15} className="text-amber-600" /> Total On-Vacation Attendants
+                    </span>
+                    <Badge variant="outline" className="bg-amber-100 text-amber-800 border-amber-300 font-mono font-bold">
+                      {computedSummary.totalOccupancy.onVacation} Attendants
+                    </Badge>
+                  </div>
+                  <p className="text-[11px] text-amber-700 mt-1">
+                    Room accommodation holding is billed at holding rate (SAR 11–13/day). Catering is automatically exempted (0 SAR).
+                  </p>
+                </div>
+
+                <div className="bg-sky-50/70 border border-sky-200 rounded-lg p-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-sky-900 flex items-center gap-1.5">
+                      <UtensilsCrossed size={15} className="text-sky-600" /> Missed Lunch Meal Deductions
+                    </span>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        size="icon"
+                        variant="outline"
+                        className="h-6 w-6"
+                        onClick={() => setMissedLunchDeduction((p) => Math.max(0, p - 10))}
+                      >
+                        <Minus size={11} />
+                      </Button>
+                      <Input
+                        type="number"
+                        value={missedLunchDeduction}
+                        onChange={(e) => setMissedLunchDeduction(Math.max(0, Number(e.target.value) || 0))}
+                        className="w-16 h-6 text-xs text-center font-mono bg-white font-bold"
+                      />
+                      <Button
+                        size="icon"
+                        variant="outline"
+                        className="h-6 w-6"
+                        onClick={() => setMissedLunchDeduction((p) => p + 10)}
+                      >
+                        <Plus size={11} />
+                      </Button>
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-sky-700 mt-1">
+                    Net Lunch Meals: <strong>{computedSummary.totalOccupancy.officeLunchMeals}</strong> meals (= SAR {computedSummary.totalCharges.officeLunch.toFixed(2)} @ SAR 5.20/meal).
+                  </p>
+                </div>
+              </div>
+
+              {/* Tiers Adjustment Table */}
+              <div className="border border-slate-300 rounded-lg overflow-hidden">
+                <div className="bg-slate-100 px-3 py-2 border-b border-slate-300 flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-700">Room Tier Vacation Distribution</span>
+                  <span className="text-[11px] text-slate-500">Shifting attendants to On-Vacation recalculates Table 1 & Table 2 immediately</span>
+                </div>
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="bg-[#0b1e36] text-white">
+                      <th className="px-3 py-2 text-left font-bold">Room Category</th>
+                      <th className="px-3 py-2 text-center font-bold">Tariffs (SAR)</th>
+                      <th className="px-3 py-2 text-center font-bold">Active Count</th>
+                      <th className="px-3 py-2 text-center font-bold bg-[#ea580c]">On-Vacation Count</th>
+                      <th className="px-3 py-2 text-right font-bold pr-4">On-Vacation Charges</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {currentTierData.map((t) => (
+                      <tr key={t.tier} className="border-b border-slate-200 hover:bg-slate-50">
+                        <td className="px-3 py-2 font-bold text-slate-900">
+                          {t.tier}
+                          <span className="text-[10px] text-slate-500 font-normal ml-1.5">({t.label})</span>
+                        </td>
+                        <td className="px-3 py-2 text-center text-slate-600 font-mono text-[11px]">
+                          Hold: SAR {t.holdingRate.toFixed(2)} / Cat: SAR {t.cateringRate.toFixed(2)}
+                        </td>
+                        <td className="px-3 py-2 text-center font-mono font-bold text-slate-700">
+                          {t.active}
+                        </td>
+                        <td className="px-3 py-1.5 text-center bg-orange-50/50">
+                          <div className="inline-flex items-center gap-1.5 justify-center">
+                            <Button
+                              size="icon"
+                              variant="outline"
+                              className="h-6 w-6 text-slate-600 hover:bg-slate-100"
+                              onClick={() => handleSetTierVacation(t.tier, t.onVacation - 1)}
+                              disabled={t.onVacation <= 0}
+                            >
+                              <Minus size={11} />
+                            </Button>
+                            <Input
+                              type="number"
+                              value={t.onVacation}
+                              onChange={(e) => handleSetTierVacation(t.tier, Number(e.target.value) || 0)}
+                              className="w-16 h-7 text-xs text-center font-mono font-bold bg-white border-orange-300 focus:border-orange-500"
+                            />
+                            <Button
+                              size="icon"
+                              variant="outline"
+                              className="h-6 w-6 text-slate-600 hover:bg-slate-100"
+                              onClick={() => handleSetTierVacation(t.tier, t.onVacation + 1)}
+                            >
+                              <Plus size={11} />
+                            </Button>
+                          </div>
+                        </td>
+                        <td className="px-3 py-2 text-right font-mono font-bold text-slate-900 pr-4">
+                          SAR {t.vacationCharges.toFixed(2)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr className="bg-slate-100 font-bold text-slate-900 border-t border-slate-300">
+                      <td className="px-3 py-2">Total On-Vacation</td>
+                      <td className="px-3 py-2"></td>
+                      <td className="px-3 py-2 text-center font-mono">{computedSummary.totalOccupancy.active}</td>
+                      <td className="px-3 py-2 text-center font-mono text-orange-600 bg-orange-100/50">
+                        {computedSummary.totalOccupancy.onVacation}
+                      </td>
+                      <td className="px-3 py-2 text-right font-mono text-orange-600 pr-4">
+                        SAR {computedSummary.totalCharges.onVacation.toFixed(2)}
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </TabsContent>
+
+            {/* TAB 2: Attendant Roster Live Database Sync */}
+            <TabsContent value="attendants" className="space-y-4 mt-0">
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <div className="relative flex-1 min-w-[240px]">
+                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <Input
+                    placeholder="Search by attendant name, ID, room, or department..."
+                    value={attendantSearch}
+                    onChange={(e) => setAttendantSearch(e.target.value)}
+                    className="pl-8 h-8 text-xs bg-white"
+                  />
+                </div>
+                <div className="text-xs text-slate-500 font-medium">
+                  Showing {filteredAttendants.length} checked-in attendants
+                </div>
+              </div>
+
+              <div className="border border-slate-300 rounded-lg overflow-hidden max-h-[380px] overflow-y-auto">
+                <table className="w-full text-xs">
+                  <thead className="sticky top-0 bg-[#0b1e36] text-white shadow-sm z-10">
+                    <tr>
+                      <th className="px-3 py-2 text-left font-bold">Attendant / ID</th>
+                      <th className="px-3 py-2 text-left font-bold">Department</th>
+                      <th className="px-3 py-2 text-center font-bold">Room & Category</th>
+                      <th className="px-3 py-2 text-center font-bold">Current Status</th>
+                      <th className="px-3 py-2 text-right font-bold pr-3">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredAttendants.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="py-8 text-center text-slate-500">
+                          No attendants found matching your search.
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredAttendants.map((ci: any) => {
+                        const emp = ci.employees;
+                        const room = ci.rooms;
+                        const status = emp?.presence_status || "active";
+                        const isVacation = status === "vacation";
+                        const isUpdating = isUpdatingStatus === emp?.id;
+                        return (
+                          <tr key={ci.id} className="border-b border-slate-200 hover:bg-slate-50">
+                            <td className="px-3 py-2">
+                              <div className="font-bold text-slate-900">{emp?.name || "Unknown"}</div>
+                              <div className="text-[11px] text-slate-500 font-mono">{emp?.employee_id || "—"}</div>
+                            </td>
+                            <td className="px-3 py-2 text-slate-700">{emp?.department || "—"}</td>
+                            <td className="px-3 py-2 text-center">
+                              <span className="font-bold text-slate-800">Room {room?.room_number || "—"}</span>
+                              <span className="text-[10px] text-slate-500 block font-mono">
+                                Tier: {resolveRoomTypeTier(room?.category)}
+                              </span>
+                            </td>
+                            <td className="px-3 py-2 text-center">
+                              <Badge
+                                variant={isVacation ? "outline" : "secondary"}
+                                className={
+                                  isVacation
+                                    ? "bg-amber-100 text-amber-900 border-amber-300 font-bold"
+                                    : "bg-emerald-100 text-emerald-900 border-emerald-300 font-bold"
+                                }
+                              >
+                                {isVacation ? "On-Vacation" : "Active In-Camp"}
+                              </Badge>
+                            </td>
+                            <td className="px-3 py-2 text-right pr-3 space-x-1.5 whitespace-nowrap">
+                              <Button
+                                size="sm"
+                                variant={isVacation ? "outline" : "default"}
+                                disabled={isUpdating}
+                                onClick={() => handleToggleAttendantVacation(emp, status, room?.category)}
+                                className={
+                                  isVacation
+                                    ? "h-7 text-xs border-emerald-400 text-emerald-800 hover:bg-emerald-50"
+                                    : "h-7 text-xs bg-amber-600 hover:bg-amber-700 text-white font-semibold"
+                                }
+                              >
+                                {isVacation ? (
+                                  <>
+                                    <UserCheck size={12} className="mr-1" /> Restore Active
+                                  </>
+                                ) : (
+                                  <>
+                                    <Palmtree size={12} className="mr-1" /> Set On-Vacation
+                                  </>
+                                )}
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => handleLogMissedLunch(emp)}
+                                className="h-7 text-xs text-sky-700 hover:bg-sky-50"
+                                title="Deduct 1 lunch meal for this attendant"
+                              >
+                                <UtensilsCrossed size={12} className="mr-1 text-sky-600" />
+                                -1 Lunch
+                              </Button>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </TabsContent>
+          </Tabs>
+
+          <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 text-xs text-slate-600 flex items-center justify-between">
+            <span className="flex items-center gap-1.5">
+              <Sparkles size={14} className="text-[#ea580c]" />
+              <strong>Zero Excel Dependence:</strong> All adjustments immediately recalculate Table 1, Table 2, and the grand total SAR.
+            </span>
+            <Button size="sm" onClick={() => setAdjustmentsOpen(false)} className="bg-[#0b1e36] text-white h-7 px-4">
+              Apply & Close
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
