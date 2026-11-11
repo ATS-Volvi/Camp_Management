@@ -218,6 +218,7 @@ export default function Reports() {
       {viewMode === "excel" ? (
         <ExpertiseOccupancyStatementTab
           activeSheet={tab}
+          isWebView={false}
           onSheetChange={(s) => setTab(s, "excel")}
         />
       ) : (
@@ -256,6 +257,7 @@ export default function Reports() {
           <TabsContent value="occupancy-charges">
             <ExpertiseOccupancyStatementTab
               activeSheet="occupancy-charges"
+              isWebView={true}
               onSheetChange={(s) => setTab(s, "web")}
             />
           </TabsContent>

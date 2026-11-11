@@ -2,6 +2,8 @@ import React, { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
 import { Download, Printer, Filter, RefreshCw, CheckCircle2, FileSpreadsheet, Building2, Users, LogIn, LogOut, Receipt, TrendingUp, Truck, SlidersHorizontal, Palmtree, UtensilsCrossed, Plus, Minus, Search, RotateCcw, UserMinus, UserCheck, Check, Sparkles } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
@@ -78,11 +80,13 @@ export function ExpertiseLogo() {
 export interface ExpertiseOccupancyStatementTabProps {
   activeSheet?: string;
   onSheetChange?: (sheet: string) => void;
+  isWebView?: boolean;
 }
 
 export default function ExpertiseOccupancyStatementTab({
   activeSheet: propActiveSheet,
   onSheetChange,
+  isWebView = false,
 }: ExpertiseOccupancyStatementTabProps = {}) {
   const [internalSheet, setInternalSheet] = useState<string>("occupancy-charges");
   const activeSheet = propActiveSheet || internalSheet;
@@ -588,8 +592,390 @@ export default function ExpertiseOccupancyStatementTab({
 
   return (
     <div className="space-y-6 print:m-0 print:p-0">
-      {/* Top Configuration & Global Export Toolbar */}
-      <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 flex flex-wrap items-center justify-between gap-4 print:hidden shadow-sm">
+      {isWebView ? (
+        <div className="space-y-6 mt-2">
+          {/* Modern Web View Stats Bar */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+            <Card className="shadow-xs border-border bg-card">
+              <CardHeader className="pb-1 pt-4 px-4">
+                <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                  Total Occupancy
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="px-4 pb-4">
+                <div className="text-2xl font-bold text-foreground">
+                  {(
+                    computedSummary.totalOccupancy.active +
+                    computedSummary.totalOccupancy.onSite +
+                    computedSummary.totalOccupancy.onVacation
+                  ).toLocaleString()}
+                </div>
+                <p className="text-[11px] text-muted-foreground mt-1">Across all room tiers</p>
+              </CardContent>
+            </Card>
+
+            <Card className="shadow-xs border-green-200 bg-green-50/40 dark:bg-green-950/20">
+              <CardHeader className="pb-1 pt-4 px-4">
+                <CardTitle className="text-xs font-semibold text-green-800 dark:text-green-300 uppercase tracking-wide flex items-center justify-between">
+                  <span>Active</span>
+                  <Users size={15} className="text-green-600 dark:text-green-400" />
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="px-4 pb-4">
+                <div className="text-2xl font-bold text-green-700 dark:text-green-400">
+                  {computedSummary.totalOccupancy.active.toLocaleString()}
+                </div>
+                <p className="text-[11px] text-green-700/80 dark:text-green-400/80 mt-1">Accommodation & Catering</p>
+              </CardContent>
+            </Card>
+
+            <Card className="shadow-xs border-amber-300 bg-amber-50/50 dark:bg-amber-950/20">
+              <CardHeader className="pb-1 pt-4 px-4">
+                <CardTitle className="text-xs font-semibold text-amber-900 dark:text-amber-300 uppercase tracking-wide flex items-center justify-between">
+                  <span>On-Vacation</span>
+                  <SlidersHorizontal size={15} className="text-amber-600 dark:text-amber-400" />
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="px-4 pb-4">
+                <div className="text-2xl font-bold text-amber-700 dark:text-amber-400">
+                  {computedSummary.totalOccupancy.onVacation.toLocaleString()}
+                </div>
+                <p className="text-[11px] text-amber-800/90 dark:text-amber-400/80 mt-1 font-semibold">
+                  Food waived · Room holding only
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card className="shadow-xs border-border bg-card">
+              <CardHeader className="pb-1 pt-4 px-4">
+                <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center justify-between">
+                  <span>Office Lunches</span>
+                  <UtensilsCrossed size={15} className="text-muted-foreground" />
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="px-4 pb-4">
+                <div className="text-2xl font-bold text-foreground">
+                  {computedSummary.totalOccupancy.lunchMeals.toLocaleString()}
+                </div>
+                <p className="text-[11px] text-muted-foreground mt-1 font-mono">@ SAR 5.20/meal</p>
+              </CardContent>
+            </Card>
+
+            <Card className="shadow-xs border-blue-200 bg-blue-50/40 dark:bg-blue-950/20 col-span-2 sm:col-span-1">
+              <CardHeader className="pb-1 pt-4 px-4">
+                <CardTitle className="text-xs font-semibold text-blue-900 dark:text-blue-300 uppercase tracking-wide">
+                  Total Net Charges
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="px-4 pb-4">
+                <div className="text-xl font-bold text-blue-900 dark:text-blue-300 font-mono">
+                  SAR {computedSummary.chargesSummary.totalGrand.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </div>
+                <p className="text-[11px] text-blue-700/80 dark:text-blue-400/80 mt-1">Service period net total</p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Modern Web Filter & Action Bar */}
+          <div className="bg-card border border-border rounded-lg p-4 shadow-xs flex flex-wrap items-center justify-between gap-4">
+            <div className="flex flex-wrap items-center gap-3">
+              {/* Department */}
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold text-muted-foreground">Department:</span>
+                <Select value={selectedDept} onValueChange={setSelectedDept}>
+                  <SelectTrigger className="w-[170px] h-8 text-xs bg-background">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="EMBS">EMBS</SelectItem>
+                    <SelectItem value="HERD">HERD</SelectItem>
+                    <SelectItem value="PMTA">PMTA</SelectItem>
+                    <SelectItem value="MBS">MBS</SelectItem>
+                    <SelectItem value="VSD">VSD</SelectItem>
+                    <SelectItem value="RSD">RSD</SelectItem>
+                    <SelectItem value="FIN">FIN</SelectItem>
+                    <SelectItem value="HR">HR</SelectItem>
+                    <SelectItem value="(All)">(All Departments)</SelectItem>
+                    {(deptList || [])
+                      .filter((d: any) => !["EMBS", "HERD", "PMTA", "MBS", "VSD", "RSD", "FIN", "HR"].includes(d.code))
+                      .map((d: any) => (
+                        <SelectItem key={d.code} value={d.code}>
+                          {d.code} - {d.name}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Status */}
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold text-muted-foreground">Status:</span>
+                <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+                  <SelectTrigger className="w-[140px] h-8 text-xs bg-background">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="(All)">All Statuses</SelectItem>
+                    <SelectItem value="Active">Active</SelectItem>
+                    <SelectItem value="On-Site">On-Site</SelectItem>
+                    <SelectItem value="On-Vacation">On-Vacation</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Service Cycle */}
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold text-muted-foreground">Cycle:</span>
+                <Select value={periodPreset} onValueChange={setPeriodPreset}>
+                  <SelectTrigger className="w-[210px] h-8 text-xs bg-background">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="2026-08-26_2026-09-25">26-Aug-2026 to 25-Sep-2026</SelectItem>
+                    <SelectItem value="2026-09-26_2026-10-25">26-Sep-2026 to 25-Oct-2026</SelectItem>
+                    <SelectItem value="2026-10-26_2026-11-25">26-Oct-2026 to 25-Nov-2026</SelectItem>
+                    <SelectItem value="custom">Custom Date Range...</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {periodPreset === "custom" && (
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="date"
+                    value={customFrom}
+                    onChange={(e) => setCustomFrom(e.target.value)}
+                    className="w-32 h-8 text-xs bg-background"
+                  />
+                  <span className="text-xs text-muted-foreground">to</span>
+                  <Input
+                    type="date"
+                    value={customTo}
+                    onChange={(e) => setCustomTo(e.target.value)}
+                    className="w-32 h-8 text-xs bg-background"
+                  />
+                </div>
+              )}
+
+              {/* Data Mode Switcher */}
+              <div className="flex items-center gap-1 bg-muted p-1 rounded-md">
+                <Button
+                  size="sm"
+                  variant={dataSource === "benchmark" ? "default" : "ghost"}
+                  className={`h-7 px-2.5 text-xs ${dataSource === "benchmark" ? "bg-primary text-primary-foreground shadow-xs font-semibold" : "text-muted-foreground"}`}
+                  onClick={() => setDataSource("benchmark")}
+                >
+                  <CheckCircle2 size={13} className="mr-1 text-orange-400" />
+                  Reference
+                </Button>
+                <Button
+                  size="sm"
+                  variant={dataSource === "live" ? "default" : "ghost"}
+                  className={`h-7 px-2.5 text-xs ${dataSource === "live" ? "bg-primary text-primary-foreground shadow-xs font-semibold" : "text-muted-foreground"}`}
+                  onClick={() => setDataSource("live")}
+                >
+                  <RefreshCw size={13} className={`mr-1 ${isCheckInsLoading ? "animate-spin" : ""}`} />
+                  Live Sync
+                </Button>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                onClick={() => setAdjustmentsOpen(true)}
+                className="h-8 bg-orange-600 hover:bg-orange-700 text-white font-semibold shadow-xs flex items-center gap-1.5 text-xs"
+                title="Decide attendants missing lunch or away on vacation"
+              >
+                <SlidersHorizontal size={14} />
+                <span>Adjust Vacation & Missed Meals</span>
+                {(Object.keys(vacationAdjustments).length > 0 || missedLunchDeduction > 0) && (
+                  <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-white text-orange-700">
+                    Adjusted
+                  </span>
+                )}
+              </Button>
+
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleDownloadCsv}
+                className="h-8 text-xs font-medium"
+              >
+                <Download size={14} className="mr-1.5" /> CSV
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handlePrint}
+                className="h-8 text-xs font-medium"
+              >
+                <Printer size={14} className="mr-1.5" /> Print
+              </Button>
+            </div>
+          </div>
+
+          {/* Card 1: Modern Occupancy Breakdown Table */}
+          <Card className="shadow-xs overflow-hidden border-border">
+            <CardHeader className="py-3 px-4 bg-muted/40 border-b border-border flex flex-row items-center justify-between">
+              <CardTitle className="text-sm font-bold flex items-center gap-2">
+                <Building2 size={16} className="text-primary" />
+                Occupancy Breakdown by Room Tier
+              </CardTitle>
+              <Badge variant="secondary" className="text-xs font-normal">
+                Cycle: {fromDateFormatted} to {toDateFormatted}
+              </Badge>
+            </CardHeader>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/50 hover:bg-muted/50">
+                    <TableHead className="font-bold text-xs">Room Tier</TableHead>
+                    <TableHead className="font-bold text-xs text-center">Active</TableHead>
+                    <TableHead className="font-bold text-xs text-center">On-Site</TableHead>
+                    <TableHead className="font-bold text-xs text-center text-amber-700 dark:text-amber-400 bg-amber-50/60 dark:bg-amber-950/20">
+                      On-Vacation (Room Holding)
+                    </TableHead>
+                    <TableHead className="font-bold text-xs text-right">Grand Total Occupancy</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {computedSummary.rows
+                    .filter((r) => r.category !== "1x1")
+                    .map((row) => {
+                      const rowGrand = row.active + row.onSite + row.onVacation;
+                      return (
+                        <TableRow key={row.category} className="hover:bg-muted/30 transition-colors">
+                          <TableCell className="font-bold text-xs">
+                            <Badge variant="outline" className="font-mono text-xs font-bold">
+                              {row.category}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-center font-mono text-xs">
+                            {formatCountCell(row.active)}
+                          </TableCell>
+                          <TableCell className="text-center font-mono text-xs">
+                            {formatCountCell(row.onSite)}
+                          </TableCell>
+                          <TableCell className="text-center font-mono text-xs text-amber-700 dark:text-amber-400 font-semibold bg-amber-50/30 dark:bg-amber-950/10">
+                            {formatCountCell(row.onVacation)}
+                          </TableCell>
+                          <TableCell className="text-right font-mono text-xs font-bold">
+                            {formatCountCell(rowGrand)}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  <TableRow className="bg-muted/60 font-bold border-t-2 border-border">
+                    <TableCell className="font-bold text-xs">Grand Total</TableCell>
+                    <TableCell className="text-center font-mono text-xs font-bold">
+                      {formatCountCell(computedSummary.totalOccupancy.active)}
+                    </TableCell>
+                    <TableCell className="text-center font-mono text-xs font-bold">
+                      {formatCountCell(computedSummary.totalOccupancy.onSite)}
+                    </TableCell>
+                    <TableCell className="text-center font-mono text-xs font-bold text-amber-700 dark:text-amber-400 bg-amber-50/60 dark:bg-amber-950/20">
+                      {formatCountCell(computedSummary.totalOccupancy.onVacation)}
+                    </TableCell>
+                    <TableCell className="text-right font-mono text-xs font-bold text-primary">
+                      {formatCountCell(
+                        computedSummary.totalOccupancy.active +
+                          computedSummary.totalOccupancy.onSite +
+                          computedSummary.totalOccupancy.onVacation
+                      )}
+                    </TableCell>
+                  </TableRow>
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+
+          {/* Card 2: Modern Monthly Charges Breakdown Table */}
+          <Card className="shadow-xs overflow-hidden border-border">
+            <CardHeader className="py-3 px-4 bg-muted/40 border-b border-border flex flex-row items-center justify-between">
+              <CardTitle className="text-sm font-bold flex items-center gap-2">
+                <Receipt size={16} className="text-primary" />
+                Total Monthly Charges Breakdown (SAR)
+              </CardTitle>
+              <div className="flex items-center gap-2">
+                <Badge variant="secondary" className="text-[11px] font-normal text-amber-800 dark:text-amber-300 bg-amber-100/70 dark:bg-amber-950/40">
+                  On-Vacation: Food Waived · Room Holding Billed
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/50 hover:bg-muted/50">
+                    <TableHead className="font-bold text-xs">Room Category</TableHead>
+                    <TableHead className="font-bold text-xs text-right">Accommodation (SAR)</TableHead>
+                    <TableHead className="font-bold text-xs text-right">Catering (SAR)</TableHead>
+                    <TableHead className="font-bold text-xs text-right">On-Site (SAR)</TableHead>
+                    <TableHead className="font-bold text-xs text-right text-amber-700 dark:text-amber-400 bg-amber-50/60 dark:bg-amber-950/20">
+                      On-Vacation (SAR)
+                    </TableHead>
+                    <TableHead className="font-bold text-xs text-right">Lunch Meals (SAR)</TableHead>
+                    <TableHead className="font-bold text-xs text-right">Grand Total (SAR)</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {computedSummary.chargesSummary.rows.map((row) => (
+                    <TableRow key={row.category} className="hover:bg-muted/30 transition-colors">
+                      <TableCell className="font-bold text-xs">
+                        <Badge variant="outline" className="font-mono text-xs font-bold">
+                          {row.category}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right font-mono text-xs">
+                        {formatCurrencyCell(row.accommodation)}
+                      </TableCell>
+                      <TableCell className="text-right font-mono text-xs">
+                        {formatCurrencyCell(row.catering)}
+                      </TableCell>
+                      <TableCell className="text-right font-mono text-xs">
+                        {formatCurrencyCell(row.onSite)}
+                      </TableCell>
+                      <TableCell className="text-right font-mono text-xs text-amber-700 dark:text-amber-400 font-semibold bg-amber-50/30 dark:bg-amber-950/10">
+                        {formatCurrencyCell(row.onVacation)}
+                      </TableCell>
+                      <TableCell className="text-right font-mono text-xs">
+                        {formatCurrencyCell(row.lunchMeals)}
+                      </TableCell>
+                      <TableCell className="text-right font-mono text-xs font-bold text-foreground">
+                        {formatCurrencyCell(row.grandTotal)}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  <TableRow className="bg-muted/60 font-bold border-t-2 border-border">
+                    <TableCell className="font-bold text-xs">Total (SAR)</TableCell>
+                    <TableCell className="text-right font-mono text-xs font-bold">
+                      {formatCurrencyCell(computedSummary.chargesSummary.totalAccommodation)}
+                    </TableCell>
+                    <TableCell className="text-right font-mono text-xs font-bold">
+                      {formatCurrencyCell(computedSummary.chargesSummary.totalCatering)}
+                    </TableCell>
+                    <TableCell className="text-right font-mono text-xs font-bold">
+                      {formatCurrencyCell(computedSummary.chargesSummary.totalOnSite)}
+                    </TableCell>
+                    <TableCell className="text-right font-mono text-xs font-bold text-amber-700 dark:text-amber-400 bg-amber-50/60 dark:bg-amber-950/20">
+                      {formatCurrencyCell(computedSummary.chargesSummary.totalOnVacation)}
+                    </TableCell>
+                    <TableCell className="text-right font-mono text-xs font-bold">
+                      {formatCurrencyCell(computedSummary.chargesSummary.totalLunchMeals)}
+                    </TableCell>
+                    <TableCell className="text-right font-mono text-xs font-bold text-primary">
+                      {formatCurrencyCell(computedSummary.chargesSummary.totalGrand)}
+                    </TableCell>
+                  </TableRow>
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </div>
+      ) : (
+        <>
+          {/* Top Configuration & Global Export Toolbar */}
+          <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 flex flex-wrap items-center justify-between gap-4 print:hidden shadow-sm">
         <div className="flex flex-wrap items-center gap-3">
           {/* Data Mode Switcher */}
           <div className="flex items-center gap-1.5 bg-white border border-slate-300 rounded-md p-1 shadow-sm">
@@ -1542,6 +1928,8 @@ export default function ExpertiseOccupancyStatementTab({
         )}
 
       </div>
+        </>
+      )}
 
       {/* Vacation & Missed Meal Adjustments Dialog */}
       <Dialog open={adjustmentsOpen} onOpenChange={setAdjustmentsOpen}>
