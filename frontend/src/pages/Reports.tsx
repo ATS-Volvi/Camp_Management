@@ -144,29 +144,28 @@ export default function Reports() {
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
-          {/* Report Dropdown Selector (Active for both Web View and Excel View) */}
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-              Report:
-            </span>
-            <Select value={tab} onValueChange={(val) => setTab(val, viewMode)}>
-              <SelectTrigger className="w-[250px] h-9 bg-card font-medium shadow-sm">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {viewMode === "excel" && (
-                  <SelectItem value="occupancy-charges">📋 Total Occupancy & Charges</SelectItem>
-                )}
-                <SelectItem value="dept-monthly">📊 Department Monthly Costing</SelectItem>
-                <SelectItem value="employees">👥 Employee Report</SelectItem>
-                <SelectItem value="checkins">📥 Check-In Report</SelectItem>
-                <SelectItem value="checkouts">📤 Check-Out Report</SelectItem>
-                <SelectItem value="invoicing">🧾 Cost / Invoicing</SelectItem>
-                <SelectItem value="revenue">📈 Revenue Summary</SelectItem>
-                <SelectItem value="supplier-costing">🚚 Supplier Costing</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          {/* Report Dropdown Selector (Active during Web View only) */}
+          {viewMode === "web" && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                Report:
+              </span>
+              <Select value={tab} onValueChange={(val) => setTab(val, "web")}>
+                <SelectTrigger className="w-[250px] h-9 bg-card font-medium shadow-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="dept-monthly">📊 Department Monthly Costing</SelectItem>
+                  <SelectItem value="employees">👥 Employee Report</SelectItem>
+                  <SelectItem value="checkins">📥 Check-In Report</SelectItem>
+                  <SelectItem value="checkouts">📤 Check-Out Report</SelectItem>
+                  <SelectItem value="invoicing">🧾 Cost / Invoicing</SelectItem>
+                  <SelectItem value="revenue">📈 Revenue Summary</SelectItem>
+                  <SelectItem value="supplier-costing">🚚 Supplier Costing</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           {/* Web View vs Excel View Segmented Toggle */}
           <div className="flex items-center bg-muted/70 p-1 rounded-lg border border-border shadow-sm">
@@ -216,69 +215,12 @@ export default function Reports() {
         </div>
       </div>
 
-      {/* When Excel View is selected: Similar options tab bar + spreadsheet template */}
+      {/* When Excel View is selected: ONLY the company Excel template with its internal Excel sheet tabs */}
       {viewMode === "excel" ? (
-        <div className="space-y-4">
-          {/* Similar options tab bar for Excel View */}
-          <Tabs value={tab} onValueChange={(t) => setTab(t, "excel")}>
-            <TabsList className="flex flex-wrap h-auto gap-1 bg-slate-100/90 p-1 border border-slate-300 rounded-lg shadow-sm">
-              <TabsTrigger
-                value="occupancy-charges"
-                className="gap-2 text-xs font-semibold data-[state=active]:bg-[#0b1e36] data-[state=active]:text-white data-[state=active]:shadow-sm"
-              >
-                <FileSpreadsheet size={15} className="text-emerald-500" /> Total Occupancy & Charges
-              </TabsTrigger>
-              <TabsTrigger
-                value="dept-monthly"
-                className="gap-2 text-xs font-semibold data-[state=active]:bg-[#0b1e36] data-[state=active]:text-white data-[state=active]:shadow-sm"
-              >
-                <Receipt size={15} /> Department Monthly
-              </TabsTrigger>
-              <TabsTrigger
-                value="employees"
-                className="gap-2 text-xs font-semibold data-[state=active]:bg-[#0b1e36] data-[state=active]:text-white data-[state=active]:shadow-sm"
-              >
-                <Users size={15} /> Employee Report
-              </TabsTrigger>
-              <TabsTrigger
-                value="checkins"
-                className="gap-2 text-xs font-semibold data-[state=active]:bg-[#0b1e36] data-[state=active]:text-white data-[state=active]:shadow-sm"
-              >
-                <LogIn size={15} /> Check-In Report
-              </TabsTrigger>
-              <TabsTrigger
-                value="checkouts"
-                className="gap-2 text-xs font-semibold data-[state=active]:bg-[#0b1e36] data-[state=active]:text-white data-[state=active]:shadow-sm"
-              >
-                <LogOut size={15} /> Check-Out Report
-              </TabsTrigger>
-              <TabsTrigger
-                value="invoicing"
-                className="gap-2 text-xs font-semibold data-[state=active]:bg-[#0b1e36] data-[state=active]:text-white data-[state=active]:shadow-sm"
-              >
-                <Receipt size={15} /> Cost / Invoicing
-              </TabsTrigger>
-              <TabsTrigger
-                value="revenue"
-                className="gap-2 text-xs font-semibold data-[state=active]:bg-[#0b1e36] data-[state=active]:text-white data-[state=active]:shadow-sm"
-              >
-                <TrendingUp size={15} /> Revenue
-              </TabsTrigger>
-              <TabsTrigger
-                value="supplier-costing"
-                className="gap-2 text-xs font-semibold data-[state=active]:bg-[#0b1e36] data-[state=active]:text-white data-[state=active]:shadow-sm"
-              >
-                <Truck size={15} /> Supplier Costing
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
-
-          {/* Renders the selected report inside the exact company Excel template */}
-          <ExpertiseOccupancyStatementTab
-            activeSheet={tab}
-            onSheetChange={(s) => setTab(s, "excel")}
-          />
-        </div>
+        <ExpertiseOccupancyStatementTab
+          activeSheet={tab}
+          onSheetChange={(s) => setTab(s, "excel")}
+        />
       ) : (
         /* Standard Web View with operational tabs */
         <Tabs value={tab} onValueChange={(t) => setTab(t, "web")}>
