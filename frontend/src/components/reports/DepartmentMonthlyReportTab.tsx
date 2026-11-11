@@ -13,10 +13,12 @@ import { useRevenueData, buildRevenueRows, LeaveNotes } from "./RevenueReportTab
 import { useDepartments } from "@/hooks/useDepartments";
 import { approvedFoodCancellations } from "@/lib/approvedFoodCancellations";
 import { dmy } from "@/lib/roomHolding";
+import ExpertiseOccupancyStatementTab from "./ExpertiseOccupancyStatementTab";
 
 const fmt = statementAmount;
 
 export default function DepartmentMonthlyReportTab() {
+  const [viewMode, setViewMode] = useState<"summary" | "detailed">("summary");
   const [month, setMonth] = useState(format(new Date(), "yyyy-MM"));
   const [deptFilter, setDeptFilter] = useState("all");
   const [open, setOpen] = useState<Record<string, boolean>>({});
@@ -93,27 +95,50 @@ export default function DepartmentMonthlyReportTab() {
 
   return (
     <div className="space-y-4 mt-4">
-      <Card>
-        <CardContent className="flex flex-wrap gap-4 items-end pt-6 print:hidden">
-          <div className="space-y-1">
-            <Label className="text-xs">Month</Label>
-            <Input type="month" value={month} aria-label="Billing month" onChange={e => { if (e.target.value) setMonth(e.target.value); }} className="w-[170px]" />
-          </div>
-          <div className="space-y-1">
-            <Label className="text-xs">Department</Label>
-            <Select value={deptFilter} onValueChange={setDeptFilter}>
-              <SelectTrigger aria-label="Department" className="w-[180px]"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Departments</SelectItem>
-                {groups.map(g => <SelectItem key={g.dept} value={g.dept}>{g.dept}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-          <Button variant="outline" disabled={unavailable} onClick={exportCsv}><Download size={16} className="mr-1" /> Export CSV</Button>
-          <Button disabled={unavailable || !selected} onClick={() => { if (selected) exportPdf(selected); }}><Download size={16} className="mr-1" /> Download Department PDF</Button>
-          <Button variant="outline" disabled={unavailable || !selected} onClick={() => { if (selected) printStatement(selected); }}><Printer size={16} className="mr-1" /> Print Department</Button>
-        </CardContent>
-      </Card>
+      <div className="flex items-center gap-2 bg-slate-100 p-1.5 rounded-lg border border-slate-300 w-fit print:hidden">
+        <Button
+          size="sm"
+          variant={viewMode === "summary" ? "default" : "ghost"}
+          className={viewMode === "summary" ? "bg-[#0c2340] text-white hover:bg-[#16365c] shadow-sm font-semibold" : "text-slate-700"}
+          onClick={() => setViewMode("summary")}
+        >
+          Occupancy & Charges (3-Table Format)
+        </Button>
+        <Button
+          size="sm"
+          variant={viewMode === "detailed" ? "default" : "ghost"}
+          className={viewMode === "detailed" ? "bg-[#0c2340] text-white hover:bg-[#16365c] shadow-sm font-semibold" : "text-slate-700"}
+          onClick={() => setViewMode("detailed")}
+        >
+          Employee Line Items
+        </Button>
+      </div>
+
+      {viewMode === "summary" ? (
+        <ExpertiseOccupancyStatementTab />
+      ) : (
+        <>
+          <Card>
+            <CardContent className="flex flex-wrap gap-4 items-end pt-6 print:hidden">
+              <div className="space-y-1">
+                <Label className="text-xs">Month</Label>
+                <Input type="month" value={month} aria-label="Billing month" onChange={e => { if (e.target.value) setMonth(e.target.value); }} className="w-[170px]" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Department</Label>
+                <Select value={deptFilter} onValueChange={setDeptFilter}>
+                  <SelectTrigger aria-label="Department" className="w-[180px]"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Departments</SelectItem>
+                    {groups.map(g => <SelectItem key={g.dept} value={g.dept}>{g.dept}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button variant="outline" disabled={unavailable} onClick={exportCsv}><Download size={16} className="mr-1" /> Export CSV</Button>
+              <Button disabled={unavailable || !selected} onClick={() => { if (selected) exportPdf(selected); }}><Download size={16} className="mr-1" /> Download Department PDF</Button>
+              <Button variant="outline" disabled={unavailable || !selected} onClick={() => { if (selected) printStatement(selected); }}><Printer size={16} className="mr-1" /> Print Department</Button>
+            </CardContent>
+          </Card>
 
       <ExcelRateBanner />
 
@@ -232,6 +257,8 @@ export default function DepartmentMonthlyReportTab() {
           </Card>
         );
       })}
+        </>
+      )}
     </div>
   );
 }

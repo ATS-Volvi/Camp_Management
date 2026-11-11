@@ -16,6 +16,7 @@ import CostInvoicingTab from "@/components/reports/CostInvoicingTab";
 import RevenueReportTab from "@/components/reports/RevenueReportTab";
 import DepartmentMonthlyReportTab from "@/components/reports/DepartmentMonthlyReportTab";
 import SupplierCostingReportTab from "@/components/reports/SupplierCostingReportTab";
+import ExpertiseOccupancyStatementTab from "@/components/reports/ExpertiseOccupancyStatementTab";
 import { TablePager, usePaged } from "@/components/TablePager";
 
 function useEmployeeReport(type?: string) {
@@ -111,6 +112,9 @@ export default function Reports() {
           <TabsTrigger value="dept-monthly" className="gap-2">
             <Receipt size={16} /> Department Monthly
           </TabsTrigger>
+          <TabsTrigger value="occupancy-charges" className="gap-2 border-orange-200 text-orange-950 font-semibold data-[state=active]:bg-[#0c2340] data-[state=active]:text-white data-[state=active]:border-[#0c2340]">
+            <Building2 size={16} className="text-[#ea580c]" /> Total Occupancy & Charges
+          </TabsTrigger>
           <TabsTrigger value="supplier-costing" className="gap-2">
             <Truck size={16} /> Supplier Costing
           </TabsTrigger>
@@ -122,6 +126,7 @@ export default function Reports() {
         <TabsContent value="invoicing"><CostInvoicingTab /></TabsContent>
         <TabsContent value="revenue"><RevenueReportTab /></TabsContent>
         <TabsContent value="dept-monthly"><DepartmentMonthlyReportTab /></TabsContent>
+        <TabsContent value="occupancy-charges"><ExpertiseOccupancyStatementTab /></TabsContent>
         <TabsContent value="supplier-costing"><SupplierCostingReportTab /></TabsContent>
       </Tabs>
     </div>
