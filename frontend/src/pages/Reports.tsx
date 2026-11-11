@@ -85,8 +85,8 @@ function useCampsForFilter() {
 
 export default function Reports() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const urlTab = searchParams.get("tab") || "occupancy-charges";
-  const urlView = (searchParams.get("view") as "web" | "excel") || (urlTab === "occupancy-charges" ? "excel" : "web");
+  const urlView = (searchParams.get("view") as "web" | "excel") || "web";
+  const urlTab = searchParams.get("tab") || "dept-monthly";
 
   const [tab, setTabState] = useState(urlTab);
   const [viewMode, setViewModeState] = useState<"web" | "excel">(urlView);
@@ -95,26 +95,30 @@ export default function Reports() {
   useEffect(() => {
     const qTab = searchParams.get("tab");
     const qView = searchParams.get("view");
-    if (qTab) {
-      setTabState(qTab);
-    }
-    if (qView === "excel" || qView === "web") {
-      setViewModeState(qView);
-    } else if (qTab === "occupancy-charges") {
+    if (qView === "excel") {
       setViewModeState("excel");
+    } else if (qView === "web") {
+      setViewModeState("web");
+      if (qTab && qTab !== "occupancy-charges") {
+        setTabState(qTab);
+      }
+    } else if (qTab && qTab !== "occupancy-charges") {
+      setTabState(qTab);
     }
   }, [searchParams]);
 
   const setTab = (newTab: string) => {
     setTabState(newTab);
-    const newView = newTab === "occupancy-charges" ? "excel" : (viewMode === "excel" && newTab !== "dept-monthly" ? "web" : viewMode);
-    setViewModeState(newView);
-    setSearchParams({ tab: newTab, view: newView });
+    setSearchParams({ tab: newTab, view: "web" });
   };
 
   const setViewMode = (newView: "web" | "excel") => {
     setViewModeState(newView);
-    setSearchParams({ tab, view: newView });
+    if (newView === "excel") {
+      setSearchParams({ view: "excel" });
+    } else {
+      setSearchParams({ tab, view: "web" });
+    }
   };
 
   return (
@@ -122,43 +126,39 @@ export default function Reports() {
       {/* Top Header & View Mode Switcher */}
       <div className="flex flex-wrap items-center justify-between gap-4 pb-3 border-b border-border">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Reports & Statements</h1>
+          <h1 className="text-2xl font-bold text-foreground">
+            {viewMode === "excel" ? "Monthly Billing Statement (Excel Template)" : "Reports & Statements"}
+          </h1>
           <p className="text-muted-foreground text-sm">
-            View operational reports, check-in records, and monthly billing statements
+            {viewMode === "excel"
+              ? "Replicating standard company 3-table occupancy summary and charges template"
+              : "View operational reports, check-in records, and department costing"}
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
-          {/* Report Dropdown Selector */}
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-              Report:
-            </span>
-            <Select
-              value={tab}
-              onValueChange={(val) => {
-                setTab(val);
-                // If user chooses occupancy charges, also default to excel view
-                if (val === "occupancy-charges") {
-                  setViewMode("excel");
-                }
-              }}
-            >
-              <SelectTrigger className="w-[260px] h-9 bg-card font-medium shadow-sm">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="dept-monthly">📊 Department Monthly Costing</SelectItem>
-                <SelectItem value="occupancy-charges">🏢 Total Occupancy & Charges</SelectItem>
-                <SelectItem value="employees">👥 Employee Report</SelectItem>
-                <SelectItem value="checkins">📥 Check-In Report</SelectItem>
-                <SelectItem value="checkouts">📤 Check-Out Report</SelectItem>
-                <SelectItem value="invoicing">🧾 Cost / Invoicing</SelectItem>
-                <SelectItem value="revenue">📈 Revenue</SelectItem>
-                <SelectItem value="supplier-costing">🚚 Supplier Costing</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          {/* Report Dropdown Selector (Active during Web View) */}
+          {viewMode === "web" && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                Report:
+              </span>
+              <Select value={tab} onValueChange={setTab}>
+                <SelectTrigger className="w-[240px] h-9 bg-card font-medium shadow-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="dept-monthly">📊 Department Monthly Costing</SelectItem>
+                  <SelectItem value="employees">👥 Employee Report</SelectItem>
+                  <SelectItem value="checkins">📥 Check-In Report</SelectItem>
+                  <SelectItem value="checkouts">📤 Check-Out Report</SelectItem>
+                  <SelectItem value="invoicing">🧾 Cost / Invoicing</SelectItem>
+                  <SelectItem value="revenue">📈 Revenue</SelectItem>
+                  <SelectItem value="supplier-costing">🚚 Supplier Costing</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           {/* Web View vs Excel View Segmented Toggle */}
           <div className="flex items-center bg-muted/70 p-1 rounded-lg border border-border shadow-sm">
@@ -177,12 +177,7 @@ export default function Reports() {
             <Button
               size="sm"
               variant={viewMode === "excel" ? "default" : "ghost"}
-              onClick={() => {
-                setViewMode("excel");
-                if (tab !== "dept-monthly" && tab !== "occupancy-charges") {
-                  setTab("occupancy-charges");
-                }
-              }}
+              onClick={() => setViewMode("excel")}
               className={`h-7 px-3 text-xs font-semibold rounded-md ${
                 viewMode === "excel"
                   ? "bg-[#0c2340] text-white hover:bg-[#16365c] shadow-sm"
@@ -195,36 +190,15 @@ export default function Reports() {
         </div>
       </div>
 
-      {/* When Excel View is selected, show the exact 3-table spreadsheet format */}
+      {/* When Excel View is selected: ONLY the 3-table spreadsheet format */}
       {viewMode === "excel" ? (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between bg-emerald-50 border border-emerald-200 text-emerald-900 px-4 py-2 rounded-md text-xs font-medium">
-            <div className="flex items-center gap-2">
-              <FileSpreadsheet size={16} className="text-emerald-700" />
-              <span>
-                <strong>Excel Spreadsheet View Active:</strong> Displaying 3-Table Total Occupancy Summary and Monthly Charges formatted to standard company template.
-              </span>
-            </div>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setViewMode("web")}
-              className="h-6 text-xs border-emerald-300 text-emerald-800 hover:bg-emerald-100"
-            >
-              Switch to Web View
-            </Button>
-          </div>
-          <ExpertiseOccupancyStatementTab />
-        </div>
+        <ExpertiseOccupancyStatementTab />
       ) : (
-        /* Standard Web View with tabs */
+        /* Standard Web View with operational tabs */
         <Tabs value={tab} onValueChange={setTab}>
           <TabsList className="flex flex-wrap h-auto gap-1">
             <TabsTrigger value="dept-monthly" className="gap-2">
               <Receipt size={16} /> Department Monthly
-            </TabsTrigger>
-            <TabsTrigger value="occupancy-charges" className="gap-2 border-orange-200 text-orange-950 font-semibold data-[state=active]:bg-[#0c2340] data-[state=active]:text-white">
-              <Building2 size={16} className="text-[#ea580c]" /> Total Occupancy & Charges
             </TabsTrigger>
             <TabsTrigger value="employees" className="gap-2">
               <Users size={16} /> Employee Report
@@ -247,7 +221,6 @@ export default function Reports() {
           </TabsList>
 
           <TabsContent value="dept-monthly"><DepartmentMonthlyReportTab /></TabsContent>
-          <TabsContent value="occupancy-charges"><ExpertiseOccupancyStatementTab /></TabsContent>
           <TabsContent value="employees"><EmployeeReportTab /></TabsContent>
           <TabsContent value="checkins"><CheckInReportTab /></TabsContent>
           <TabsContent value="checkouts"><CheckOutReportTab /></TabsContent>

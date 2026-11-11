@@ -13,12 +13,10 @@ import { useRevenueData, buildRevenueRows, LeaveNotes } from "./RevenueReportTab
 import { useDepartments } from "@/hooks/useDepartments";
 import { approvedFoodCancellations } from "@/lib/approvedFoodCancellations";
 import { dmy } from "@/lib/roomHolding";
-import ExpertiseOccupancyStatementTab from "./ExpertiseOccupancyStatementTab";
 
 const fmt = statementAmount;
 
 export default function DepartmentMonthlyReportTab() {
-  const [viewMode, setViewMode] = useState<"summary" | "detailed">("summary");
   const [month, setMonth] = useState(format(new Date(), "yyyy-MM"));
   const [deptFilter, setDeptFilter] = useState("all");
   const [open, setOpen] = useState<Record<string, boolean>>({});
@@ -95,31 +93,8 @@ export default function DepartmentMonthlyReportTab() {
 
   return (
     <div className="space-y-4 mt-4">
-      <div className="flex items-center gap-2 bg-slate-100 p-1.5 rounded-lg border border-slate-300 w-fit print:hidden">
-        <Button
-          size="sm"
-          variant={viewMode === "summary" ? "default" : "ghost"}
-          className={viewMode === "summary" ? "bg-[#0c2340] text-white hover:bg-[#16365c] shadow-sm font-semibold" : "text-slate-700"}
-          onClick={() => setViewMode("summary")}
-        >
-          Occupancy & Charges (3-Table Format)
-        </Button>
-        <Button
-          size="sm"
-          variant={viewMode === "detailed" ? "default" : "ghost"}
-          className={viewMode === "detailed" ? "bg-[#0c2340] text-white hover:bg-[#16365c] shadow-sm font-semibold" : "text-slate-700"}
-          onClick={() => setViewMode("detailed")}
-        >
-          Employee Line Items
-        </Button>
-      </div>
-
-      {viewMode === "summary" ? (
-        <ExpertiseOccupancyStatementTab />
-      ) : (
-        <>
-          <Card>
-            <CardContent className="flex flex-wrap gap-4 items-end pt-6 print:hidden">
+      <Card>
+        <CardContent className="flex flex-wrap gap-4 items-end pt-6 print:hidden">
               <div className="space-y-1">
                 <Label className="text-xs">Month</Label>
                 <Input type="month" value={month} aria-label="Billing month" onChange={e => { if (e.target.value) setMonth(e.target.value); }} className="w-[170px]" />
@@ -257,8 +232,6 @@ export default function DepartmentMonthlyReportTab() {
           </Card>
         );
       })}
-        </>
-      )}
     </div>
   );
 }
