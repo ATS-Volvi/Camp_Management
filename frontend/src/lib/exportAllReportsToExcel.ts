@@ -249,3 +249,4 @@ export async function exportAllReportsToExcel(options: MultiReportExcelExportOpt
   XLSX.writeFile(wb, filename);
   return filename;
 }
+
