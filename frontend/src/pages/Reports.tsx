@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, Download, Users, LogIn, LogOut, Filter, Calendar, Building2, Receipt, TrendingUp, Truck } from "lucide-react";
+import { Search, Download, Users, LogIn, LogOut, Filter, Calendar, Building2, Receipt, TrendingUp, Truck, FileSpreadsheet, LayoutGrid } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
@@ -83,52 +83,148 @@ function useCampsForFilter() {
 }
 
 export default function Reports() {
-  const [tab, setTab] = useState("employees");
+  const [tab, setTab] = useState("dept-monthly");
+  const [viewMode, setViewMode] = useState<"web" | "excel">("web");
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Reports</h1>
-        <p className="text-muted-foreground text-sm">View and export employee, check-in, and check-out reports</p>
+      {/* Top Header & View Mode Switcher */}
+      <div className="flex flex-wrap items-center justify-between gap-4 pb-3 border-b border-border">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Reports & Statements</h1>
+          <p className="text-muted-foreground text-sm">
+            View operational reports, check-in records, and monthly billing statements
+          </p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Report Dropdown Selector */}
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+              Report:
+            </span>
+            <Select
+              value={tab}
+              onValueChange={(val) => {
+                setTab(val);
+                // If user chooses occupancy charges, also default to excel view
+                if (val === "occupancy-charges") {
+                  setViewMode("excel");
+                }
+              }}
+            >
+              <SelectTrigger className="w-[260px] h-9 bg-card font-medium shadow-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="dept-monthly">📊 Department Monthly Costing</SelectItem>
+                <SelectItem value="occupancy-charges">🏢 Total Occupancy & Charges</SelectItem>
+                <SelectItem value="employees">👥 Employee Report</SelectItem>
+                <SelectItem value="checkins">📥 Check-In Report</SelectItem>
+                <SelectItem value="checkouts">📤 Check-Out Report</SelectItem>
+                <SelectItem value="invoicing">🧾 Cost / Invoicing</SelectItem>
+                <SelectItem value="revenue">📈 Revenue</SelectItem>
+                <SelectItem value="supplier-costing">🚚 Supplier Costing</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Web View vs Excel View Segmented Toggle */}
+          <div className="flex items-center bg-muted/70 p-1 rounded-lg border border-border shadow-sm">
+            <Button
+              size="sm"
+              variant={viewMode === "web" ? "default" : "ghost"}
+              onClick={() => setViewMode("web")}
+              className={`h-7 px-3 text-xs font-semibold rounded-md ${
+                viewMode === "web"
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <LayoutGrid size={14} className="mr-1.5" /> Web View
+            </Button>
+            <Button
+              size="sm"
+              variant={viewMode === "excel" ? "default" : "ghost"}
+              onClick={() => {
+                setViewMode("excel");
+                if (tab !== "dept-monthly" && tab !== "occupancy-charges") {
+                  setTab("occupancy-charges");
+                }
+              }}
+              className={`h-7 px-3 text-xs font-semibold rounded-md ${
+                viewMode === "excel"
+                  ? "bg-[#0c2340] text-white hover:bg-[#16365c] shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <FileSpreadsheet size={14} className="mr-1.5 text-emerald-400" /> Excel View
+            </Button>
+          </div>
+        </div>
       </div>
 
-      <Tabs value={tab} onValueChange={setTab}>
-        <TabsList>
-          <TabsTrigger value="employees" className="gap-2">
-            <Users size={16} /> Employee Report
-          </TabsTrigger>
-          <TabsTrigger value="checkins" className="gap-2">
-            <LogIn size={16} /> Check-In Report
-          </TabsTrigger>
-          <TabsTrigger value="checkouts" className="gap-2">
-            <LogOut size={16} /> Check-Out Report
-          </TabsTrigger>
-          <TabsTrigger value="invoicing" className="gap-2">
-            <Receipt size={16} /> Cost / Invoicing
-          </TabsTrigger>
-          <TabsTrigger value="revenue" className="gap-2">
-            <TrendingUp size={16} /> Revenue
-          </TabsTrigger>
-          <TabsTrigger value="dept-monthly" className="gap-2">
-            <Receipt size={16} /> Department Monthly
-          </TabsTrigger>
-          <TabsTrigger value="occupancy-charges" className="gap-2 border-orange-200 text-orange-950 font-semibold data-[state=active]:bg-[#0c2340] data-[state=active]:text-white data-[state=active]:border-[#0c2340]">
-            <Building2 size={16} className="text-[#ea580c]" /> Total Occupancy & Charges
-          </TabsTrigger>
-          <TabsTrigger value="supplier-costing" className="gap-2">
-            <Truck size={16} /> Supplier Costing
-          </TabsTrigger>
-        </TabsList>
+      {/* When Excel View is selected, show the exact 3-table spreadsheet format */}
+      {viewMode === "excel" ? (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between bg-emerald-50 border border-emerald-200 text-emerald-900 px-4 py-2 rounded-md text-xs font-medium">
+            <div className="flex items-center gap-2">
+              <FileSpreadsheet size={16} className="text-emerald-700" />
+              <span>
+                <strong>Excel Spreadsheet View Active:</strong> Displaying 3-Table Total Occupancy Summary and Monthly Charges formatted to standard company template.
+              </span>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setViewMode("web")}
+              className="h-6 text-xs border-emerald-300 text-emerald-800 hover:bg-emerald-100"
+            >
+              Switch to Web View
+            </Button>
+          </div>
+          <ExpertiseOccupancyStatementTab />
+        </div>
+      ) : (
+        /* Standard Web View with tabs */
+        <Tabs value={tab} onValueChange={setTab}>
+          <TabsList className="flex flex-wrap h-auto gap-1">
+            <TabsTrigger value="dept-monthly" className="gap-2">
+              <Receipt size={16} /> Department Monthly
+            </TabsTrigger>
+            <TabsTrigger value="occupancy-charges" className="gap-2 border-orange-200 text-orange-950 font-semibold data-[state=active]:bg-[#0c2340] data-[state=active]:text-white">
+              <Building2 size={16} className="text-[#ea580c]" /> Total Occupancy & Charges
+            </TabsTrigger>
+            <TabsTrigger value="employees" className="gap-2">
+              <Users size={16} /> Employee Report
+            </TabsTrigger>
+            <TabsTrigger value="checkins" className="gap-2">
+              <LogIn size={16} /> Check-In Report
+            </TabsTrigger>
+            <TabsTrigger value="checkouts" className="gap-2">
+              <LogOut size={16} /> Check-Out Report
+            </TabsTrigger>
+            <TabsTrigger value="invoicing" className="gap-2">
+              <Receipt size={16} /> Cost / Invoicing
+            </TabsTrigger>
+            <TabsTrigger value="revenue" className="gap-2">
+              <TrendingUp size={16} /> Revenue
+            </TabsTrigger>
+            <TabsTrigger value="supplier-costing" className="gap-2">
+              <Truck size={16} /> Supplier Costing
+            </TabsTrigger>
+          </TabsList>
 
-        <TabsContent value="employees"><EmployeeReportTab /></TabsContent>
-        <TabsContent value="checkins"><CheckInReportTab /></TabsContent>
-        <TabsContent value="checkouts"><CheckOutReportTab /></TabsContent>
-        <TabsContent value="invoicing"><CostInvoicingTab /></TabsContent>
-        <TabsContent value="revenue"><RevenueReportTab /></TabsContent>
-        <TabsContent value="dept-monthly"><DepartmentMonthlyReportTab /></TabsContent>
-        <TabsContent value="occupancy-charges"><ExpertiseOccupancyStatementTab /></TabsContent>
-        <TabsContent value="supplier-costing"><SupplierCostingReportTab /></TabsContent>
-      </Tabs>
+          <TabsContent value="dept-monthly"><DepartmentMonthlyReportTab /></TabsContent>
+          <TabsContent value="occupancy-charges"><ExpertiseOccupancyStatementTab /></TabsContent>
+          <TabsContent value="employees"><EmployeeReportTab /></TabsContent>
+          <TabsContent value="checkins"><CheckInReportTab /></TabsContent>
+          <TabsContent value="checkouts"><CheckOutReportTab /></TabsContent>
+          <TabsContent value="invoicing"><CostInvoicingTab /></TabsContent>
+          <TabsContent value="revenue"><RevenueReportTab /></TabsContent>
+          <TabsContent value="supplier-costing"><SupplierCostingReportTab /></TabsContent>
+        </Tabs>
+      )}
     </div>
   );
 }
