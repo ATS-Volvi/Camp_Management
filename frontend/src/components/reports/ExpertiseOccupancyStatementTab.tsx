@@ -359,65 +359,73 @@ export default function ExpertiseOccupancyStatementTab({
       {/* Main Statement Canvas (Replicating exact company Excel document template) */}
       <div className="bg-white border border-slate-300 shadow-sm p-6 sm:p-8 space-y-6 max-w-[1100px] mx-auto print:border-none print:shadow-none print:p-0">
         
-        {/* Top Header Filter & Logo Section (Present across all Excel sheets) */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center border border-slate-300 p-3 bg-slate-50/50">
-          <div className="space-y-1.5 max-w-md">
-            {/* Division / Department Row */}
-            <div className="flex border border-slate-400 bg-white text-xs">
-              <div className="w-56 bg-slate-100 px-3 py-1.5 font-bold text-slate-700 border-r border-slate-400 flex items-center">
-                (Division/department/Intercompany)
-              </div>
-              <div className="flex-1 flex items-center px-2 py-1">
-                <Select value={selectedDept} onValueChange={setSelectedDept}>
-                  <SelectTrigger className="h-7 border-none shadow-none font-bold text-slate-800 focus:ring-0 px-1 text-xs">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="EMBS">EMBS</SelectItem>
-                    <SelectItem value="HERD">HERD</SelectItem>
-                    <SelectItem value="PMTA">PMTA</SelectItem>
-                    <SelectItem value="MBS">MBS</SelectItem>
-                    <SelectItem value="VSD">VSD</SelectItem>
-                    <SelectItem value="RSD">RSD</SelectItem>
-                    <SelectItem value="FIN">FIN</SelectItem>
-                    <SelectItem value="HR">HR</SelectItem>
-                    <SelectItem value="(All)">(All)</SelectItem>
-                    {(deptList || [])
-                      .filter((d: any) => !["EMBS", "HERD", "PMTA", "MBS", "VSD", "RSD", "FIN", "HR"].includes(d.code))
-                      .map((d: any) => (
-                        <SelectItem key={d.code} value={d.code}>
-                          {d.code} - {d.name}
-                        </SelectItem>
-                      ))}
-                  </SelectContent>
-                </Select>
-                <Filter size={14} className="text-slate-500 ml-1" />
-              </div>
-            </div>
+        {/* Top Header Filter & Logo Section (Replicating exact company Excel document header) */}
+        <div className="flex flex-col md:flex-row items-center justify-between gap-6 border border-slate-300 p-4 bg-slate-50/50">
+          <div className="w-full max-w-lg">
+            <table className="w-full border-collapse border border-slate-400 bg-white text-xs shadow-sm">
+              <tbody>
+                {/* Row 1: Division / Department */}
+                <tr className="border-b border-slate-400">
+                  <td className="w-[230px] min-w-[230px] max-w-[230px] bg-slate-100 px-3 py-1.5 font-bold text-slate-700 border-r border-slate-400 align-middle">
+                    (Division/department/Intercompany)
+                  </td>
+                  <td className="px-2 py-0.5 align-middle">
+                    <div className="flex items-center justify-between">
+                      <Select value={selectedDept} onValueChange={setSelectedDept}>
+                        <SelectTrigger className="h-7 border-none shadow-none font-bold text-slate-800 focus:ring-0 px-1 text-xs flex-1">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="EMBS">EMBS</SelectItem>
+                          <SelectItem value="HERD">HERD</SelectItem>
+                          <SelectItem value="PMTA">PMTA</SelectItem>
+                          <SelectItem value="MBS">MBS</SelectItem>
+                          <SelectItem value="VSD">VSD</SelectItem>
+                          <SelectItem value="RSD">RSD</SelectItem>
+                          <SelectItem value="FIN">FIN</SelectItem>
+                          <SelectItem value="HR">HR</SelectItem>
+                          <SelectItem value="(All)">(All)</SelectItem>
+                          {(deptList || [])
+                            .filter((d: any) => !["EMBS", "HERD", "PMTA", "MBS", "VSD", "RSD", "FIN", "HR"].includes(d.code))
+                            .map((d: any) => (
+                              <SelectItem key={d.code} value={d.code}>
+                                {d.code} - {d.name}
+                              </SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                      <Filter size={13} className="text-slate-500 ml-1.5 shrink-0" />
+                    </div>
+                  </td>
+                </tr>
 
-            {/* Employment Status Row */}
-            <div className="flex border border-slate-400 bg-white text-xs">
-              <div className="w-56 bg-slate-100 px-3 py-1.5 font-bold text-slate-700 border-r border-slate-400 flex items-center">
-                Employment Status
-              </div>
-              <div className="flex-1 flex items-center px-2 py-1">
-                <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-                  <SelectTrigger className="h-7 border-none shadow-none font-bold text-slate-800 focus:ring-0 px-1 text-xs">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="(All)">(All)</SelectItem>
-                    <SelectItem value="Active">Active</SelectItem>
-                    <SelectItem value="On-Site">On-Site</SelectItem>
-                    <SelectItem value="On-Vacation">On-Vacation</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
+                {/* Row 2: Employment Status */}
+                <tr>
+                  <td className="w-[230px] min-w-[230px] max-w-[230px] bg-slate-100 px-3 py-1.5 font-bold text-slate-700 border-r border-slate-400 align-middle">
+                    Employment Status
+                  </td>
+                  <td className="px-2 py-0.5 align-middle">
+                    <div className="flex items-center justify-between">
+                      <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+                        <SelectTrigger className="h-7 border-none shadow-none font-bold text-slate-800 focus:ring-0 px-1 text-xs flex-1">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="(All)">(All)</SelectItem>
+                          <SelectItem value="Active">Active</SelectItem>
+                          <SelectItem value="On-Site">On-Site</SelectItem>
+                          <SelectItem value="On-Vacation">On-Vacation</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
 
           {/* Logo on Right */}
-          <div className="flex justify-end pr-4">
+          <div className="flex justify-end pr-2 md:pr-4">
             <ExpertiseLogo />
           </div>
         </div>
