@@ -18,6 +18,7 @@ import RevenueReportTab from "@/components/reports/RevenueReportTab";
 import DepartmentMonthlyReportTab from "@/components/reports/DepartmentMonthlyReportTab";
 import SupplierCostingReportTab from "@/components/reports/SupplierCostingReportTab";
 import ExpertiseOccupancyStatementTab from "@/components/reports/ExpertiseOccupancyStatementTab";
+import { exportAllReportsToExcel } from "@/lib/exportAllReportsToExcel";
 import { TablePager, usePaged } from "@/components/TablePager";
 
 function useEmployeeReport(type?: string) {
@@ -90,6 +91,7 @@ export default function Reports() {
 
   const [tab, setTabState] = useState(urlTab);
   const [viewMode, setViewModeState] = useState<"web" | "excel">(urlView);
+  const [isExportingAll, setIsExportingAll] = useState(false);
 
   // Sync state whenever URL search params change (e.g. clicked from sidebar dropdown)
   useEffect(() => {
@@ -187,6 +189,24 @@ export default function Reports() {
               <FileSpreadsheet size={14} className="mr-1.5 text-emerald-400" /> Excel View
             </Button>
           </div>
+
+          {/* Quick Export All to Excel (.xlsx) */}
+          <Button
+            size="sm"
+            onClick={async () => {
+              setIsExportingAll(true);
+              try {
+                await exportAllReportsToExcel();
+              } finally {
+                setIsExportingAll(false);
+              }
+            }}
+            disabled={isExportingAll}
+            className="h-8 bg-emerald-700 hover:bg-emerald-800 text-white font-semibold shadow-sm text-xs"
+          >
+            <FileSpreadsheet size={14} className="mr-1.5" />
+            {isExportingAll ? "Exporting..." : "Export All to Excel (.xlsx)"}
+          </Button>
         </div>
       </div>
 

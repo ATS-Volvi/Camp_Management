@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Download, Printer, Filter, Calendar, RefreshCw, CheckCircle2, SlidersHorizontal } from "lucide-react";
+import { Download, Printer, Filter, Calendar, RefreshCw, CheckCircle2, SlidersHorizontal, FileSpreadsheet } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format, parseISO } from "date-fns";
@@ -18,6 +18,7 @@ import {
 } from "@/lib/expertiseStatement";
 import { resolveRoomTypeTier } from "@/lib/excelRates";
 import { useDepartments } from "@/hooks/useDepartments";
+import { exportAllReportsToExcel } from "@/lib/exportAllReportsToExcel";
 
 // Benchmark sample figures from the client's reference document
 const BENCHMARK_COUNTS: Record<string, { active?: number; onSite?: number; onVacation?: number; onlyAccommodation?: number; officeLunchMeals?: number }> = {
@@ -62,6 +63,7 @@ export default function ExpertiseOccupancyStatementTab() {
   const [customFrom, setCustomFrom] = useState<string>("2026-08-26");
   const [customTo, setCustomTo] = useState<string>("2026-09-25");
   const [officeLunchOverride, setOfficeLunchOverride] = useState<number>(1466);
+  const [isExportingAll, setIsExportingAll] = useState<boolean>(false);
 
   const { data: deptList = [] } = useDepartments();
 
@@ -260,6 +262,27 @@ export default function ExpertiseOccupancyStatementTab() {
         </div>
 
         <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            onClick={async () => {
+              setIsExportingAll(true);
+              try {
+                await exportAllReportsToExcel({
+                  summary: computedSummary,
+                  servicePeriodFrom: fromIso,
+                  servicePeriodTo: toIso,
+                  department: selectedDept,
+                });
+              } finally {
+                setIsExportingAll(false);
+              }
+            }}
+            disabled={isExportingAll}
+            className="bg-emerald-700 hover:bg-emerald-800 text-white font-semibold shadow-sm"
+          >
+            <FileSpreadsheet size={14} className="mr-1.5" />
+            {isExportingAll ? "Exporting All..." : "Export All to Excel (.xlsx)"}
+          </Button>
           <Button
             size="sm"
             variant="outline"
