@@ -14,6 +14,9 @@ export interface Camp {
   status: string;
   camp_type: string;
   opening_date: string | null;
+  contract_start_date: string | null;
+  contract_end_date: string | null;
+  photo_path: string | null;
   notes: string | null;
   amenities: string[] | null;
   created_at: string;
@@ -102,7 +105,8 @@ export function useUpdateCamp() {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (camp: any) => {
+      if (camp?.id) qc.invalidateQueries({ queryKey: ["camp", camp.id] });
       qc.invalidateQueries({ queryKey: ["camps-list"] });
       toast({ title: "Camp updated" });
     },

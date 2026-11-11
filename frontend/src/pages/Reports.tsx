@@ -17,6 +17,8 @@ import CostInvoicingTab from "@/components/reports/CostInvoicingTab";
 import RevenueReportTab from "@/components/reports/RevenueReportTab";
 import DepartmentMonthlyReportTab from "@/components/reports/DepartmentMonthlyReportTab";
 import SupplierCostingReportTab from "@/components/reports/SupplierCostingReportTab";
+import MonthlySummaryReportTab from "@/components/reports/MonthlySummaryReportTab";
+import EmployeeStaysView from "@/components/reports/EmployeeStaysView";
 import ExpertiseOccupancyStatementTab from "@/components/reports/ExpertiseOccupancyStatementTab";
 import { exportAllReportsToExcel } from "@/lib/exportAllReportsToExcel";
 import { TablePager, usePaged } from "@/components/TablePager";
@@ -162,6 +164,7 @@ export default function Reports() {
                   <SelectItem value="invoicing">🧾 Cost / Invoicing</SelectItem>
                   <SelectItem value="revenue">📈 Revenue Summary</SelectItem>
                   <SelectItem value="supplier-costing">🚚 Supplier Costing</SelectItem>
+                  <SelectItem value="monthly-summary">📅 Monthly Summary</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -246,15 +249,19 @@ export default function Reports() {
             <TabsTrigger value="supplier-costing" className="gap-2">
               <Truck size={16} /> Supplier Costing
             </TabsTrigger>
+            <TabsTrigger value="monthly-summary" className="gap-2">
+              <Calendar size={16} /> Monthly Summary
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="dept-monthly"><DepartmentMonthlyReportTab /></TabsContent>
           <TabsContent value="employees"><EmployeeReportTab /></TabsContent>
           <TabsContent value="checkins"><CheckInReportTab /></TabsContent>
-          <TabsContent value="checkouts"><CheckOutReportTab /></TabsContent>
+          <TabsContent value="checkouts"><EmployeeStaysView checkoutOnly /></TabsContent>
           <TabsContent value="invoicing"><CostInvoicingTab /></TabsContent>
           <TabsContent value="revenue"><RevenueReportTab /></TabsContent>
           <TabsContent value="supplier-costing"><SupplierCostingReportTab /></TabsContent>
+          <TabsContent value="monthly-summary"><MonthlySummaryReportTab /></TabsContent>
         </Tabs>
       )}
     </div>

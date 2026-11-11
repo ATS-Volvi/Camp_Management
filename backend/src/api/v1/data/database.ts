@@ -41,6 +41,32 @@ class DataDatabase {
 
     static async callRpc(fnName: string, params: Record<string, any> = {}) {
         const pool = Database.getPool();
+
+        if (fnName === 'delete_employees') {
+            const pIds = params.p_ids || [];
+            if (!pIds.length) return 0;
+            const client = await pool.connect();
+            try {
+                await client.query('BEGIN');
+                await client.query('DELETE FROM checkout_reports WHERE employee_id = ANY($1::uuid[])', [pIds]).catch(() => {});
+                await client.query('UPDATE visitors SET host_employee_id = NULL WHERE host_employee_id = ANY($1::uuid[])', [pIds]).catch(() => {});
+                await client.query('DELETE FROM food_cancellation_requests WHERE employee_id = ANY($1::uuid[])', [pIds]).catch(() => {});
+                await client.query('DELETE FROM employee_status_log WHERE employee_id = ANY($1::uuid[])', [pIds]).catch(() => {});
+                await client.query('DELETE FROM employee_shift_assignments WHERE employee_id = ANY($1::uuid[])', [pIds]).catch(() => {});
+                await client.query('DELETE FROM room_allocation_overrides WHERE employee_id = ANY($1::uuid[])', [pIds]).catch(() => {});
+                await client.query('DELETE FROM transfer_requests WHERE employee_id = ANY($1::uuid[])', [pIds]).catch(() => {});
+                await client.query('DELETE FROM room_transfers WHERE employee_id = ANY($1::uuid[])', [pIds]).catch(() => {});
+                const delRes = await client.query('DELETE FROM employees WHERE id = ANY($1::uuid[])', [pIds]);
+                await client.query('COMMIT');
+                return delRes.rowCount || 0;
+            } catch (e) {
+                await client.query('ROLLBACK');
+                throw e;
+            } finally {
+                client.release();
+            }
+        }
+
         const keys = Object.keys(params);
         const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ');
         const values = keys.map(k => params[k]);

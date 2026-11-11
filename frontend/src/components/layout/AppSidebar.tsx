@@ -28,6 +28,7 @@ const navGroups: {
       { label: "Bulk Check-In / Out", icon: Upload, path: "/check-in-out/bulk" },
       { label: "Attendance", icon: ClipboardList, path: "/attendance" },
       { label: "Inmates Report", icon: FileText, path: "/inmates-report" },
+      { label: "Employee Stays", icon: CalendarDays, path: "/employee-stays" },
       { label: "Visitor Management", icon: UserCheck, path: "/visitors" },
     ],
   },

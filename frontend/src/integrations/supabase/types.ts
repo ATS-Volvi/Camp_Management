@@ -583,6 +583,8 @@ export type Database = {
           camp_code: string | null
           camp_type: string
           contact_number: string | null
+          contract_end_date: string | null
+          contract_start_date: string | null
           created_at: string
           id: string
           is_rented: boolean
@@ -592,6 +594,7 @@ export type Database = {
           name: string
           notes: string | null
           opening_date: string | null
+          photo_path: string | null
           project_name: string | null
           status: string
           updated_at: string
@@ -601,6 +604,8 @@ export type Database = {
           camp_code?: string | null
           camp_type?: string
           contact_number?: string | null
+          contract_end_date?: string | null
+          contract_start_date?: string | null
           created_at?: string
           id?: string
           is_rented?: boolean
@@ -610,6 +615,7 @@ export type Database = {
           name: string
           notes?: string | null
           opening_date?: string | null
+          photo_path?: string | null
           project_name?: string | null
           status?: string
           updated_at?: string
@@ -619,6 +625,8 @@ export type Database = {
           camp_code?: string | null
           camp_type?: string
           contact_number?: string | null
+          contract_end_date?: string | null
+          contract_start_date?: string | null
           created_at?: string
           id?: string
           is_rented?: boolean
@@ -628,6 +636,7 @@ export type Database = {
           name?: string
           notes?: string | null
           opening_date?: string | null
+          photo_path?: string | null
           project_name?: string | null
           status?: string
           updated_at?: string
@@ -3718,6 +3727,12 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      delete_employees: {
+        Args: {
+          p_ids: string[]
+        }
+        Returns: number
+      }
       approve_food_cancellation: {
         Args: { p_approver: string; p_request_id: string }
         Returns: undefined

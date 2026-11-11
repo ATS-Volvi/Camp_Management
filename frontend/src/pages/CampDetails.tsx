@@ -32,6 +32,7 @@ import {
 import RoomAllocationPanel from "@/components/camp/RoomAllocationPanel";
 import CampStaffTab from "@/components/camp/CampStaffTab";
 import CampInmatesTab from "@/components/camp/CampInmatesTab";
+import EmployeeStaysView from "@/components/reports/EmployeeStaysView";
 import CheckInOutSheet from "@/components/camp/CheckInOutSheet";
 import AddCampDialog from "@/components/camps/AddCampDialog";
 import AddBlockDialog from "@/components/camps/AddBlockDialog";
@@ -168,6 +169,19 @@ export default function CampDetails() {
     setShowAllocation(true);
   };
 
+  const photoPath = (camp as any)?.photo_path;
+  const { data: campPhotoUrl } = useQuery({
+    queryKey: ["camp-photo", photoPath],
+    enabled: !!photoPath,
+    staleTime: 50 * 60 * 1000,
+    queryFn: async () => {
+      if (!photoPath) return null;
+      const { data, error } = await supabase.storage.from("camp-photos").createSignedUrl(photoPath, 3600);
+      if (error) throw error;
+      return data?.signedUrl || null;
+    },
+  });
+
   if (campLoading) return <div className="p-8 text-center text-muted-foreground">Loading...</div>;
   if (!camp) return <div className="p-8 text-center text-muted-foreground">Camp not found.</div>;
 
@@ -179,6 +193,16 @@ export default function CampDetails() {
         <ChevronRight size={14} />
         <span className="text-foreground font-medium">Details</span>
       </div>
+
+      {/* Show only the camp's uploaded photograph */}
+      {campPhotoUrl && (
+        <div className="relative overflow-hidden rounded-lg border border-border">
+          <img src={campPhotoUrl} alt={`Photo of ${camp.name}`} className="h-56 w-full object-cover md:h-80" />
+          <div className="absolute bottom-3 left-4 rounded-lg bg-card/80 px-3 py-1.5 text-sm font-semibold text-foreground backdrop-blur">
+            {camp.name}
+          </div>
+        </div>
+      )}
 
       {/* Header */}
       <div className="flex items-center justify-between">
@@ -252,14 +276,14 @@ export default function CampDetails() {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="bg-transparent border-b border-border rounded-none w-full justify-start gap-0 p-0 h-auto">
-          {["overview", "details", "rooms", "inmates", ...(isAdmin ? ["staff"] : [])].map((tab) => (
+        <TabsList className="bg-transparent border-b border-border rounded-none w-full justify-start gap-0 p-0 h-auto flex-wrap">
+          {["overview", "details", "rooms", "inmates", "employee-stays", "checkout-report", ...(isAdmin ? ["staff"] : [])].map((tab) => (
             <TabsTrigger
               key={tab}
               value={tab}
               className="capitalize rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-6 py-3 text-sm font-medium"
             >
-              {tab}
+              {tab === "employee-stays" ? "Employee Stays" : tab === "checkout-report" ? "Check-out Report" : tab}
             </TabsTrigger>
           ))}
         </TabsList>
@@ -965,6 +989,13 @@ export default function CampDetails() {
         {/* ═══════ INMATES TAB ═══════ */}
         <TabsContent value="inmates" className="mt-6">
           <CampInmatesTab campId={campId!} campName={camp?.name} />
+        </TabsContent>
+
+        <TabsContent value="employee-stays" className="mt-6">
+          {campId && <EmployeeStaysView key={campId} campId={campId} campName={camp?.name} />}
+        </TabsContent>
+        <TabsContent value="checkout-report" className="mt-6">
+          {campId && <EmployeeStaysView checkoutOnly campId={campId} campName={camp?.name} />}
         </TabsContent>
 
         {/* ═══════ STAFF TAB (Admin Only) ═══════ */}

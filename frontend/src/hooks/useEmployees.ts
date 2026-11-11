@@ -30,6 +30,7 @@ export interface Employee {
   iqama_number: string | null;
   is_blacklisted: boolean | null;
   status: string;
+  presence_status?: "active" | "on_site" | "vacation" | "away" | null;
   join_date: string | null;
   contract_end_date: string | null;
   camp_id: string | null;

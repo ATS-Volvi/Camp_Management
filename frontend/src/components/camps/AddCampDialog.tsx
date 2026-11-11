@@ -9,7 +9,12 @@ import VoiceDictationButton from "@/components/maintenance/VoiceDictationButton"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAddCamp, useUpdateCamp, type Camp } from "@/hooks/useCampManagement";
 import { useCampAttributes } from "@/hooks/useCampAttributes";
-import { Sparkles } from "lucide-react";
+import { Sparkles, CalendarIcon } from "lucide-react";
+import { format, parseISO } from "date-fns";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 interface Props {
   open: boolean;
@@ -37,17 +42,42 @@ export default function AddCampDialog({ open, onOpenChange, editCamp, onCampCrea
     contact_number: editCamp?.contact_number || "",
     camp_type: editCamp?.camp_type || "mixed",
     opening_date: editCamp?.opening_date || "",
+    contract_start_date: (editCamp as any)?.contract_start_date || "",
+    contract_end_date: (editCamp as any)?.contract_end_date || "",
     notes: editCamp?.notes || "",
     status: editCamp?.status || "active",
     is_rented: (editCamp as any)?.is_rented || false,
     monthly_rent: (editCamp as any)?.monthly_rent?.toString() || "",
   });
 
+  const [photo, setPhoto] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+
+  const uploadPhoto = async (): Promise<string | undefined> => {
+    if (!photo) return undefined;
+    const ext = photo.name.split(".").pop() || "jpg";
+    const path = `${crypto.randomUUID()}.${ext}`;
+    const { error } = await supabase.storage.from("camp-photos").upload(path, photo, { contentType: photo.type });
+    if (error) throw error;
+    return path;
+  };
+
   const update = (key: string, val: string) => setForm((p) => ({ ...p, [key]: val }));
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!form.name.trim() || !form.location.trim()) return;
+    let photo_path: string | undefined;
+    try {
+      setUploading(true);
+      photo_path = await uploadPhoto();
+    } catch (e: any) {
+      toast.error("Photo upload failed: " + (e?.message || "unknown error"));
+      setUploading(false);
+      return;
+    }
+    setUploading(false);
     const payload = {
+      ...(photo_path ? { photo_path } : {}),
       name: form.name.trim(),
       location: form.location.trim(),
       project_name: form.project_name || null,
@@ -55,6 +85,8 @@ export default function AddCampDialog({ open, onOpenChange, editCamp, onCampCrea
       contact_number: form.contact_number || null,
       camp_type: form.camp_type,
       opening_date: form.opening_date || null,
+      contract_start_date: form.contract_start_date || null,
+      contract_end_date: form.contract_end_date || null,
       notes: form.notes || null,
       status: form.status,
       is_rented: form.is_rented,
@@ -68,7 +100,8 @@ export default function AddCampDialog({ open, onOpenChange, editCamp, onCampCrea
     } else {
       addCamp.mutate(payload as any, {
         onSuccess: (data: any) => {
-          setForm({ name: "", location: "", project_name: "", managed_by: "", contact_number: "", camp_type: "mixed", opening_date: "", notes: "", status: "active", is_rented: false, monthly_rent: "" });
+          setForm({ name: "", location: "", project_name: "", managed_by: "", contact_number: "", camp_type: "mixed", opening_date: "", contract_start_date: "", contract_end_date: "", notes: "", status: "active", is_rented: false, monthly_rent: "" });
+          setPhoto(null);
           onOpenChange(false);
           if (launchMasterSetup && onCampCreated && data) {
             onCampCreated(data);
@@ -78,7 +111,7 @@ export default function AddCampDialog({ open, onOpenChange, editCamp, onCampCrea
     }
   };
 
-  const isPending = addCamp.isPending || updateCamp.isPending;
+  const isPending = uploading || addCamp.isPending || updateCamp.isPending;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -129,6 +162,32 @@ export default function AddCampDialog({ open, onOpenChange, editCamp, onCampCrea
             <Label>Opening Date</Label>
             <Input type="date" value={form.opening_date} onChange={(e) => update("opening_date", e.target.value)} />
           </div>
+          {(["contract_start_date", "contract_end_date"] as const).map((key) => {
+            const label = key === "contract_start_date" ? "Contract Start Date" : "Contract End Date";
+            return (
+              <div key={key} className="space-y-1.5">
+                <Label>{label}</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" aria-label={label} className="w-full justify-start text-left font-normal">
+                      <CalendarIcon className="mr-2 h-4 w-4 shrink-0" />
+                      {form[key] ? format(parseISO(form[key]), "dd/MM/yyyy") : "Select date"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={form[key] ? parseISO(form[key]) : undefined}
+                      defaultMonth={form[key] ? parseISO(form[key]) : undefined}
+                      onSelect={(date) => update(key, date ? format(date, "yyyy-MM-dd") : "")}
+                      initialFocus
+                      className="p-3 pointer-events-auto"
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+            );
+          })}
           <div className="space-y-1.5">
             <Label>Status</Label>
             <Select value={form.status} onValueChange={(v) => update("status", v)}>
@@ -155,6 +214,12 @@ export default function AddCampDialog({ open, onOpenChange, editCamp, onCampCrea
               <Input type="number" value={form.monthly_rent} onChange={(e) => update("monthly_rent", e.target.value)} placeholder="0.00" />
             </div>
           )}
+          <div className="col-span-2 space-y-1.5">
+            <Label>Camp Photo</Label>
+            <Input type="file" accept="image/*" onChange={(e) => setPhoto(e.target.files?.[0] ?? null)} />
+            {photo && <img src={URL.createObjectURL(photo)} alt="Selected camp photo" className="mt-2 h-32 w-full rounded-md object-cover" />}
+            {!photo && isEdit && (editCamp as any)?.photo_path && <p className="text-xs text-muted-foreground">A photo is already saved. Choose a new file to replace it.</p>}
+          </div>
           <div className="col-span-2 space-y-1.5">
             <div className="flex items-center justify-between">
               <Label>Notes</Label>

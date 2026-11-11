@@ -191,6 +191,7 @@ export function useCheckIn() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["rooms"] });
       queryClient.invalidateQueries({ queryKey: ["recent-check-ins"] });
+      queryClient.invalidateQueries({ queryKey: ["employee-stays"] });
       queryClient.invalidateQueries({ queryKey: ["employees"] });
       queryClient.invalidateQueries({ queryKey: ["checked-in-employees"] });
       toast({ title: "Check-in successful", description: "Employee has been checked in and room updated." });
@@ -240,6 +241,7 @@ export function useCheckOut() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["rooms"] });
       queryClient.invalidateQueries({ queryKey: ["recent-check-outs"] });
+      queryClient.invalidateQueries({ queryKey: ["employee-stays"] });
       queryClient.invalidateQueries({ queryKey: ["food-cancellations"] });
       queryClient.invalidateQueries({ queryKey: ["revenue-data"] });
       queryClient.invalidateQueries({ queryKey: ["invoice-data"] });

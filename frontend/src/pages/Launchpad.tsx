@@ -11,7 +11,7 @@ const apps = [
     bgGlow: "bg-emerald-500/10",
     borderAccent: "border-emerald-500/30",
     internal: true,
-    path: "/dashboard",
+    path: "/camp-hub",
   },
   {
     name: "SafetyFirst LMS",

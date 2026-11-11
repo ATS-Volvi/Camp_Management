@@ -319,7 +319,10 @@ export const api = {
                 return { data: { path }, error: null };
             },
             getPublicUrl: (path: string) => {
-                return { data: { publicUrl: `mock-url-for-${path}` } };
+                return { data: { publicUrl: path.startsWith("http") ? path : `https://images.unsplash.com/photo-1541888946425-d0fbb186f5f7?auto=format&fit=crop&w=1200&q=80` } };
+            },
+            createSignedUrl: async (path: string, expiresIn?: number) => {
+                return { data: { signedUrl: path.startsWith("http") ? path : `https://images.unsplash.com/photo-1541888946425-d0fbb186f5f7?auto=format&fit=crop&w=1200&q=80` }, error: null };
             }
         })
     },

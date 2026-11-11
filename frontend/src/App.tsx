@@ -7,6 +7,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import AppLayout from "./components/layout/AppLayout";
 import Launchpad from "./pages/Launchpad";
+import CampHub from "./pages/CampHub";
 import Dashboard from "./pages/Dashboard";
 import HomeDashboard from "./pages/HomeDashboard";
 import CommandDashboard from "./pages/CommandDashboard";
@@ -18,6 +19,7 @@ import AssetDetails from "./pages/AssetDetails";
 import CheckInOut from "./pages/CheckInOut";
 import BulkCheckInOut from "./pages/BulkCheckInOut";
 import InmatesReport from "./pages/InmatesReport";
+import EmployeeStays from "./pages/EmployeeStays";
 import InventoryManagement from "./pages/InventoryManagement";
 import EmployeeMaster from "./pages/EmployeeMaster";
 import Reports from "./pages/Reports";
@@ -77,6 +79,7 @@ const App = () => (
                 </ProtectedRoute>
               }
             />
+            <Route path="/camp-hub" element={<ProtectedRoute><CampHub /></ProtectedRoute>} />
             <Route
               element={
                 <ProtectedRoute>
@@ -102,6 +105,7 @@ const App = () => (
               <Route path="/check-in-out" element={<CheckInOut />} />
               <Route path="/check-in-out/bulk" element={<BulkCheckInOut />} />
               <Route path="/inmates-report" element={<InmatesReport />} />
+              <Route path="/employee-stays" element={<EmployeeStays />} />
               <Route path="/inventory" element={<InventoryManagement />} />
               <Route path="/employees" element={<EmployeeMaster />} />
               <Route path="/item-assignments" element={<ItemAssignments />} />

@@ -1,0 +1,24 @@
+@media print {
+  @page { size: A4 landscape; margin: 12mm; }
+  body:has(.employee-stays-view), body:has(.employee-stays-view) #root,
+  body:has(.employee-stays-view) #root > div,
+  body:has(.employee-stays-view) #root > div > div,
+  body:has(.employee-stays-view) main {
+    height: auto !important; overflow: visible !important;
+  }
+  body:has(.employee-stays-view) aside,
+  body:has(.employee-stays-view) header,
+  body:has(.employee-stays-view) [role="tablist"] { display: none !important; }
+  body:has(.employee-stays-view) main { padding: 0 !important; }
+  .employee-stays-view { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+  .employee-stays-view table { width: 100%; font-size: 9pt; }
+  .employee-stays-view tr { break-inside: avoid; }
+  .employee-stays-view thead { display: table-header-group; }
+  body:has([role="dialog"] .employee-stays-view) #root { display: none !important; }
+  [role="dialog"]:has(.employee-stays-view) {
+    position: static !important; transform: none !important; max-width: none !important;
+    max-height: none !important; overflow: visible !important; border: none !important;
+    box-shadow: none !important; width: 100% !important;
+  }
+  [role="dialog"]:has(.employee-stays-view) > button { display: none !important; }
+}
