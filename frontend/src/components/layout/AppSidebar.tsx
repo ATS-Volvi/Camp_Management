@@ -3,7 +3,7 @@ import {
   Home, Upload, Building2, Truck, Users, Wrench, Package, Settings as SettingsIcon,
   BarChart3, Activity, Bell, HelpCircle, ChevronDown, Search, Box, LogIn, ClipboardList, Sparkles, UtensilsCrossed, UserCheck,
   Shield, UserCog, FileText, AlertTriangle, ChefHat, ShieldCheck, LineChart, Cog, Gauge, BedDouble, Link2, Ban,
-  LayoutDashboard, PieChart, CalendarDays, Briefcase, FileSpreadsheet, Receipt, TrendingUp, LogOut
+  LayoutDashboard, PieChart, CalendarDays, Briefcase, FileSpreadsheet, LayoutGrid, Receipt, TrendingUp, LogOut
 } from "lucide-react";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useEffect, useState } from "react";
@@ -82,14 +82,8 @@ const dashboardNav = [
 ];
 
 const reportsNav = [
-  { label: "Total Occupancy & Charges", icon: FileSpreadsheet, path: "/reports?tab=occupancy-charges&view=excel" },
-  { label: "Department Monthly", icon: Receipt, path: "/reports?tab=dept-monthly&view=web" },
-  { label: "Employee Report", icon: Users, path: "/reports?tab=employees&view=web" },
-  { label: "Check-In Report", icon: LogIn, path: "/reports?tab=checkins&view=web" },
-  { label: "Check-Out Report", icon: LogOut, path: "/reports?tab=checkouts&view=web" },
-  { label: "Cost / Invoicing", icon: Receipt, path: "/reports?tab=invoicing&view=web" },
-  { label: "Revenue", icon: TrendingUp, path: "/reports?tab=revenue&view=web" },
-  { label: "Supplier Costing", icon: Truck, path: "/reports?tab=supplier-costing&view=web" },
+  { label: "Web View", icon: LayoutGrid, path: "/reports?view=web" },
+  { label: "Excel View", icon: FileSpreadsheet, path: "/reports?view=excel" },
 ];
 
 const adminNav = [
@@ -242,16 +236,27 @@ export default function AppSidebar() {
           {reportsOpen && (
             <div id="reports-menu" className="ml-3 pl-2 border-l space-y-0.5">
               {reportsNav.map((item) => {
-                const fullCurrent = location.pathname + location.search;
-                const isActive = fullCurrent === item.path || (location.pathname === "/reports" && !location.search && item.path.includes("occupancy-charges"));
-                const isExcelView = item.label.includes("Total Occupancy");
+                const isExcelView = item.path.includes("view=excel");
+                const currentIsExcel = location.pathname.startsWith("/reports") && location.search.includes("view=excel");
+                const currentIsWeb = location.pathname.startsWith("/reports") && !location.search.includes("view=excel");
+                const isSelected = isExcelView ? currentIsExcel : currentIsWeb;
+
                 return (
                   <NavLink
                     key={item.path}
                     to={item.path}
-                    className={`sidebar-link text-xs ${isActive ? "sidebar-link-active font-semibold text-primary" : "text-muted-foreground"}`}
+                    className={`sidebar-link text-xs flex items-center gap-2 ${
+                      isSelected
+                        ? "sidebar-link-active font-bold text-primary bg-primary/10"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
                   >
-                    <item.icon size={15} className={`shrink-0 ${isExcelView ? "text-emerald-500" : ""}`} />
+                    <item.icon
+                      size={15}
+                      className={`shrink-0 ${
+                        isExcelView ? "text-emerald-500" : "text-blue-500"
+                      }`}
+                    />
                     <span className="truncate">{item.label}</span>
                   </NavLink>
                 );

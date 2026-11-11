@@ -87,3 +87,4 @@ describe("expertiseStatement", () => {
     expect(formatCountCell(0)).toBe("-");
   });
 });
+
