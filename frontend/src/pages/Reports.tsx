@@ -1,4 +1,5 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
@@ -83,8 +84,38 @@ function useCampsForFilter() {
 }
 
 export default function Reports() {
-  const [tab, setTab] = useState("dept-monthly");
-  const [viewMode, setViewMode] = useState<"web" | "excel">("web");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const urlTab = searchParams.get("tab") || "occupancy-charges";
+  const urlView = (searchParams.get("view") as "web" | "excel") || (urlTab === "occupancy-charges" ? "excel" : "web");
+
+  const [tab, setTabState] = useState(urlTab);
+  const [viewMode, setViewModeState] = useState<"web" | "excel">(urlView);
+
+  // Sync state whenever URL search params change (e.g. clicked from sidebar dropdown)
+  useEffect(() => {
+    const qTab = searchParams.get("tab");
+    const qView = searchParams.get("view");
+    if (qTab) {
+      setTabState(qTab);
+    }
+    if (qView === "excel" || qView === "web") {
+      setViewModeState(qView);
+    } else if (qTab === "occupancy-charges") {
+      setViewModeState("excel");
+    }
+  }, [searchParams]);
+
+  const setTab = (newTab: string) => {
+    setTabState(newTab);
+    const newView = newTab === "occupancy-charges" ? "excel" : (viewMode === "excel" && newTab !== "dept-monthly" ? "web" : viewMode);
+    setViewModeState(newView);
+    setSearchParams({ tab: newTab, view: newView });
+  };
+
+  const setViewMode = (newView: "web" | "excel") => {
+    setViewModeState(newView);
+    setSearchParams({ tab, view: newView });
+  };
 
   return (
     <div className="space-y-6">

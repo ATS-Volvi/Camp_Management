@@ -3,7 +3,7 @@ import {
   Home, Upload, Building2, Truck, Users, Wrench, Package, Settings as SettingsIcon,
   BarChart3, Activity, Bell, HelpCircle, ChevronDown, Search, Box, LogIn, ClipboardList, Sparkles, UtensilsCrossed, UserCheck,
   Shield, UserCog, FileText, AlertTriangle, ChefHat, ShieldCheck, LineChart, Cog, Gauge, BedDouble, Link2, Ban,
-  LayoutDashboard, PieChart, CalendarDays, Briefcase
+  LayoutDashboard, PieChart, CalendarDays, Briefcase, FileSpreadsheet, Receipt, TrendingUp, LogOut
 } from "lucide-react";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useEffect, useState } from "react";
@@ -81,6 +81,17 @@ const dashboardNav = [
   { label: "Operations Dashboard", icon: Activity, path: "/dashboard" },
 ];
 
+const reportsNav = [
+  { label: "Total Occupancy & Charges", icon: FileSpreadsheet, path: "/reports?tab=occupancy-charges&view=excel" },
+  { label: "Department Monthly", icon: Receipt, path: "/reports?tab=dept-monthly&view=web" },
+  { label: "Employee Report", icon: Users, path: "/reports?tab=employees&view=web" },
+  { label: "Check-In Report", icon: LogIn, path: "/reports?tab=checkins&view=web" },
+  { label: "Check-Out Report", icon: LogOut, path: "/reports?tab=checkouts&view=web" },
+  { label: "Cost / Invoicing", icon: Receipt, path: "/reports?tab=invoicing&view=web" },
+  { label: "Revenue", icon: TrendingUp, path: "/reports?tab=revenue&view=web" },
+  { label: "Supplier Costing", icon: Truck, path: "/reports?tab=supplier-costing&view=web" },
+];
+
 const adminNav = [
   { label: "Employee Master Data", icon: Users, path: "/admin/employees" },
   { label: "Camp Master Data", icon: Building2, path: "/admin/camps" },
@@ -106,6 +117,8 @@ export default function AppSidebar() {
   const { isSuperAdmin } = usePermissions();
   const dashboardActive = location.pathname === "/dashboard" || location.pathname.startsWith("/dashboards/");
   const [dashboardsOpen, setDashboardsOpen] = useState(dashboardActive);
+  const reportsActive = location.pathname.startsWith("/reports");
+  const [reportsOpen, setReportsOpen] = useState(reportsActive);
   const [openGroups, setOpenGroups] = useState<string[]>(() =>
     GROUP_LABELS.filter(label => {
       const items = label === "Administration" ? adminNav : navGroups.find(g => g.label === label)?.items ?? [];
@@ -115,6 +128,9 @@ export default function AppSidebar() {
 
   // Keep the owning section open when navigation lands inside it (e.g. deep links).
   useEffect(() => {
+    if (location.pathname.startsWith("/reports")) {
+      setReportsOpen(true);
+    }
     const owner = GROUP_LABELS.find(label => {
       const items = label === "Administration" ? adminNav : navGroups.find(g => g.label === label)?.items ?? [];
       return items.some(item => isPathActive(location.pathname, item.path));
@@ -208,7 +224,42 @@ export default function AppSidebar() {
         {renderGroup("Administration", Shield, adminNav, navGroups.length + 1)}
 
         <div className="pt-4 space-y-0.5">
-          {bottomNav.map(item => (
+          {/* Expandable Reports Dropdown Accordion */}
+          <Button
+            variant="ghost"
+            aria-expanded={reportsOpen}
+            aria-controls="reports-menu"
+            onClick={() => setReportsOpen(!reportsOpen)}
+            className={`sidebar-link w-full justify-between ${reportsActive ? "sidebar-link-active" : ""}`}
+          >
+            <span className="flex items-center gap-3">
+              <BarChart3 size={18} />
+              <span>Reports</span>
+            </span>
+            <ChevronDown size={16} className={`transition-transform duration-200 ${reportsOpen ? "rotate-180" : ""}`} />
+          </Button>
+
+          {reportsOpen && (
+            <div id="reports-menu" className="ml-3 pl-2 border-l space-y-0.5">
+              {reportsNav.map((item) => {
+                const fullCurrent = location.pathname + location.search;
+                const isActive = fullCurrent === item.path || (location.pathname === "/reports" && !location.search && item.path.includes("occupancy-charges"));
+                const isExcelView = item.label.includes("Total Occupancy");
+                return (
+                  <NavLink
+                    key={item.path}
+                    to={item.path}
+                    className={`sidebar-link text-xs ${isActive ? "sidebar-link-active font-semibold text-primary" : "text-muted-foreground"}`}
+                  >
+                    <item.icon size={15} className={`shrink-0 ${isExcelView ? "text-emerald-500" : ""}`} />
+                    <span className="truncate">{item.label}</span>
+                  </NavLink>
+                );
+              })}
+            </div>
+          )}
+
+          {bottomNav.filter(item => item.path !== "/reports").map(item => (
             <NavLink
               key={item.path}
               to={item.path}
