@@ -794,29 +794,49 @@ export default function ExpertiseOccupancyStatementTab({
         </div>
 
         {/* Excel Sheets Tab Bar (Like Microsoft Excel sheets at the bottom or top) */}
-        <div className="flex flex-wrap items-center gap-1 border-b border-slate-300 pb-1.5 pt-2 px-1 print:hidden">
-          <span className="text-xs font-bold text-slate-600 uppercase tracking-wider mr-2 flex items-center gap-1">
-            <FileSpreadsheet size={15} className="text-emerald-700" />
-            Excel Sheets:
-          </span>
-          {EXCEL_SHEETS.map((sheet) => {
-            const Icon = sheet.icon;
-            const isCurrent = activeSheet === sheet.id;
-            return (
-              <button
-                key={sheet.id}
-                onClick={() => setActiveSheet(sheet.id)}
-                className={`px-3 py-1.5 text-xs font-semibold rounded-t-md border transition-all flex items-center gap-1.5 ${
-                  isCurrent
-                    ? "bg-[#0b1e36] text-white border-[#0b1e36] shadow-sm font-bold"
-                    : "bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200 hover:text-slate-900"
-                }`}
-              >
-                <Icon size={13} className={isCurrent ? "text-orange-400" : "text-slate-500"} />
-                <span>{sheet.label}</span>
-              </button>
-            );
-          })}
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-300 pb-2 pt-2 px-1 print:hidden">
+          <div className="flex flex-wrap items-center gap-1">
+            <span className="text-xs font-bold text-slate-600 uppercase tracking-wider mr-2 flex items-center gap-1">
+              <FileSpreadsheet size={15} className="text-emerald-700" />
+              Excel Sheets:
+            </span>
+            {EXCEL_SHEETS.map((sheet) => {
+              const Icon = sheet.icon;
+              const isCurrent = activeSheet === sheet.id;
+              return (
+                <button
+                  key={sheet.id}
+                  onClick={() => setActiveSheet(sheet.id)}
+                  className={`px-3 py-1.5 text-xs font-semibold rounded-t-md border transition-all flex items-center gap-1.5 ${
+                    isCurrent
+                      ? "bg-[#0b1e36] text-white border-[#0b1e36] shadow-sm font-bold"
+                      : "bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200 hover:text-slate-900"
+                  }`}
+                >
+                  <Icon size={13} className={isCurrent ? "text-orange-400" : "text-slate-500"} />
+                  <span>{sheet.label}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          {activeSheet === "occupancy-charges" && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setAdjustmentsOpen(true)}
+              className="h-8 border-orange-400 text-orange-950 bg-orange-100 hover:bg-orange-200 font-semibold shadow-xs flex items-center gap-1.5 text-xs shrink-0"
+              title="Decide attendants missing lunch or away on vacation"
+            >
+              <SlidersHorizontal size={13} className="text-orange-600" />
+              <span>Adjust Vacation & Missed Meals</span>
+              {(Object.keys(vacationAdjustments).length > 0 || missedLunchDeduction > 0) && (
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-[#ea580c] text-white">
+                  Adjusted
+                </span>
+              )}
+            </Button>
+          )}
         </div>
 
         {/* ============================================================= */}
