@@ -605,9 +605,9 @@ export default function ExpertiseOccupancyStatementTab({
               <CardContent className="px-4 pb-4">
                 <div className="text-2xl font-bold text-foreground">
                   {(
-                    computedSummary.totalOccupancy.active +
-                    computedSummary.totalOccupancy.onSite +
-                    computedSummary.totalOccupancy.onVacation
+                    (computedSummary?.totalOccupancy?.active || 0) +
+                    (computedSummary?.totalOccupancy?.onSite || 0) +
+                    (computedSummary?.totalOccupancy?.onVacation || 0)
                   ).toLocaleString()}
                 </div>
                 <p className="text-[11px] text-muted-foreground mt-1">Across all room tiers</p>
@@ -623,7 +623,7 @@ export default function ExpertiseOccupancyStatementTab({
               </CardHeader>
               <CardContent className="px-4 pb-4">
                 <div className="text-2xl font-bold text-green-700 dark:text-green-400">
-                  {computedSummary.totalOccupancy.active.toLocaleString()}
+                  {(computedSummary?.totalOccupancy?.active || 0).toLocaleString()}
                 </div>
                 <p className="text-[11px] text-green-700/80 dark:text-green-400/80 mt-1">Accommodation & Catering</p>
               </CardContent>
@@ -638,7 +638,7 @@ export default function ExpertiseOccupancyStatementTab({
               </CardHeader>
               <CardContent className="px-4 pb-4">
                 <div className="text-2xl font-bold text-amber-700 dark:text-amber-400">
-                  {computedSummary.totalOccupancy.onVacation.toLocaleString()}
+                  {(computedSummary?.totalOccupancy?.onVacation || 0).toLocaleString()}
                 </div>
                 <p className="text-[11px] text-amber-800/90 dark:text-amber-400/80 mt-1 font-semibold">
                   Food waived · Room holding only
@@ -655,7 +655,7 @@ export default function ExpertiseOccupancyStatementTab({
               </CardHeader>
               <CardContent className="px-4 pb-4">
                 <div className="text-2xl font-bold text-foreground">
-                  {computedSummary.totalOccupancy.lunchMeals.toLocaleString()}
+                  {(computedSummary?.totalOccupancy?.officeLunchMeals || 0).toLocaleString()}
                 </div>
                 <p className="text-[11px] text-muted-foreground mt-1 font-mono">@ SAR 5.20/meal</p>
               </CardContent>
@@ -669,7 +669,7 @@ export default function ExpertiseOccupancyStatementTab({
               </CardHeader>
               <CardContent className="px-4 pb-4">
                 <div className="text-xl font-bold text-blue-900 dark:text-blue-300 font-mono">
-                  SAR {computedSummary.chargesSummary.totalGrand.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  SAR {formatCurrencyCell(computedSummary?.totalCharges?.grandTotal || 0, false)}
                 </div>
                 <p className="text-[11px] text-blue-700/80 dark:text-blue-400/80 mt-1">Service period net total</p>
               </CardContent>
@@ -869,19 +869,19 @@ export default function ExpertiseOccupancyStatementTab({
                   <TableRow className="bg-muted/60 font-bold border-t-2 border-border">
                     <TableCell className="font-bold text-xs">Grand Total</TableCell>
                     <TableCell className="text-center font-mono text-xs font-bold">
-                      {formatCountCell(computedSummary.totalOccupancy.active)}
+                      {formatCountCell(computedSummary?.totalOccupancy?.active || 0)}
                     </TableCell>
                     <TableCell className="text-center font-mono text-xs font-bold">
-                      {formatCountCell(computedSummary.totalOccupancy.onSite)}
+                      {formatCountCell(computedSummary?.totalOccupancy?.onSite || 0)}
                     </TableCell>
                     <TableCell className="text-center font-mono text-xs font-bold text-amber-700 dark:text-amber-400 bg-amber-50/60 dark:bg-amber-950/20">
-                      {formatCountCell(computedSummary.totalOccupancy.onVacation)}
+                      {formatCountCell(computedSummary?.totalOccupancy?.onVacation || 0)}
                     </TableCell>
                     <TableCell className="text-right font-mono text-xs font-bold text-primary">
                       {formatCountCell(
-                        computedSummary.totalOccupancy.active +
-                          computedSummary.totalOccupancy.onSite +
-                          computedSummary.totalOccupancy.onVacation
+                        (computedSummary?.totalOccupancy?.active || 0) +
+                          (computedSummary?.totalOccupancy?.onSite || 0) +
+                          (computedSummary?.totalOccupancy?.onVacation || 0)
                       )}
                     </TableCell>
                   </TableRow>
@@ -919,7 +919,7 @@ export default function ExpertiseOccupancyStatementTab({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {computedSummary.chargesSummary.rows.map((row) => (
+                  {computedSummary.rows.map((row) => (
                     <TableRow key={row.category} className="hover:bg-muted/30 transition-colors">
                       <TableCell className="font-bold text-xs">
                         <Badge variant="outline" className="font-mono text-xs font-bold">
@@ -927,44 +927,44 @@ export default function ExpertiseOccupancyStatementTab({
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right font-mono text-xs">
-                        {formatCurrencyCell(row.accommodation)}
+                        {formatCurrencyCell(row.accommodationCharges)}
                       </TableCell>
                       <TableCell className="text-right font-mono text-xs">
-                        {formatCurrencyCell(row.catering)}
+                        {formatCurrencyCell(row.cateringCharges)}
                       </TableCell>
                       <TableCell className="text-right font-mono text-xs">
-                        {formatCurrencyCell(row.onSite)}
+                        {formatCurrencyCell(row.onSiteCharges)}
                       </TableCell>
                       <TableCell className="text-right font-mono text-xs text-amber-700 dark:text-amber-400 font-semibold bg-amber-50/30 dark:bg-amber-950/10">
-                        {formatCurrencyCell(row.onVacation)}
+                        {formatCurrencyCell(row.onVacationCharges)}
                       </TableCell>
                       <TableCell className="text-right font-mono text-xs">
-                        {formatCurrencyCell(row.lunchMeals)}
+                        {formatCurrencyCell(row.officeLunchCharges)}
                       </TableCell>
                       <TableCell className="text-right font-mono text-xs font-bold text-foreground">
-                        {formatCurrencyCell(row.grandTotal)}
+                        {formatCurrencyCell(row.grandTotalCharges)}
                       </TableCell>
                     </TableRow>
                   ))}
                   <TableRow className="bg-muted/60 font-bold border-t-2 border-border">
                     <TableCell className="font-bold text-xs">Total (SAR)</TableCell>
                     <TableCell className="text-right font-mono text-xs font-bold">
-                      {formatCurrencyCell(computedSummary.chargesSummary.totalAccommodation)}
+                      {formatCurrencyCell(computedSummary?.totalCharges?.accommodation || 0)}
                     </TableCell>
                     <TableCell className="text-right font-mono text-xs font-bold">
-                      {formatCurrencyCell(computedSummary.chargesSummary.totalCatering)}
+                      {formatCurrencyCell(computedSummary?.totalCharges?.catering || 0)}
                     </TableCell>
                     <TableCell className="text-right font-mono text-xs font-bold">
-                      {formatCurrencyCell(computedSummary.chargesSummary.totalOnSite)}
+                      {formatCurrencyCell(computedSummary?.totalCharges?.onSite || 0)}
                     </TableCell>
                     <TableCell className="text-right font-mono text-xs font-bold text-amber-700 dark:text-amber-400 bg-amber-50/60 dark:bg-amber-950/20">
-                      {formatCurrencyCell(computedSummary.chargesSummary.totalOnVacation)}
+                      {formatCurrencyCell(computedSummary?.totalCharges?.onVacation || 0)}
                     </TableCell>
                     <TableCell className="text-right font-mono text-xs font-bold">
-                      {formatCurrencyCell(computedSummary.chargesSummary.totalLunchMeals)}
+                      {formatCurrencyCell(computedSummary?.totalCharges?.officeLunch || 0)}
                     </TableCell>
                     <TableCell className="text-right font-mono text-xs font-bold text-primary">
-                      {formatCurrencyCell(computedSummary.chargesSummary.totalGrand)}
+                      {formatCurrencyCell(computedSummary?.totalCharges?.grandTotal || 0)}
                     </TableCell>
                   </TableRow>
                 </TableBody>
