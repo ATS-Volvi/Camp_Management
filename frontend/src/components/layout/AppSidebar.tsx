@@ -83,6 +83,7 @@ const dashboardNav = [
 ];
 
 const reportsNav = [
+  { label: "Occupancy Statement", icon: Building2, path: "/reports?tab=occupancy-charges" },
   { label: "Web View", icon: LayoutGrid, path: "/reports?view=web" },
   { label: "Excel View", icon: FileSpreadsheet, path: "/reports?view=excel" },
 ];
@@ -238,9 +239,11 @@ export default function AppSidebar() {
             <div id="reports-menu" className="ml-3 pl-2 border-l space-y-0.5">
               {reportsNav.map((item) => {
                 const isExcelView = item.path.includes("view=excel");
+                const isOccupancy = item.path.includes("tab=occupancy-charges");
                 const currentIsExcel = location.pathname.startsWith("/reports") && location.search.includes("view=excel");
-                const currentIsWeb = location.pathname.startsWith("/reports") && !location.search.includes("view=excel");
-                const isSelected = isExcelView ? currentIsExcel : currentIsWeb;
+                const currentIsOccupancy = location.pathname.startsWith("/reports") && !currentIsExcel && (location.search.includes("tab=occupancy-charges") || !location.search.includes("tab="));
+                const currentIsWeb = location.pathname.startsWith("/reports") && !currentIsExcel && !currentIsOccupancy;
+                const isSelected = isExcelView ? currentIsExcel : isOccupancy ? currentIsOccupancy : currentIsWeb;
 
                 return (
                   <NavLink
@@ -255,7 +258,7 @@ export default function AppSidebar() {
                     <item.icon
                       size={15}
                       className={`shrink-0 ${
-                        isExcelView ? "text-emerald-500" : "text-blue-500"
+                        isExcelView ? "text-emerald-500" : isOccupancy ? "text-orange-500" : "text-blue-500"
                       }`}
                     />
                     <span className="truncate">{item.label}</span>

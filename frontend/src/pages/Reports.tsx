@@ -89,7 +89,7 @@ function useCampsForFilter() {
 export default function Reports() {
   const [searchParams, setSearchParams] = useSearchParams();
   const urlView = (searchParams.get("view") as "web" | "excel") || "web";
-  const urlTab = searchParams.get("tab") || "dept-monthly";
+  const urlTab = searchParams.get("tab") || "occupancy-charges";
 
   const [tab, setTabState] = useState(urlTab);
   const [viewMode, setViewModeState] = useState<"web" | "excel">(urlView);
@@ -107,7 +107,7 @@ export default function Reports() {
     } else if (qView === "web") {
       setViewModeState("web");
       if (qTab) {
-        setTabState(qTab === "occupancy-charges" ? "dept-monthly" : qTab);
+        setTabState(qTab);
       }
     } else if (qTab) {
       setTabState(qTab);
@@ -122,12 +122,7 @@ export default function Reports() {
 
   const setViewMode = (newView: "web" | "excel") => {
     setViewModeState(newView);
-    if (newView === "web" && tab === "occupancy-charges") {
-      setTabState("dept-monthly");
-      setSearchParams({ tab: "dept-monthly", view: "web" });
-    } else {
-      setSearchParams({ tab, view: newView });
-    }
+    setSearchParams({ tab, view: newView });
   };
 
   return (
@@ -157,6 +152,7 @@ export default function Reports() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="occupancy-charges">🏢 Occupancy & Charges Statement</SelectItem>
                   <SelectItem value="dept-monthly">📊 Department Monthly Costing</SelectItem>
                   <SelectItem value="employees">👥 Employee Report</SelectItem>
                   <SelectItem value="checkins">📥 Check-In Report</SelectItem>
@@ -228,6 +224,9 @@ export default function Reports() {
         /* Standard Web View with operational tabs */
         <Tabs value={tab} onValueChange={(t) => setTab(t, "web")}>
           <TabsList className="flex flex-wrap h-auto gap-1">
+            <TabsTrigger value="occupancy-charges" className="gap-2 font-semibold">
+              <Building2 size={16} /> Occupancy & Charges
+            </TabsTrigger>
             <TabsTrigger value="dept-monthly" className="gap-2">
               <Receipt size={16} /> Department Monthly
             </TabsTrigger>
@@ -254,6 +253,12 @@ export default function Reports() {
             </TabsTrigger>
           </TabsList>
 
+          <TabsContent value="occupancy-charges">
+            <ExpertiseOccupancyStatementTab
+              activeSheet="occupancy-charges"
+              onSheetChange={(s) => setTab(s, "web")}
+            />
+          </TabsContent>
           <TabsContent value="dept-monthly"><DepartmentMonthlyReportTab /></TabsContent>
           <TabsContent value="employees"><EmployeeReportTab /></TabsContent>
           <TabsContent value="checkins"><CheckInReportTab /></TabsContent>
