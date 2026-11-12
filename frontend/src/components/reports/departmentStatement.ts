@@ -53,7 +53,7 @@ export function groupDepartmentStatements(rows: DepartmentCostRow[], costCenterM
 }
 
 export type DepartmentStatement = ReturnType<typeof groupDepartmentStatements>[number];
-export const statementAmount = (n: number) => n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+export const statementAmount = (n: any) => (Number(n) || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 export const statementFilename = (dept: string, month: string) => `department-costing-${dept.replace(/[^a-z0-9_-]/gi, "-")}-${month}`;
 
 export interface StatementLabels { title: string; chargeTo: string; codeLabel: string; footer: string }

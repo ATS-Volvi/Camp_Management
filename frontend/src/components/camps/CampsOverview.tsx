@@ -185,7 +185,7 @@ export default function CampsOverview({ camps }: Props) {
                 {kpi.icon}
               </div>
               <p className="text-xs text-muted-foreground">{kpi.label}</p>
-              <p className="text-2xl font-bold mt-0.5">{kpi.value.toLocaleString()}</p>
+              <p className="text-2xl font-bold mt-0.5">{(Number(kpi.value) || 0).toLocaleString()}</p>
             </CardContent>
           </Card>
         ))}

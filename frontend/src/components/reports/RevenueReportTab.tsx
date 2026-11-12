@@ -224,11 +224,11 @@ export default function RevenueReportTab() {
       </Card>
 
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        <StatCard label="Inmates" value={totals.inmates.toString()} icon={<Users size={16} />} />
-        <StatCard label="Stay Days" value={totals.stayDays.toString()} icon={<BedDouble size={16} />} />
-        <StatCard label="Room Revenue" value={`SAR ${totals.room.toLocaleString()}`} icon={<BedDouble size={16} />} color="text-blue-600" />
-        <StatCard label="Food Revenue" value={`SAR ${totals.food.toLocaleString(undefined, { maximumFractionDigits: 0 })}`} icon={<UtensilsCrossed size={16} />} color="text-orange-600" />
-        <StatCard label="Total Revenue" value={`SAR ${totals.total.toLocaleString(undefined, { maximumFractionDigits: 0 })}`} icon={<DollarSign size={16} />} color="text-green-600" />
+        <StatCard label="Inmates" value={(totals?.inmates ?? 0).toString()} icon={<Users size={16} />} />
+        <StatCard label="Stay Days" value={(totals?.stayDays ?? 0).toString()} icon={<BedDouble size={16} />} />
+        <StatCard label="Room Revenue" value={`SAR ${(totals?.room ?? 0).toLocaleString()}`} icon={<BedDouble size={16} />} color="text-blue-600" />
+        <StatCard label="Food Revenue" value={`SAR ${(totals?.food ?? 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`} icon={<UtensilsCrossed size={16} />} color="text-orange-600" />
+        <StatCard label="Total Revenue" value={`SAR ${(totals?.total ?? 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`} icon={<DollarSign size={16} />} color="text-green-600" />
       </div>
 
       {isLoading ? (
@@ -261,10 +261,10 @@ export default function RevenueReportTab() {
                   <TableCell>{r.supplier}</TableCell>
                   <TableCell><div className="text-xs">{r.camp}</div><div className="font-medium">{r.room}</div></TableCell>
                   <TableCell className="text-right">{r.stayDays}</TableCell>
-                  <TableCell className="text-right">{r.roomRevenue.toLocaleString()}</TableCell>
-                  <TableCell className="text-right">{r.mealsCancelled}</TableCell>
-                  <TableCell className="text-right">{r.foodRevenue.toLocaleString(undefined, { maximumFractionDigits: 0 })}</TableCell>
-                  <TableCell className="text-right font-semibold">{r.total.toLocaleString(undefined, { maximumFractionDigits: 0 })}</TableCell>
+                  <TableCell className="text-right">{(r.roomRevenue ?? 0).toLocaleString()}</TableCell>
+                  <TableCell className="text-right">{r.mealsCancelled ?? 0}</TableCell>
+                  <TableCell className="text-right">{(r.foodRevenue ?? 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}</TableCell>
+                  <TableCell className="text-right font-semibold">{(r.total ?? 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}</TableCell>
                 </TableRow>
               ))}
               {filtered.length === 0 && (

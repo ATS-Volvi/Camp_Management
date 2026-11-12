@@ -1475,7 +1475,7 @@ export default function CampMasterSetupDialog({
               <div className="bg-background/80 p-2 rounded-md border flex flex-col shadow-2xs">
                 <span className="text-muted-foreground text-[11px]">Est. Daily Revenue</span>
                 <span className="font-bold text-sm text-foreground">
-                  SAR {summary.estDailyRev.toLocaleString()}
+                  SAR {(Number(summary.estDailyRev) || 0).toLocaleString()}
                 </span>
               </div>
             </div>
@@ -2623,7 +2623,7 @@ export default function CampMasterSetupDialog({
                 <div className="text-[10px] text-muted-foreground flex items-center justify-between">
                   <span>Est. Daily Rev for batch:</span>
                   <span className="font-bold text-foreground">
-                    SAR {batchPreviewTotals.totalEstDailyRev.toLocaleString()}/day
+                    SAR {(Number(batchPreviewTotals.totalEstDailyRev) || 0).toLocaleString()}/day
                   </span>
                 </div>
               </div>

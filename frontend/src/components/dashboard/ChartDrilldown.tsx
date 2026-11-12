@@ -28,7 +28,7 @@ export function ChartDrilldown({ selection, onClose, theme, onRecordOpen, detail
   const openRecord = (row: DrillRecord) => { setPath(prev => [...prev, row]); setSearch(""); setPage(0); if (path.length === 0) onRecordOpen?.(row); };
   return <Dialog open={Boolean(selection)} onOpenChange={open => { if (!open) onClose(); }}>
     <DialogContent className={`max-w-5xl w-[calc(100%-2rem)] max-h-[85vh] overflow-y-auto ${theme ? "command-dashboard" : ""}`} data-dashboard-theme={theme}>
-      <DialogHeader><DialogTitle className="pr-6 leading-snug">{current?.label ?? selection?.title}</DialogTitle><DialogDescription>{selection?.description ?? "Saved records"}{!leaf && ` · ${rows.length.toLocaleString()} records`}</DialogDescription></DialogHeader>
+      <DialogHeader><DialogTitle className="pr-6 leading-snug">{current?.label ?? selection?.title}</DialogTitle><DialogDescription>{selection?.description ?? "Saved records"}{!leaf && ` · ${(rows?.length ?? 0).toLocaleString()} records`}</DialogDescription></DialogHeader>
       {path.length > 0 && <Button variant="ghost" size="sm" className="justify-self-start" onClick={() => { setPath(prev => prev.slice(0, -1)); setSearch(""); setPage(0); }}><ArrowLeft />Back to {path.length > 1 ? path[path.length - 2].label : selection?.title}</Button>}
       {leaf && current ? <>
         <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">{Object.entries(current.fields).map(([key, value]) => <div key={key} className="border-b pb-3 min-w-0"><dt className="text-xs text-muted-foreground">{key}</dt><dd className="text-sm font-medium mt-1 break-words whitespace-pre-wrap">{display(value)}</dd></div>)}</dl>

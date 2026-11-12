@@ -70,7 +70,7 @@ export default function WorkforceTreemap({ data, totalCount }: Props) {
             Workforce Demographic Mosaic
           </CardTitle>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Breakdown across {data.length} nationalities ({totalCount.toLocaleString()} total inmates)
+            Breakdown across {data.length} nationalities ({(Number(totalCount) || 0).toLocaleString()} total inmates)
           </p>
         </div>
 
@@ -152,7 +152,7 @@ export default function WorkforceTreemap({ data, totalCount }: Props) {
                       </p>
                       <p className="text-[10px] text-white/80 font-medium flex items-center gap-1 mt-0.5">
                         <Users size={10} className="opacity-80" />
-                        {item.value.toLocaleString()} occupants
+                        {(Number(item.value) || 0).toLocaleString()} occupants
                       </p>
                     </div>
 

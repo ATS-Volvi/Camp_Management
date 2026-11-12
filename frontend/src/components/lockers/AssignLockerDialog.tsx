@@ -218,3 +218,4 @@ export default function AssignLockerDialog({ open, onOpenChange, inmate, campId:
     </Dialog>
   );
 }
+

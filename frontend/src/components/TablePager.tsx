@@ -18,7 +18,7 @@ export function TablePager({ page, pages, setPage, total }: { page: number; page
       <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(page - 1)}>
         <ChevronLeft size={16} /> Previous
       </Button>
-      <span>Page {page} of {pages} · {total.toLocaleString()} rows</span>
+      <span>Page {page} of {pages} · {(total ?? 0).toLocaleString()} rows</span>
       <Button variant="outline" size="sm" disabled={page >= pages} onClick={() => setPage(page + 1)}>
         Next <ChevronRight size={16} />
       </Button>

@@ -167,15 +167,19 @@ export function buildStatementSummary(
 }
 
 /** Format currency numbers with commas and 2 decimals, or "-" if 0 */
-export function formatCurrencyCell(val: number, showZeroDash = true): string {
-  if (!val || val === 0) return showZeroDash ? "-" : "0.00";
-  return val.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+export function formatCurrencyCell(val: any, showZeroDash = true): string {
+  if (val === undefined || val === null || val === "" || isNaN(Number(val)) || Number(val) === 0) {
+    return showZeroDash ? "-" : "0.00";
+  }
+  return Number(val).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 /** Format integer count with commas, or "-" if 0 */
-export function formatCountCell(val: number, showZeroDash = true): string {
-  if (!val || val === 0) return showZeroDash ? "-" : "0";
-  return val.toLocaleString("en-US");
+export function formatCountCell(val: any, showZeroDash = true): string {
+  if (val === undefined || val === null || val === "" || isNaN(Number(val)) || Number(val) === 0) {
+    return showZeroDash ? "-" : "0";
+  }
+  return Number(val).toLocaleString("en-US");
 }
 
 /** Build CSV string matching the three tables */

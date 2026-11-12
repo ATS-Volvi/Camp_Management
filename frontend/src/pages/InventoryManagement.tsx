@@ -153,7 +153,7 @@ export default function InventoryManagement() {
                   <TrendingUp size={20} className="text-emerald-600 dark:text-emerald-400" />
                 </div>
                 <p className="text-sm text-muted-foreground">Total Stock</p>
-                <p className="text-3xl font-bold mt-1 text-emerald-700 dark:text-emerald-300">{totalStock.toLocaleString()}</p>
+                <p className="text-3xl font-bold mt-1 text-emerald-700 dark:text-emerald-300">{(Number(totalStock) || 0).toLocaleString()}</p>
               </CardContent>
             </Card>
             <Card className="border shadow-sm bg-gradient-to-br from-amber-500/15 to-amber-600/5 border-amber-500/30">

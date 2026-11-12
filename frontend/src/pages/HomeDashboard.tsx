@@ -378,10 +378,10 @@ export default function HomeDashboard() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <PastelKpiCard
             label="Total Workforce"
-            value={totalWorkforce.toLocaleString()}
+            value={(totalWorkforce ?? 0).toLocaleString()}
             icon={UsersRound}
             tone="indigo"
-            hint={`Design cap. ${totalCapacity.toLocaleString()}`}
+            hint={`Design cap. ${(totalCapacity ?? 0).toLocaleString()}`}
           />
           <PastelKpiCard
             label="Overall Occupancy"
@@ -422,7 +422,7 @@ export default function HomeDashboard() {
                 </div>
                 <div className="flex items-center justify-between text-xs mt-2 text-muted-foreground">
                   <span>Occ: <span className="font-bold text-foreground">{c.pct}%</span></span>
-                  <span>{c.occ.toLocaleString()} / {c.cap.toLocaleString()}</span>
+                  <span>{(c.occ ?? 0).toLocaleString()} / {(c.cap ?? 0).toLocaleString()}</span>
                 </div>
               </div>
             );
@@ -489,10 +489,10 @@ export default function HomeDashboard() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <PastelKpiCard
             label={`Largest Dept (${largestDept.name})`}
-            value={largestDept.count.toLocaleString()}
+            value={(largestDept.count ?? 0).toLocaleString()}
             icon={Briefcase}
             tone="violet"
-            hint={totalWorkforce > 0 ? `${Math.round((largestDept.count / totalWorkforce) * 100)}% of workforce` : "—"}
+            hint={totalWorkforce > 0 ? `${Math.round(((largestDept.count ?? 0) / totalWorkforce) * 100)}% of workforce` : "—"}
           />
           <PastelKpiCard
             label="Nationalities"
@@ -522,7 +522,7 @@ export default function HomeDashboard() {
           />
           <PastelKpiCard
             label="Active Occupants"
-            value={totalOccupied.toLocaleString()}
+            value={(totalOccupied ?? 0).toLocaleString()}
             icon={Flame}
             tone="rose"
             hint={`${checkInsThisMonth} in / ${checkOutsThisMonth} out this month`}

@@ -1288,19 +1288,19 @@ export default function ExpertiseOccupancyStatementTab({
                       Grand Total Occupancy
                     </td>
                     <td className="border border-slate-400 px-4 py-2 text-center font-mono">
-                      {formatCountCell(computedSummary.totalOccupancy.active)}
+                      {formatCountCell(computedSummary?.totalOccupancy?.active)}
                     </td>
                     <td className="border border-slate-400 px-4 py-2 text-center font-mono">
-                      {formatCountCell(computedSummary.totalOccupancy.onSite)}
+                      {formatCountCell(computedSummary?.totalOccupancy?.onSite)}
                     </td>
                     <td className="border border-slate-400 px-4 py-2 text-center font-mono">
-                      {formatCountCell(computedSummary.totalOccupancy.onVacation)}
+                      {formatCountCell(computedSummary?.totalOccupancy?.onVacation)}
                     </td>
                     <td className="border border-slate-400 px-4 py-2 text-center font-mono">
                       {formatCountCell(
-                        computedSummary.totalOccupancy.active +
-                          computedSummary.totalOccupancy.onSite +
-                          computedSummary.totalOccupancy.onVacation
+                        (computedSummary?.totalOccupancy?.active || 0) +
+                          (computedSummary?.totalOccupancy?.onSite || 0) +
+                          (computedSummary?.totalOccupancy?.onVacation || 0)
                       )}
                     </td>
                   </tr>
@@ -1356,22 +1356,22 @@ export default function ExpertiseOccupancyStatementTab({
                       Total Occupancy
                     </td>
                     <td className="border border-slate-400 px-3 py-2 text-center font-mono">
-                      {formatCountCell(computedSummary.totalOccupancy.active)}
+                      {formatCountCell(computedSummary?.totalOccupancy?.active)}
                     </td>
                     <td className="border border-slate-400 px-3 py-2 text-center font-mono">
-                      {formatCountCell(computedSummary.totalOccupancy.onSite)}
+                      {formatCountCell(computedSummary?.totalOccupancy?.onSite)}
                     </td>
                     <td className="border border-slate-400 px-3 py-2 text-center font-mono">
-                      {formatCountCell(computedSummary.totalOccupancy.onVacation)}
+                      {formatCountCell(computedSummary?.totalOccupancy?.onVacation)}
                     </td>
                     <td className="border border-slate-400 px-3 py-2 text-center font-mono">
-                      {formatCountCell(computedSummary.totalOccupancy.onlyAccommodation)}
+                      {formatCountCell(computedSummary?.totalOccupancy?.onlyAccommodation)}
                     </td>
                     <td className="border border-slate-400 px-3 py-2 text-center font-mono">
-                      {formatCountCell(computedSummary.totalOccupancy.officeLunchMeals)}
+                      {formatCountCell(computedSummary?.totalOccupancy?.officeLunchMeals)}
                     </td>
                     <td className="border border-slate-400 px-3 py-2 text-center font-mono">
-                      {formatCountCell(computedSummary.totalOccupancy.grandTotal)}
+                      {formatCountCell(computedSummary?.totalOccupancy?.grandTotal)}
                     </td>
                   </tr>
                 </tbody>
@@ -1426,22 +1426,22 @@ export default function ExpertiseOccupancyStatementTab({
                       Total
                     </td>
                     <td className="border border-slate-400 px-3 py-2 text-right font-mono pr-4">
-                      {formatCurrencyCell(computedSummary.totalCharges.accommodation)}
+                      {formatCurrencyCell(computedSummary?.totalCharges?.accommodation)}
                     </td>
                     <td className="border border-slate-400 px-3 py-2 text-right font-mono pr-4">
-                      {formatCurrencyCell(computedSummary.totalCharges.catering)}
+                      {formatCurrencyCell(computedSummary?.totalCharges?.catering)}
                     </td>
                     <td className="border border-slate-400 px-3 py-2 text-right font-mono pr-4">
-                      {formatCurrencyCell(computedSummary.totalCharges.onSite)}
+                      {formatCurrencyCell(computedSummary?.totalCharges?.onSite)}
                     </td>
                     <td className="border border-slate-400 px-3 py-2 text-right font-mono pr-4">
-                      {formatCurrencyCell(computedSummary.totalCharges.onVacation)}
+                      {formatCurrencyCell(computedSummary?.totalCharges?.onVacation)}
                     </td>
                     <td className="border border-slate-400 px-3 py-2 text-right font-mono pr-4">
-                      {formatCurrencyCell(computedSummary.totalCharges.officeLunch)}
+                      {formatCurrencyCell(computedSummary?.totalCharges?.officeLunch)}
                     </td>
                     <td className="border border-slate-400 px-3 py-2 text-right font-mono pr-4">
-                      {formatCurrencyCell(computedSummary.totalCharges.grandTotal)}
+                      {formatCurrencyCell(computedSummary?.totalCharges?.grandTotal)}
                     </td>
                   </tr>
                 </tbody>

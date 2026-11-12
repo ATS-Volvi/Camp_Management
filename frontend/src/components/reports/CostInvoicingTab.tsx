@@ -212,7 +212,7 @@ export default function CostInvoicingTab() {
     total: filteredRows.reduce((s, r) => s + r.total_cost, 0),
   }), [filteredRows]);
 
-  const fmt = (n: number) => `SAR ${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const fmt = (n: any) => `SAR ${(Number(n) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   const exportCsv = () => {
     const headers = [

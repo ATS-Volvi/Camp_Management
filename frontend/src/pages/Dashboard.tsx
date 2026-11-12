@@ -230,10 +230,10 @@ export default function Dashboard() {
 
       {/* Top Stat Cards */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        <PastelKpiCard label="Total Camps" value={isLoading ? "—" : totalCamps.toLocaleString()} icon={Building2} tone="blue" onClick={() => setDrilldown("camps")} />
-        <PastelKpiCard label="Rooms" value={isLoading ? "—" : totalRooms.toLocaleString()} icon={DoorOpen} tone="pink" onClick={() => setDrilldown("rooms")} />
-        <PastelKpiCard label="Total Occupants" value={isLoading ? "—" : totalOccupants.toLocaleString()} icon={Users} tone="mint" onClick={() => setDrilldown("occupants")} />
-        <PastelKpiCard label="Vacant Rooms" value={isLoading ? "—" : vacantRooms.toLocaleString()} icon={BedDouble} tone="amber" onClick={() => setDrilldown("vacant")} />
+        <PastelKpiCard label="Total Camps" value={isLoading ? "—" : (totalCamps ?? 0).toLocaleString()} icon={Building2} tone="blue" onClick={() => setDrilldown("camps")} />
+        <PastelKpiCard label="Rooms" value={isLoading ? "—" : (totalRooms ?? 0).toLocaleString()} icon={DoorOpen} tone="pink" onClick={() => setDrilldown("rooms")} />
+        <PastelKpiCard label="Total Occupants" value={isLoading ? "—" : (totalOccupants ?? 0).toLocaleString()} icon={Users} tone="mint" onClick={() => setDrilldown("occupants")} />
+        <PastelKpiCard label="Vacant Rooms" value={isLoading ? "—" : (vacantRooms ?? 0).toLocaleString()} icon={BedDouble} tone="amber" onClick={() => setDrilldown("vacant")} />
         <PastelKpiCard label="Under Maintenance" value={isLoading ? "—" : maintenanceRooms} icon={Wrench} tone="rose" onClick={() => setDrilldown("maintenance")} />
       </div>
 
@@ -730,11 +730,11 @@ export default function Dashboard() {
             <div className="flex items-center gap-4">
               <div className="text-right">
                 <p className="text-xs text-muted-foreground">Daily Total</p>
-                <p className="text-lg font-bold text-primary">SAR {totalDailyCost.toLocaleString()}</p>
+                <p className="text-lg font-bold text-primary">SAR {(totalDailyCost ?? 0).toLocaleString()}</p>
               </div>
               <div className="text-right">
                 <p className="text-xs text-muted-foreground">Monthly Est.</p>
-                <p className="text-lg font-bold">SAR {totalMonthlyEstimate.toLocaleString()}</p>
+                <p className="text-lg font-bold">SAR {(totalMonthlyEstimate ?? 0).toLocaleString()}</p>
               </div>
             </div>
           </div>
@@ -766,13 +766,13 @@ export default function Dashboard() {
                       <Badge variant="secondary" className="text-xs">{camp.occupants}</Badge>
                     </span>
                     <span className="text-right font-mono text-muted-foreground">
-                      SAR {camp.dailyRoomCost.toLocaleString()}
+                      SAR {(camp.dailyRoomCost ?? 0).toLocaleString()}
                     </span>
                     <span className="text-right font-mono text-muted-foreground flex items-center justify-end gap-1">
-                      <Utensils size={10} /> SAR {camp.dailyFoodCost.toLocaleString()}
+                      <Utensils size={10} /> SAR {(camp.dailyFoodCost ?? 0).toLocaleString()}
                     </span>
                     <span className="text-right font-bold text-primary">
-                      SAR {total.toLocaleString()}
+                      SAR {(total ?? 0).toLocaleString()}
                     </span>
                   </div>
                 );
@@ -780,9 +780,9 @@ export default function Dashboard() {
               <div className="grid grid-cols-6 gap-2 py-3 text-sm font-semibold bg-muted/30 -mx-6 px-6 mt-2 rounded-lg">
                 <span className="col-span-2">Grand Total</span>
                 <span className="text-right">{campCostSummary.reduce((s, c) => s + c.occupants, 0)}</span>
-                <span className="text-right font-mono">SAR {campCostSummary.reduce((s, c) => s + c.dailyRoomCost, 0).toLocaleString()}</span>
-                <span className="text-right font-mono">SAR {campCostSummary.reduce((s, c) => s + c.dailyFoodCost, 0).toLocaleString()}</span>
-                <span className="text-right text-primary">SAR {totalDailyCost.toLocaleString()}</span>
+                <span className="text-right font-mono">SAR {(campCostSummary.reduce((s, c) => s + c.dailyRoomCost, 0) ?? 0).toLocaleString()}</span>
+                <span className="text-right font-mono">SAR {(campCostSummary.reduce((s, c) => s + c.dailyFoodCost, 0) ?? 0).toLocaleString()}</span>
+                <span className="text-right text-primary">SAR {(totalDailyCost ?? 0).toLocaleString()}</span>
               </div>
             </div>
           )}

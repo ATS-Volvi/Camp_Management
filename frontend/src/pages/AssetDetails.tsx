@@ -127,7 +127,7 @@ export default function AssetDetails() {
         <PastelKpiCard compact label="Purchase Cost" value={asset.purchase_cost != null ? `SAR ${Number(asset.purchase_cost).toLocaleString()}` : "—"} icon={Coins} tone="blue" hint={asset.purchase_date ? `Bought ${fmtDate(asset.purchase_date)}` : undefined} />
         <PastelKpiCard compact label="Warranty" value={warrantyDays == null ? "—" : warrantyDays >= 0 ? `${warrantyDays} days left` : "Expired"} icon={warrantyDays != null && warrantyDays < 0 ? ShieldAlert : ShieldCheck} tone={warrantyDays != null && warrantyDays < 0 ? "rose" : "mint"} hint={asset.warranty_expiry ? `Until ${fmtDate(asset.warranty_expiry)}` : undefined} />
         <PastelKpiCard compact label="Last Maintenance" value={fmtDate(asset.last_maintenance_date)} icon={CalendarDays} tone="violet" />
-        <PastelKpiCard compact label="Maintenance Spend" value={`SAR ${maintCost.toLocaleString()}`} icon={Wrench} tone="amber" hint={`${logs.length} entries`} />
+        <PastelKpiCard compact label="Maintenance Spend" value={`SAR ${(maintCost ?? 0).toLocaleString()}`} icon={Wrench} tone="amber" hint={`${logs.length} entries`} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
