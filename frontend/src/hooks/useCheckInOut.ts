@@ -194,7 +194,9 @@ export function useCheckIn() {
       queryClient.invalidateQueries({ queryKey: ["employee-stays"] });
       queryClient.invalidateQueries({ queryKey: ["employees"] });
       queryClient.invalidateQueries({ queryKey: ["checked-in-employees"] });
-      toast({ title: "Check-in successful", description: "Employee has been checked in and room updated." });
+      queryClient.invalidateQueries({ queryKey: ["camp_lockers"] });
+      queryClient.invalidateQueries({ queryKey: ["inmate_locker_assignments"] });
+      toast({ title: "Check-in successful", description: "Employee checked in and room locker auto-allocated." });
     },
     onError: (error: Error) => {
       toast({ title: "Check-in failed", description: error.message, variant: "destructive" });

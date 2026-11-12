@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { getRoomCategoryLabel } from "@/constants/roomCategories";
-import { Users, DoorOpen, Building2, MapPin, Calendar, Briefcase, CreditCard, User, Hash, Globe, Phone } from "lucide-react";
+import { Users, DoorOpen, Building2, MapPin, Calendar, Briefcase, CreditCard, User, Hash, Globe, Phone, Lock } from "lucide-react";
 import { format } from "date-fns";
 
 interface CheckInConfirmDialogProps {
@@ -85,6 +85,22 @@ export default function CheckInConfirmDialog({
       return master?.daily_rate ?? null;
     },
     enabled: open && !!camp?.id && !!room?.category,
+  });
+
+  // Check available locker for this room
+  const { data: availableLockers = [] } = useQuery({
+    queryKey: ["available-room-lockers", room?.id],
+    queryFn: async () => {
+      if (!room?.id) return [];
+      const { data } = await supabase
+        .from("camp_lockers")
+        .select("id, locker_number, key_number")
+        .eq("room_id", room.id)
+        .eq("status", "available")
+        .order("locker_number", { ascending: true });
+      return data || [];
+    },
+    enabled: open && !!room?.id,
   });
 
   if (!room || !camp) return null;
@@ -198,6 +214,31 @@ export default function CheckInConfirmDialog({
                   )}
                 </tbody>
               </table>
+            </div>
+
+            {/* Locker Auto-Assignment Notice */}
+            <div className="mt-3 rounded-xl border border-primary/20 bg-primary/5 p-3 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary shrink-0">
+                  <Lock size={15} />
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-foreground">Automatic Locker Assignment</p>
+                  <p className="text-[11px] text-muted-foreground">
+                    {availableLockers.length > 0 ? (
+                      <>
+                        Free locker ready: <strong className="text-primary font-mono">{availableLockers[0].locker_number}</strong>
+                        {availableLockers[0].key_number && ` (Key: ${availableLockers[0].key_number})`}
+                      </>
+                    ) : (
+                      "Available room locker will be auto-allocated with overlap protection."
+                    )}
+                  </p>
+                </div>
+              </div>
+              <Badge variant="outline" className="text-[10px] bg-green-500/10 text-green-700 dark:text-green-300 border-green-500/30">
+                Auto-Allocated
+              </Badge>
             </div>
           </div>
 

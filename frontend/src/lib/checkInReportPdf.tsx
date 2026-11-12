@@ -21,6 +21,7 @@ export interface CheckInReportRecord {
   check_in_date: string;
   project?: string | null;
   food_required?: boolean | null;
+  locker?: { locker_number: string; key_number?: string | null } | null;
   employees: { name: string; employee_id: string; employee_type: string; supplier_name?: string | null; designation?: string | null; company?: string | null; project?: string | null; department?: string | null; phone?: string | null } | null;
   rooms: { room_number: string; category: string } | null;
   camps: { name: string } | null;
@@ -47,14 +48,14 @@ export function buildCheckInPdf(records: CheckInReportRecord[], period: string, 
   doc.text(filterLines, 14, 42);
   autoTable(doc, {
     startY: 46 + filterLines.length * 5,
-    head: [["Check-in date / time", "Employee / ID", "Type / Supplier", "Designation / Department", "Company / Project", "Camp / Room", "Contact", "Food"]],
+    head: [["Check-in date / time", "Employee / ID", "Type / Supplier", "Designation / Department", "Company / Project", "Camp / Room / Locker", "Contact", "Food"]],
     body: records.map(row => [
       `${format(parseISO(row.check_in_date), "dd MMM yyyy")}\n${format(parseISO(row.check_in_date), "HH:mm")}`,
       `${row.employees?.name || "—"}\n${row.employees?.employee_id || "—"}`,
       `${row.employees?.employee_type || "—"}\n${row.employees?.supplier_name || "—"}`,
       `${row.employees?.designation || "—"}\n${row.employees?.department || "—"}`,
       `${row.employees?.company || "—"}\n${row.project || row.employees?.project || "—"}`,
-      `${row.camps?.name || "—"}\n${row.rooms?.room_number || "—"} · ${getRoomCategoryLabel(row.rooms?.category || "")}`,
+      `${row.camps?.name || "—"}\n${row.rooms?.room_number || "—"} · ${getRoomCategoryLabel(row.rooms?.category || "")}${row.locker ? `\nLocker: ${row.locker.locker_number} (Key: ${row.locker.key_number || "—"})` : ""}`,
       row.employees?.phone || "—", row.food_required === false ? "Not required" : "Required",
     ]),
     rowPageBreak: "avoid",
@@ -79,18 +80,40 @@ export function downloadCheckInPdf(blob: Blob, filename: string) {
 export async function prepareCheckInReceipt(employeeIds: string[], campId: string) {
   if (!employeeIds.length) return;
   try {
+    // 1. Fetch active locker assignments for these employees
+    const lockerMap = new Map<string, { locker_number: string; key_number?: string | null }>();
+    try {
+      const { data: lockers } = await supabase
+        .from("inmate_locker_assignments")
+        .select("employee_id, camp_lockers(locker_number, key_number)")
+        .in("employee_id", employeeIds)
+        .eq("status", "active");
+
+      lockers?.forEach((l: any) => {
+        if (l.camp_lockers) {
+          lockerMap.set(l.employee_id, l.camp_lockers);
+        }
+      });
+    } catch {
+      // Non-blocking
+    }
+
     // One latest saved row per successful employee, independent of RPC return shape.
     const records = await Promise.all(employeeIds.map(async id => {
       const { data, error } = await supabase.from("check_ins").select(CHECK_IN_REPORT_SELECT)
         .eq("employee_id", id).eq("camp_id", campId).order("check_in_date", { ascending: false }).limit(1);
       if (error) throw error;
-      return data?.[0] as unknown as CheckInReportRecord | undefined;
+      const rec = data?.[0] as unknown as CheckInReportRecord | undefined;
+      if (rec) {
+        rec.locker = lockerMap.get(id) || null;
+      }
+      return rec;
     }));
     const rows = latestSuccessfulCheckIns(records.filter((row): row is CheckInReportRecord => Boolean(row)), employeeIds);
     if (rows.length !== employeeIds.length) throw new Error("Saved check-in details are unavailable");
     const blob = buildCheckInPdf(rows, "Successful check-in confirmation").output("blob");
     const filename = `check-in-confirmation-${format(new Date(), "yyyy-MM-dd-HHmmss")}.pdf`;
-    toast({ title: "Check-in PDF ready", description: `${rows.length} confirmed check-in${rows.length === 1 ? "" : "s"}.`, duration: 120000,
+    toast({ title: "Check-in PDF ready", description: `${rows.length} confirmed check-in${rows.length === 1 ? "" : "s"} with room & locker allocation.`, duration: 120000,
       action: <ToastAction altText="Download check-in PDF" onClick={() => downloadCheckInPdf(blob, filename)}>Download PDF</ToastAction>,
     });
   } catch {
