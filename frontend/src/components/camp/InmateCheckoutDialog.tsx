@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import {
-  LogOut, Package, DoorOpen, AlertTriangle, CheckCircle2, FileText, Star, Ban, Loader2, Download,
+  LogOut, Package, DoorOpen, AlertTriangle, CheckCircle2, FileText, Star, Ban, Loader2, Download, Lock,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -56,9 +56,10 @@ interface ClearanceItem {
 
 const defaultClearanceItems: ClearanceItem[] = [
   { id: "assets", label: "All assigned assets returned", checked: false, icon: <Package size={16} /> },
+  { id: "locker", label: "Locker emptied & key returned", checked: false, icon: <Lock size={16} /> },
   { id: "room", label: "Room inspection completed", checked: false, icon: <DoorOpen size={16} /> },
   { id: "damages", label: "No damages reported", checked: false, icon: <AlertTriangle size={16} /> },
-  { id: "keys", label: "Keys / access cards returned", checked: false, icon: <CheckCircle2 size={16} /> },
+  { id: "keys", label: "Room keys / access cards returned", checked: false, icon: <CheckCircle2 size={16} /> },
   { id: "clearance", label: "Clearance form signed", checked: false, icon: <FileText size={16} /> },
 ];
 
@@ -224,11 +225,52 @@ export default function InmateCheckoutDialog({ open, onOpenChange, inmate, campI
       });
       if (error) throw error;
 
+      // Release any active locker assignment for this inmate
+      try {
+        const { data: activeLockers } = await supabase
+          .from("inmate_locker_assignments")
+          .select("id, locker_id")
+          .eq("employee_id", inmate.id)
+          .eq("status", "active");
+
+        if (activeLockers && activeLockers.length > 0) {
+          const lockerKeyReturned = clearanceItems.find(i => i.id === "locker")?.checked ?? true;
+          const noDamages = clearanceItems.find(i => i.id === "damages")?.checked ?? true;
+          const lockerStatus = !lockerKeyReturned ? "lost_key" : !noDamages ? "damaged" : "returned";
+          const today = new Date().toISOString().split("T")[0];
+
+          for (const al of activeLockers) {
+            await supabase
+              .from("inmate_locker_assignments")
+              .update({
+                returned_date: today,
+                status: lockerStatus,
+                key_returned: lockerKeyReturned,
+                condition_on_return: noDamages ? "good" : "damaged",
+                damage_remarks: damageRemarks || null,
+              })
+              .eq("id", al.id);
+
+            await supabase
+              .from("camp_lockers")
+              .update({
+                status: noDamages ? "available" : "maintenance",
+                condition: noDamages ? "good" : "repair",
+              })
+              .eq("id", al.locker_id);
+          }
+        }
+      } catch (lckErr) {
+        console.warn("Could not auto-release inmate locker:", lckErr);
+      }
+
       generatePDF();
 
       queryClient.invalidateQueries({ queryKey: ["camp-inmates"] });
       queryClient.invalidateQueries({ queryKey: ["rooms"] });
       queryClient.invalidateQueries({ queryKey: ["recent-check-outs"] });
+      queryClient.invalidateQueries({ queryKey: ["camp_lockers"] });
+      queryClient.invalidateQueries({ queryKey: ["inmate_locker_assignments"] });
 
       toast({ title: "Check-out successful", description: `${inmate.name} checked out. Report downloaded.` });
       resetForm();

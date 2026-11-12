@@ -21,7 +21,8 @@ const SAFE_TABLES = [
     'room_categories', 'designation_room_mapping', 'cook_request_items', 'purchase_order_items',
     'clients', 'client_room_rates', 'employee_status_log', 'camp_food_cancellation_settings',
     'employee_shift_assignments', 'food_cancellation_requests', 'food_cancellation_request_meals',
-    'asset_maintenance_log', 'room_category_master', 'camp_meal_rates'
+    'asset_maintenance_log', 'room_category_master', 'camp_meal_rates',
+    'camp_lockers', 'inmate_locker_assignments'
 ];
 
 const IDENT = /^[A-Za-z_]\w*$/;

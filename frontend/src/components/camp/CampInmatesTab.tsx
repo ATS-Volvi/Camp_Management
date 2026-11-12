@@ -10,11 +10,14 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Search, LogOut, MessageCircle, Phone, Upload, Download, FileText, RotateCcw } from "lucide-react";
+import { Search, LogOut, MessageCircle, Phone, Upload, Download, FileText, RotateCcw, Lock, Plus } from "lucide-react";
 import { getRoomCategoryLabel } from "@/constants/roomCategories";
 import CampBulkUploadDialog from "@/components/camp/CampBulkUploadDialog";
 import InmateCheckoutDialog from "@/components/camp/InmateCheckoutDialog";
 import PresenceStatusCell from "@/components/employees/PresenceStatusCell";
+import { useActiveLockerAssignments, type InmateLockerAssignment } from "@/hooks/useLockers";
+import AssignLockerDialog from "@/components/lockers/AssignLockerDialog";
+import ReleaseLockerDialog from "@/components/lockers/ReleaseLockerDialog";
 
 interface Props {
   campId?: string;
@@ -31,6 +34,18 @@ export default function CampInmatesTab({ campId, campName }: Props) {
   const [blockFilter, setBlockFilter] = useState("all");
   const [floorFilter, setFloorFilter] = useState("all");
   const [roomFilter, setRoomFilter] = useState("all");
+
+  const [assignLockerOpen, setAssignLockerOpen] = useState(false);
+  const [releaseLockerOpen, setReleaseLockerOpen] = useState(false);
+  const [lockerInmate, setLockerInmate] = useState<any>(null);
+  const [selectedAssignment, setSelectedAssignment] = useState<InmateLockerAssignment | null>(null);
+
+  const { data: activeAssignments = [] } = useActiveLockerAssignments(campId);
+  const assignmentsByEmployeeId = new Map<string, InmateLockerAssignment>();
+  activeAssignments.forEach((a) => {
+    assignmentsByEmployeeId.set(a.employee_id, a);
+  });
+
   const { data: inmates = [], isLoading, isError, refetch } = useInmatesReport(campId);
   const resetLocations = () => { setBlockFilter("all"); setFloorFilter("all"); setRoomFilter("all"); };
   const scope = { camp: campId ?? campFilter, block: blockFilter, floor: floorFilter, room: roomFilter };
@@ -57,6 +72,17 @@ export default function CampInmatesTab({ campId, campName }: Props) {
     setCheckoutDialogOpen(true);
   };
 
+  const handleAssignLockerClick = (inmate: any) => {
+    setLockerInmate(inmate);
+    setAssignLockerOpen(true);
+  };
+
+  const handleLockerClick = (inmate: any, assignment: InmateLockerAssignment) => {
+    setLockerInmate(inmate);
+    setSelectedAssignment(assignment);
+    setReleaseLockerOpen(true);
+  };
+
   const filtered = inmates.filter((i: any) => {
     if (!matchesInmateLocation(i, scope)) return false;
     if (!search) return true;
@@ -74,6 +100,7 @@ export default function CampInmatesTab({ campId, campName }: Props) {
   const exportRows = filtered.map((i: any) => ({
     "Employee ID": i.employee_id, Name: i.name, Camp: i.camp_name, Block: i.block_name,
     Floor: i.floor_name, Room: i.room_number, "Room Type": getRoomCategoryLabel(i.room_category),
+    Locker: assignmentsByEmployeeId.get(i.id)?.camp_lockers?.locker_number || "None",
     Project: i.project ?? "", Supplier: i.employee_type === "own" ? "Own" : i.supplier_name ?? "",
     "Check-In Date": new Date(i.check_in_date).toLocaleDateString("en-GB"),
     "Passport / Iqama": i.passport_number || i.iqama_number || "", Presence: i.presence_status ?? "active",
@@ -152,6 +179,7 @@ export default function CampInmatesTab({ campId, campName }: Props) {
                 <TableHead>Floor</TableHead>
                 <TableHead>Room</TableHead>
                 <TableHead>Room Type</TableHead>
+                <TableHead>Locker</TableHead>
                 <TableHead>Food</TableHead>
                 <TableHead>Presence</TableHead>
                 <TableHead className="text-right">Tariff/Day</TableHead>
@@ -193,6 +221,39 @@ export default function CampInmatesTab({ campId, campName }: Props) {
                     <TableCell className="font-mono text-sm">{inmate.room_number}</TableCell>
                     <TableCell className="text-xs">
                       {getRoomCategoryLabel(inmate.room_category)}
+                    </TableCell>
+                    <TableCell>
+                      {(() => {
+                        const assignment = assignmentsByEmployeeId.get(inmate.id);
+                        if (assignment) {
+                          return (
+                            <Badge
+                              variant="outline"
+                              className="font-mono text-[11px] gap-1 border-primary/40 bg-primary/5 text-foreground cursor-pointer hover:bg-primary/10 transition-colors py-0.5"
+                              onClick={() => handleLockerClick(inmate, assignment)}
+                              title="Click to inspect or release locker"
+                            >
+                              <Lock size={11} className="text-primary shrink-0" />
+                              <span>{assignment.camp_lockers?.locker_number || "Assigned"}</span>
+                              {assignment.camp_lockers?.key_number && (
+                                <span className="text-muted-foreground text-[10px]">({assignment.camp_lockers.key_number})</span>
+                              )}
+                            </Badge>
+                          );
+                        }
+                        return campId ? (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 text-[11px] text-muted-foreground hover:text-primary gap-1 px-2 border border-dashed border-border hover:border-primary/50"
+                            onClick={() => handleAssignLockerClick(inmate)}
+                          >
+                            <Plus size={11} /> Assign
+                          </Button>
+                        ) : (
+                          <span className="text-muted-foreground text-xs">—</span>
+                        );
+                      })()}
                     </TableCell>
                     <TableCell>
                       {inmate.daily_food_rate > 0 ? (
@@ -265,6 +326,21 @@ export default function CampInmatesTab({ campId, campName }: Props) {
         inmate={selectedInmate}
         campId={campId}
         campName={campName || "Camp"}
+      />
+
+      <AssignLockerDialog
+        open={assignLockerOpen}
+        onOpenChange={setAssignLockerOpen}
+        inmate={lockerInmate}
+        campId={campId}
+      />
+
+      <ReleaseLockerDialog
+        open={releaseLockerOpen}
+        onOpenChange={setReleaseLockerOpen}
+        assignment={selectedAssignment}
+        inmateName={lockerInmate?.name}
+        inmateNumber={lockerInmate?.employee_id}
       />
       </>}
     </div>

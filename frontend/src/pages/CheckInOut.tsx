@@ -1,7 +1,7 @@
 import { prepareCheckInReceipt } from "@/lib/checkInReport";
 import { billableStayWindow } from "@/lib/stayBilling";
 import { useState, useMemo, useCallback, useEffect } from "react";
-import { LogIn, LogOut, Search, Users, DoorOpen, CheckCircle2, AlertTriangle, FileText, Package, Star, Ban, Calendar, Clock, Download, Sparkles, DollarSign, ArrowLeftRight } from "lucide-react";
+import { LogIn, LogOut, Search, Users, DoorOpen, CheckCircle2, AlertTriangle, FileText, Package, Star, Ban, Calendar, Clock, Download, Sparkles, DollarSign, ArrowLeftRight, Lock } from "lucide-react";
 import TransferRequestsList from "@/components/checkin/TransferRequestsList";
 import {
   useCamps, useRoomsByCamp, useRecentCheckIns, useRecentCheckOuts,
@@ -35,6 +35,7 @@ interface ClearanceItem {
 
 const defaultClearanceItems: ClearanceItem[] = [
   { id: "assets", label: "All assigned assets returned", checked: false, icon: <Package size={16} /> },
+  { id: "locker", label: "Locker emptied & key returned", checked: false, icon: <Lock size={16} /> },
   { id: "room", label: "Room inspection completed", checked: false, icon: <DoorOpen size={16} /> },
   { id: "damages", label: "No damages reported", checked: false, icon: <AlertTriangle size={16} /> },
   { id: "keys", label: "Keys / access cards returned", checked: false, icon: <CheckCircle2 size={16} /> },
@@ -324,6 +325,46 @@ export default function CheckInOut() {
         });
         if (error) { failed++; } else {
           success++;
+
+          // Auto-release any active lockers
+          try {
+            const { data: empLockers } = await supabase
+              .from("inmate_locker_assignments")
+              .select("id, locker_id")
+              .eq("employee_id", empId)
+              .eq("status", "active");
+
+            if (empLockers && empLockers.length > 0) {
+              const lockerKeyReturned = clearanceItems.find(i => i.id === "locker")?.checked ?? true;
+              const noDamages = clearanceItems.find(i => i.id === "damages")?.checked ?? true;
+              const lockerStatus = !lockerKeyReturned ? "lost_key" : !noDamages ? "damaged" : "returned";
+              const today = new Date().toISOString().split("T")[0];
+
+              for (const al of empLockers) {
+                await supabase
+                  .from("inmate_locker_assignments")
+                  .update({
+                    returned_date: today,
+                    status: lockerStatus,
+                    key_returned: lockerKeyReturned,
+                    condition_on_return: noDamages ? "good" : "damaged",
+                    damage_remarks: damageRemarks || null,
+                  })
+                  .eq("id", al.id);
+
+                await supabase
+                  .from("camp_lockers")
+                  .update({
+                    status: noDamages ? "available" : "maintenance",
+                    condition: noDamages ? "good" : "repair",
+                  })
+                  .eq("id", al.locker_id);
+              }
+            }
+          } catch (lckErr) {
+            console.warn("Could not release inmate locker on checkout:", lckErr);
+          }
+
           const ci = latestCheckIn.get(empId);
           const room = ci ? roomMap.get(ci.room_id) : null;
           const checkInDate = ci ? new Date(ci.date) : now;
@@ -462,6 +503,8 @@ export default function CheckInOut() {
     queryClient.invalidateQueries({ queryKey: ["recent-check-outs"] });
     queryClient.invalidateQueries({ queryKey: ["employees"] });
     queryClient.invalidateQueries({ queryKey: ["checked-in-employees"] });
+    queryClient.invalidateQueries({ queryKey: ["camp_lockers"] });
+    queryClient.invalidateQueries({ queryKey: ["inmate_locker_assignments"] });
 
     toast({
       title: `Check-out complete`,

@@ -32,6 +32,7 @@ import {
 import RoomAllocationPanel from "@/components/camp/RoomAllocationPanel";
 import CampStaffTab from "@/components/camp/CampStaffTab";
 import CampInmatesTab from "@/components/camp/CampInmatesTab";
+import CampLockersTab from "@/components/lockers/CampLockersTab";
 import EmployeeStaysView from "@/components/reports/EmployeeStaysView";
 import CheckInOutSheet from "@/components/camp/CheckInOutSheet";
 import AddCampDialog from "@/components/camps/AddCampDialog";
@@ -277,13 +278,13 @@ export default function CampDetails() {
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="bg-transparent border-b border-border rounded-none w-full justify-start gap-0 p-0 h-auto flex-wrap">
-          {["overview", "details", "rooms", "inmates", "employee-stays", "checkout-report", ...(isAdmin ? ["staff"] : [])].map((tab) => (
+          {["overview", "details", "rooms", "inmates", "lockers", "employee-stays", "checkout-report", ...(isAdmin ? ["staff"] : [])].map((tab) => (
             <TabsTrigger
               key={tab}
               value={tab}
               className="capitalize rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-6 py-3 text-sm font-medium"
             >
-              {tab === "employee-stays" ? "Employee Stays" : tab === "checkout-report" ? "Check-out Report" : tab}
+              {tab === "employee-stays" ? "Employee Stays" : tab === "checkout-report" ? "Check-out Report" : tab === "lockers" ? "Lockers" : tab}
             </TabsTrigger>
           ))}
         </TabsList>
@@ -989,6 +990,10 @@ export default function CampDetails() {
         {/* ═══════ INMATES TAB ═══════ */}
         <TabsContent value="inmates" className="mt-6">
           <CampInmatesTab campId={campId!} campName={camp?.name} />
+        </TabsContent>
+
+        <TabsContent value="lockers" className="mt-6">
+          <CampLockersTab campId={campId!} />
         </TabsContent>
 
         <TabsContent value="employee-stays" className="mt-6">
