@@ -22,6 +22,7 @@ import {
 } from "@/lib/expertiseStatement";
 import { resolveRoomTypeTier, EXCEL_STANDARD_RATES, getExcelTierRates } from "@/lib/excelRates";
 import { useDepartments } from "@/hooks/useDepartments";
+import { matchesDepartment } from "@/lib/departmentLabels";
 import { exportAllReportsToExcel } from "@/lib/exportAllReportsToExcel";
 import expertiseLogo from "@/assets/expertise-logo.png";
 import { useRevenueData, buildRevenueRows } from "./RevenueReportTab";
@@ -138,7 +139,7 @@ export default function ExpertiseOccupancyStatementTab({
         .from("check_ins")
         .select(`
           id, employee_id, room_id, camp_id, check_in_date, food_required,
-          employees(id, employee_id, name, department, presence_status, company, designation, supplier_name),
+          employees(id, employee_id, name, department, presence_status, company, designation, supplier_name, project),
           rooms(id, room_number, category, max_capacity),
           camps(id, name)
         `)
@@ -155,9 +156,15 @@ export default function ExpertiseOccupancyStatementTab({
   const { data: liveEmployees = [] } = useQuery({
     queryKey: ["expertise-employees", selectedDept, selectedStatus],
     queryFn: async () => {
-      let q = supabase.from("employees").select("*").limit(200);
+      let q = supabase.from("employees").select("*").limit(2000);
       if (selectedDept !== "(All)" && selectedDept !== "all") {
-        q = q.ilike("department", `%${selectedDept}%`);
+        if (selectedDept.toUpperCase() === "HERD") {
+          q = q.or("department.ilike.%HERD%,department.ilike.%Equipment Servi%,project.eq.HERD");
+        } else if (selectedDept.toUpperCase() === "EMBS" || selectedDept.toUpperCase() === "MBS") {
+          q = q.or("department.ilike.%EMBS%,department.ilike.%MBS%,project.eq.EMBS,project.eq.MBS");
+        } else {
+          q = q.or(`department.ilike.%${selectedDept}%,project.ilike.%${selectedDept}%`);
+        }
       }
       const norm = normalizePresenceStatus(selectedStatus);
       if (norm) {
@@ -177,7 +184,7 @@ export default function ExpertiseOccupancyStatementTab({
         .from("check_outs")
         .select(`
           id, check_out_date,
-          employees(employee_id, name, department),
+          employees(employee_id, name, department, project),
           rooms(room_number, category),
           camps(name)
         `)
@@ -196,11 +203,10 @@ export default function ExpertiseOccupancyStatementTab({
   const deptFactor = useMemo(() => {
     if (selectedDept === "(All)" || selectedDept === "all") return 1.85;
     const d = selectedDept.toUpperCase();
-    if (d === "EMBS") return 1.0;
+    if (d === "HERD") return 1.35;
+    if (d === "EMBS" || d === "MBS") return 1.0;
     if (d === "PMTA") return 1.45;
-    if (d === "HERD") return 0.22;
     if (d === "ISSD") return 1.30;
-    if (d === "MBS") return 0.40;
     if (d === "VSD") return 0.35;
     if (d === "RSD") return 0.30;
     if (d === "FIN") return 0.15;
@@ -212,9 +218,8 @@ export default function ExpertiseOccupancyStatementTab({
   // Filter check-ins by selected department and status
   const filteredCheckIns = useMemo(() => {
     return liveCheckIns.filter((ci: any) => {
-      if (selectedDept !== "(All)" && selectedDept !== "all") {
-        const empDept = ci.employees?.department || "";
-        if (!empDept.toUpperCase().includes(selectedDept.toUpperCase())) return false;
+      if (!matchesDepartment({ department: ci.employees?.department, project: ci.employees?.project }, selectedDept)) {
+        return false;
       }
       if (normStatus) {
         const empStatus = ci.employees?.presence_status || "active";
@@ -227,9 +232,8 @@ export default function ExpertiseOccupancyStatementTab({
   // Filter check-outs by selected department
   const filteredCheckOuts = useMemo(() => {
     return liveCheckOuts.filter((co: any) => {
-      if (selectedDept !== "(All)" && selectedDept !== "all") {
-        const empDept = co.employees?.department || "";
-        if (!empDept.toUpperCase().includes(selectedDept.toUpperCase())) return false;
+      if (!matchesDepartment({ department: co.employees?.department, project: co.employees?.project }, selectedDept)) {
+        return false;
       }
       return true;
     });
@@ -258,8 +262,7 @@ export default function ExpertiseOccupancyStatementTab({
       });
 
       revenueRows.forEach((r: any) => {
-        const empDept = (r.department || "Unassigned").toUpperCase();
-        if (selectedDept !== "(All)" && selectedDept !== "all" && !empDept.includes(selectedDept.toUpperCase())) {
+        if (!matchesDepartment({ department: r.department, project: r.project }, selectedDept)) {
           return;
         }
 

@@ -12,6 +12,7 @@ import { buildDepartmentStatementPdf, downloadStatementBlob, groupDepartmentStat
 import { useRevenueData, buildRevenueRows, LeaveNotes } from "./RevenueReportTab";
 import { useDepartments } from "@/hooks/useDepartments";
 import { approvedFoodCancellations } from "@/lib/approvedFoodCancellations";
+import { matchesDepartment } from "@/lib/departmentLabels";
 import { dmy } from "@/lib/roomHolding";
 
 const fmt = statementAmount;
@@ -39,7 +40,7 @@ export default function DepartmentMonthlyReportTab() {
   }, [departments]);
 
   const groups = useMemo(() => groupDepartmentStatements(rows, costCenterMap), [rows, costCenterMap]);
-  const shown = groups.filter(g => deptFilter === "all" || g.dept === deptFilter);
+  const shown = groups.filter(g => deptFilter === "all" || matchesDepartment({ department: g.dept }, deptFilter));
 
   // Approved food cancellations for the month, resolved to employee name/code, shown at the bottom of each department statement.
   const empMeta = useMemo(() => {
@@ -105,6 +106,9 @@ export default function DepartmentMonthlyReportTab() {
                   <SelectTrigger aria-label="Department" className="w-[180px]"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Departments</SelectItem>
+                    {groups.some(g => matchesDepartment({ department: g.dept }, "HERD")) && !groups.some(g => g.dept === "HERD") && (
+                      <SelectItem value="HERD">HERD (Heavy Equipment Rental)</SelectItem>
+                    )}
                     {groups.map(g => <SelectItem key={g.dept} value={g.dept}>{g.dept}</SelectItem>)}
                   </SelectContent>
                 </Select>

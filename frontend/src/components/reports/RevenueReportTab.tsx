@@ -3,6 +3,7 @@ import { getExcelTierRates, getExcelMealRates } from "@/lib/excelRates";
 import { approvedFoodCancellations } from "@/lib/approvedFoodCancellations";
 import { billableStayWindow, stayDeparture } from "@/lib/stayBilling";
 import { LEAVE_STATUSES, leaveDaysWithin, leaveRangesWithin, dmy, roomCostWithHolding, type LeavePeriod } from "@/lib/roomHolding";
+import { matchesDepartment } from "@/lib/departmentLabels";
 import { useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
@@ -158,11 +159,17 @@ export default function RevenueReportTab() {
 
   const rows = useMemo(() => buildRevenueRows(data, fromDate, toDate), [data, fromDate, toDate]);
 
-  const departments = useMemo(() => Array.from(new Set(rows.map(r => r.department).filter(d => d !== "—"))).sort(), [rows]);
+  const departments = useMemo(() => {
+    const set = new Set(rows.map(r => r.department).filter(d => d !== "—"));
+    if (rows.some(r => matchesDepartment({ department: r.department, project: r.project }, "HERD"))) {
+      set.add("HERD");
+    }
+    return Array.from(set).sort();
+  }, [rows]);
   const suppliers = useMemo(() => Array.from(new Set(rows.map(r => r.supplier).filter(d => d !== "—"))).sort(), [rows]);
 
   const filtered = useMemo(() => rows.filter(r => {
-    if (deptFilter !== "all" && r.department !== deptFilter) return false;
+    if (deptFilter !== "all" && !matchesDepartment({ department: r.department, project: r.project }, deptFilter)) return false;
     if (supplierFilter !== "all" && r.supplier !== supplierFilter) return false;
     return true;
   }), [rows, deptFilter, supplierFilter]);
