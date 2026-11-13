@@ -23,6 +23,7 @@ import {
 import { resolveRoomTypeTier, EXCEL_STANDARD_RATES, getExcelTierRates } from "@/lib/excelRates";
 import { useDepartments } from "@/hooks/useDepartments";
 import { exportAllReportsToExcel } from "@/lib/exportAllReportsToExcel";
+import expertiseLogo from "@/assets/expertise-logo.png";
 import { useRevenueData, buildRevenueRows } from "./RevenueReportTab";
 
 // Normalizes status strings from UI dropdown to database and logic values
@@ -56,23 +57,14 @@ export const EXCEL_SHEETS = [
   { id: "supplier-costing", label: "Supplier Costing", icon: Truck },
 ];
 
-export function ExpertiseLogo() {
+export function ExpertiseLogo({ className = "h-11 w-auto max-w-[220px] object-contain" }: { className?: string }) {
   return (
     <div className="flex items-center select-none" aria-label="Expertise Logo">
-      <svg className="h-10 w-auto" viewBox="0 0 220 54" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <text x="0" y="42" fill="#0c2340" fontFamily="system-ui, -apple-system, sans-serif" fontWeight="900" fontSize="42" letterSpacing="-1">
-          ex
-        </text>
-        <g transform="translate(48, 2)">
-          <path d="M 12 10 L 12 48" stroke="#0c2340" strokeWidth="8" strokeLinecap="round" />
-          <path d="M 12 18 C 12 18, 24 10, 36 20 C 46 29, 36 40, 24 40 C 18 40, 12 36, 12 36" stroke="#0c2340" strokeWidth="8" strokeLinecap="round" fill="none" />
-          <path d="M 2 24 Q 18 8 36 18" stroke="#ea580c" strokeWidth="4.5" strokeLinecap="round" fill="none" />
-          <circle cx="34" cy="18" r="4" fill="#ea580c" />
-        </g>
-        <text x="96" y="42" fill="#0c2340" fontFamily="system-ui, -apple-system, sans-serif" fontWeight="900" fontSize="42" letterSpacing="-1">
-          ertise
-        </text>
-      </svg>
+      <img
+        src={expertiseLogo}
+        alt="Expertise"
+        className={className}
+      />
     </div>
   );
 }
