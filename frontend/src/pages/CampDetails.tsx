@@ -43,23 +43,11 @@ import DeleteCampDialog from "@/components/camps/DeleteCampDialog";
 import CampMasterSetupDialog from "@/components/camps/CampMasterSetupDialog";
 import RoomConfigMasterDialog from "@/components/camps/RoomConfigMasterDialog";
 import { useBlocks, useRooms } from "@/hooks/useCampManagement";
-import { getRoomCategoryLabel, NEW_ROOM_CATEGORIES } from "@/constants/roomCategories";
+import { getRoomCategoryLabel, getCategoryStyle, CATEGORY_STYLES, DEFAULT_CAT_STYLE, NEW_ROOM_CATEGORIES } from "@/constants/roomCategories";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
 
-const CATEGORY_STYLES: Record<string, { bg: string; border: string; badge: string; label: string }> = {
-  executive_single: { bg: "bg-violet-500/15", border: "border-violet-400", badge: "bg-violet-500 text-white", label: "EXEC-S" },
-  executive_twin:   { bg: "bg-violet-500/10", border: "border-violet-300", badge: "bg-violet-400 text-white", label: "EXEC-T" },
-  supervisor_twin:  { bg: "bg-blue-500/15",   border: "border-blue-400",   badge: "bg-blue-500 text-white",   label: "SUPV" },
-  staff_4bed:       { bg: "bg-teal-500/15",    border: "border-teal-400",   badge: "bg-teal-500 text-white",   label: "STAFF" },
-  skilled_6bed:     { bg: "bg-amber-500/15",   border: "border-amber-400",  badge: "bg-amber-600 text-white",  label: "SKILL" },
-  general_8bed:     { bg: "bg-orange-500/15",  border: "border-orange-400", badge: "bg-orange-500 text-white", label: "GEN" },
-  guest_single:     { bg: "bg-pink-500/15",    border: "border-pink-400",   badge: "bg-pink-500 text-white",   label: "GUEST" },
-  transit_4bed:     { bg: "bg-cyan-500/15",    border: "border-cyan-400",   badge: "bg-cyan-500 text-white",   label: "TRNST" },
-};
-const DEFAULT_CAT_STYLE = { bg: "bg-muted/50", border: "border-border", badge: "bg-muted-foreground text-background", label: "OTHER" };
-
 function getRoomBoxClasses(room: any, isSelected: boolean) {
-  const catStyle = CATEGORY_STYLES[room.category] || DEFAULT_CAT_STYLE;
+  const catStyle = getCategoryStyle(room?.category);
   if (isSelected) return "ring-2 ring-primary bg-primary/10 border-primary";
   if (room.status === "under_maintenance") return "bg-destructive/10 border-destructive/50";
   if (room.status === "reserved") return "bg-amber-500/10 border-amber-400";
@@ -941,9 +929,18 @@ export default function CampDetails() {
               <div className="flex flex-col gap-2">
                 <div className="flex items-center gap-2 flex-wrap text-[10px]">
                   <span className="text-xs font-semibold text-foreground mr-1">Types:</span>
-                  {Object.entries(CATEGORY_STYLES).map(([key, style]) => (
-                    <span key={key} className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${style.badge}`}>{style.label}</span>
-                  ))}
+                  {(() => {
+                    const present = Array.from(new Set(rooms.map((r: any) => r.category).filter(Boolean)));
+                    const list = present.length > 0 ? present : ["1x1", "2x1", "3x1", "4x1", "5x1", "6x1"];
+                    return list.map((cat: any) => {
+                      const style = getCategoryStyle(cat);
+                      return (
+                        <span key={cat} className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${style.badge}`} title={style.name}>
+                          {style.label}
+                        </span>
+                      );
+                    });
+                  })()}
                 </div>
                 <div className="flex items-center gap-3 text-xs">
                   <span className="text-xs font-semibold text-foreground mr-1">Status:</span>
@@ -959,7 +956,7 @@ export default function CampDetails() {
               ) : (
                 <div className="grid grid-cols-3 md:grid-cols-5 lg:grid-cols-8 gap-3">
                   {filteredRooms.map((room: any) => {
-                    const catStyle = CATEGORY_STYLES[room.category] || DEFAULT_CAT_STYLE;
+                    const catStyle = getCategoryStyle(room.category);
                     return (
                       <div
                         key={room.id}

@@ -203,3 +203,67 @@ export function getSuggestedRooms<T extends { category: string; current_occupanc
   
   return { suggested, other };
 }
+
+export interface RoomCategoryStyle {
+  bg: string;
+  border: string;
+  badge: string;
+  label: string;
+  name: string;
+}
+
+export const CATEGORY_STYLES: Record<string, RoomCategoryStyle> = {
+  // Real camp master workbooks (Nx1)
+  "1x1":            { bg: "bg-violet-500/15", border: "border-violet-400", badge: "bg-violet-600 text-white", label: "1×1 (EXEC)", name: "Executive Single" },
+  "2x1":            { bg: "bg-indigo-500/15", border: "border-indigo-400", badge: "bg-indigo-600 text-white", label: "2×1 (EXEC)", name: "Executive Twin" },
+  "3x1":            { bg: "bg-blue-500/15",   border: "border-blue-400",   badge: "bg-blue-600 text-white",   label: "3×1 (SUPV)", name: "Supervisor Room" },
+  "4x1":            { bg: "bg-teal-500/15",    border: "border-teal-400",   badge: "bg-teal-600 text-white",   label: "4×1 (STAFF)", name: "Staff 4-Bed" },
+  "5x1":            { bg: "bg-emerald-500/15", border: "border-emerald-400", badge: "bg-emerald-600 text-white", label: "5×1 (STAFF)", name: "Staff 5-Bed" },
+  "6x1":            { bg: "bg-amber-500/15",   border: "border-amber-400",  badge: "bg-amber-600 text-white",  label: "6×1 (SKILL)", name: "Skilled 6-Bed" },
+  "8x1":            { bg: "bg-orange-500/15",  border: "border-orange-400", badge: "bg-orange-600 text-white", label: "8×1 (GEN)", name: "General 8-Bed" },
+
+  // Descriptive keys
+  executive_single: { bg: "bg-violet-500/15", border: "border-violet-400", badge: "bg-violet-600 text-white", label: "1×1 (EXEC)", name: "Executive Single" },
+  executive_twin:   { bg: "bg-indigo-500/15", border: "border-indigo-400", badge: "bg-indigo-600 text-white", label: "2×1 (EXEC)", name: "Executive Twin" },
+  supervisor_twin:  { bg: "bg-blue-500/15",   border: "border-blue-400",   badge: "bg-blue-600 text-white",   label: "2×1 (SUPV)", name: "Supervisor Twin" },
+  supervisor:       { bg: "bg-blue-500/15",   border: "border-blue-400",   badge: "bg-blue-600 text-white",   label: "3×1 (SUPV)", name: "Supervisor Room" },
+  staff_4bed:       { bg: "bg-teal-500/15",    border: "border-teal-400",   badge: "bg-teal-600 text-white",   label: "4×1 (STAFF)", name: "Staff 4-Bed" },
+  skilled_6bed:     { bg: "bg-amber-500/15",   border: "border-amber-400",  badge: "bg-amber-600 text-white",  label: "6×1 (SKILL)", name: "Skilled 6-Bed" },
+  general_8bed:     { bg: "bg-orange-500/15",  border: "border-orange-400", badge: "bg-orange-600 text-white", label: "8×1 (GEN)", name: "General 8-Bed" },
+  guest_single:     { bg: "bg-pink-500/15",    border: "border-pink-400",   badge: "bg-pink-600 text-white",   label: "GUEST", name: "Guest Single" },
+  guest:            { bg: "bg-pink-500/15",    border: "border-pink-400",   badge: "bg-pink-600 text-white",   label: "GUEST", name: "Guest Room" },
+  transit_4bed:     { bg: "bg-cyan-500/15",    border: "border-cyan-400",   badge: "bg-cyan-600 text-white",   label: "TRNST", name: "Transit 4-Bed" },
+};
+
+export const DEFAULT_CAT_STYLE: RoomCategoryStyle = {
+  bg: "bg-muted/50",
+  border: "border-border",
+  badge: "bg-muted-foreground text-background",
+  label: "ROOM",
+  name: "Standard Room",
+};
+
+export function getCategoryStyle(category?: string | null): RoomCategoryStyle {
+  if (!category) return DEFAULT_CAT_STYLE;
+  const raw = String(category).toLowerCase().trim();
+  const normalized = raw.replace(/\s+/g, "").replace(/×/g, "x");
+
+  if (CATEGORY_STYLES[normalized]) return CATEGORY_STYLES[normalized];
+  if (CATEGORY_STYLES[raw]) return CATEGORY_STYLES[raw];
+
+  // Match Nx1 pattern (e.g. "2x1", "3x1", "2x1small")
+  const m = normalized.match(/^([1-8])x1/);
+  if (m && CATEGORY_STYLES[`${m[1]}x1`]) {
+    return CATEGORY_STYLES[`${m[1]}x1`];
+  }
+
+  // Fallback: use humanized label rather than "OTHER"
+  const label = String(category).toUpperCase().replace(/_/g, " ").slice(0, 10);
+  return {
+    bg: "bg-muted/50",
+    border: "border-border",
+    badge: "bg-muted-foreground text-background",
+    label: label || "ROOM",
+    name: getRoomCategoryLabel(category),
+  };
+}

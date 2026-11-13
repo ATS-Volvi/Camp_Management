@@ -1,18 +1,7 @@
 import { useMemo, useState } from "react";
 import { DoorOpen, Building2, MapPin } from "lucide-react";
-import { getRoomCategoryLabel } from "@/constants/roomCategories";
+import { getRoomCategoryLabel, getCategoryStyle, CATEGORY_STYLES, DEFAULT_CAT_STYLE } from "@/constants/roomCategories";
 import { Badge } from "@/components/ui/badge";
-
-const CATEGORY_STYLES: Record<string, { bg: string; border: string; badge: string; label: string }> = {
-  "1x1":            { bg: "bg-violet-500/15", border: "border-violet-400", badge: "bg-violet-500 text-white", label: "1×1" },
-  "2x1":            { bg: "bg-violet-500/10", border: "border-violet-300", badge: "bg-violet-400 text-white", label: "2×1" },
-  "3x1":            { bg: "bg-blue-500/15",   border: "border-blue-400",   badge: "bg-blue-500 text-white",   label: "3×1" },
-  "4x1":            { bg: "bg-teal-500/15",    border: "border-teal-400",   badge: "bg-teal-500 text-white",   label: "4×1" },
-  "5x1":            { bg: "bg-amber-500/15",   border: "border-amber-400",  badge: "bg-amber-600 text-white",  label: "5×1" },
-  "6x1":            { bg: "bg-orange-500/15",  border: "border-orange-400", badge: "bg-orange-500 text-white", label: "6×1" },
-  guest:            { bg: "bg-pink-500/15",    border: "border-pink-400",   badge: "bg-pink-500 text-white",   label: "GUEST" },
-};
-const DEFAULT_CAT_STYLE = { bg: "bg-muted/50", border: "border-border", badge: "bg-muted-foreground text-background", label: "OTHER" };
 
 interface Room {
   id: string;
@@ -46,7 +35,7 @@ interface Props {
 }
 
 function getRoomColor(room: Room, isSelected: boolean) {
-  const catStyle = CATEGORY_STYLES[room.category] || DEFAULT_CAT_STYLE;
+  const catStyle = getCategoryStyle(room.category);
   if (isSelected) return `ring-2 ring-primary bg-primary text-primary-foreground`;
   if (room.status === "under_maintenance") return "bg-destructive/80 text-destructive-foreground";
   if (room.status === "reserved") return "bg-amber-500/80 text-white";
@@ -116,9 +105,18 @@ export default function RoomVisualMap({ rooms, selectedRoom, onSelectRoom, onVie
       <div className="flex flex-col gap-2">
         <div className="flex items-center gap-2 flex-wrap text-[10px]">
           <span className="text-xs font-semibold text-foreground mr-1">Types:</span>
-          {Object.entries(CATEGORY_STYLES).map(([key, style]) => (
-            <span key={key} className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${style.badge}`}>{style.label}</span>
-          ))}
+          {(() => {
+            const present = Array.from(new Set(rooms.map(r => r.category).filter(Boolean)));
+            const list = present.length > 0 ? present : ["1x1", "2x1", "3x1", "4x1", "5x1", "6x1"];
+            return list.map(cat => {
+              const style = getCategoryStyle(cat);
+              return (
+                <span key={cat} className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${style.badge}`} title={style.name}>
+                  {style.label}
+                </span>
+              );
+            });
+          })()}
         </div>
         <div className="flex items-center justify-between flex-wrap gap-2">
           <div className="flex items-center gap-3 text-xs">
@@ -199,9 +197,14 @@ export default function RoomVisualMap({ rooms, selectedRoom, onSelectRoom, onVie
                       title={`${room.room_number} · ${getRoomCategoryLabel(room.category)} · ${room.current_occupancy}/${room.max_capacity}${room.current_occupancy > 0 ? " · Click to view occupants" : ""}`}
                       className={`relative rounded-lg p-2 pt-7 pb-1.5 text-center transition-all ${getRoomColor(room, selected)} ${clickable ? "cursor-pointer hover:scale-105" : "cursor-default opacity-80"}`}
                     >
-                      <span className={`absolute top-0.5 left-1/2 -translate-x-1/2 text-[7px] font-bold uppercase px-1 rounded ${(CATEGORY_STYLES[room.category] || DEFAULT_CAT_STYLE).badge}`}>
-                        {(CATEGORY_STYLES[room.category] || DEFAULT_CAT_STYLE).label}
-                      </span>
+                      {(() => {
+                        const catStyle = getCategoryStyle(room.category);
+                        return (
+                          <span className={`absolute top-0.5 left-1/2 -translate-x-1/2 text-[7px] font-bold uppercase px-1 rounded ${catStyle.badge}`}>
+                            {catStyle.label}
+                          </span>
+                        );
+                      })()}
                       <span className="text-xs font-bold block">{room.room_number}</span>
                       <span className="text-[9px] opacity-70">{room.current_occupancy}/{room.max_capacity}</span>
                       {room.current_occupancy > 0 && mode === "check-in" && (

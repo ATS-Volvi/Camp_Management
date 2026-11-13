@@ -174,6 +174,8 @@ class DataService {
                     if (relatedTable === 'buildings') foreignKey = 'building_id';
                     if (relatedTable === 'meal_orders') foreignKey = 'meal_order_id';
                     if (relatedTable === 'employees') foreignKey = 'employee_id';
+                    if (relatedTable === 'camp_lockers') foreignKey = 'locker_id';
+                    if (relatedTable === 'lockers') foreignKey = 'locker_id';
 
                     const validCols = columns
                         .split(',')

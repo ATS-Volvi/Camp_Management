@@ -42,8 +42,8 @@ export default function CampInmatesTab({ campId, campName }: Props) {
 
   const { data: activeAssignments = [] } = useActiveLockerAssignments(campId);
   const assignmentsByEmployeeId = new Map<string, InmateLockerAssignment>();
-  activeAssignments.forEach((a) => {
-    assignmentsByEmployeeId.set(a.employee_id, a);
+  (Array.isArray(activeAssignments) ? activeAssignments : []).forEach((a) => {
+    if (a?.employee_id) assignmentsByEmployeeId.set(a.employee_id, a);
   });
 
   const { data: inmates = [], isLoading, isError, refetch } = useInmatesReport(campId);

@@ -122,3 +122,4 @@ END $function$;
 
 -- Update permissions
 GRANT EXECUTE ON FUNCTION public.perform_check_in(uuid, uuid, uuid, uuid, text, text, boolean, timestamptz) TO PUBLIC;
+

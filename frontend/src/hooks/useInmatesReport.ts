@@ -74,13 +74,25 @@ export function useInmatesReport(campId?: string) {
         const key = `${blockId}|${floor}`;
         const foodRequired = foodByCheckIn.get(`${stay.employee_id}|${stay.room_id}|${stay.check_in_date}`) === true;
         const tariff = resolveInmateTariff(stay.camp_id, room?.category ?? "", emp, foodRequired, Number(room?.daily_food_rate) || 0,
-          { categories, roomRates, roomMealRates, campMealRates, suppliers });
-        return [{ ...emp, camp_id: stay.camp_id, camp_name: campMap.get(stay.camp_id)?.name ?? "—",
-          block_id: blockId, block_name: blockMap.get(blockId)?.name ?? "—",
-          floor_key: key, floor_name: floorLabel(floor, { [floor]: floorMap.get(key) ?? "" }),
-          room_id: stay.room_id, room_number: room?.room_number ?? "—", room_category: room?.category ?? "—",
-          daily_rate: tariff.room, daily_food_rate: tariff.food, food_required: foodRequired, check_in_date: stay.check_in_date }];
-      }).sort((a, b) => a.name.localeCompare(b.name));
+          { categories: categories || [], roomRates: roomRates || [], roomMealRates, campMealRates: campMealRates || [], suppliers: suppliers || [] });
+        return [{
+          ...emp,
+          name: emp.name || emp.employee_id || "Unknown",
+          camp_id: stay.camp_id,
+          camp_name: campMap.get(stay.camp_id)?.name ?? "—",
+          block_id: blockId,
+          block_name: blockMap.get(blockId)?.name ?? "—",
+          floor_key: key,
+          floor_name: floorLabel(floor, { [floor]: floorMap.get(key) ?? "" }),
+          room_id: stay.room_id,
+          room_number: room?.room_number ?? "—",
+          room_category: room?.category ?? "—",
+          daily_rate: tariff.room,
+          daily_food_rate: tariff.food,
+          food_required: foodRequired,
+          check_in_date: stay.check_in_date
+        }];
+      }).sort((a, b) => String(a.name || "").localeCompare(String(b.name || "")));
     },
   });
 }

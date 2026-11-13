@@ -72,16 +72,24 @@ export function useActiveLockerAssignments(campId?: string) {
   return useQuery({
     queryKey: ["inmate_locker_assignments", "active", campId],
     queryFn: async () => {
-      let q = supabase
-        .from("inmate_locker_assignments")
-        .select("*, camp_lockers(*), employees(id, name, employee_id)")
-        .eq("status", "active");
+      try {
+        let q = supabase
+          .from("inmate_locker_assignments")
+          .select("*, camp_lockers(*), employees(id, name, employee_id)")
+          .eq("status", "active");
 
-      if (campId) q = q.eq("camp_id", campId);
+        if (campId) q = q.eq("camp_id", campId);
 
-      const { data, error } = await q;
-      if (error) throw error;
-      return (data || []) as InmateLockerAssignment[];
+        const { data, error } = await q;
+        if (error) {
+          console.warn("Could not load active locker assignments:", error);
+          return [] as InmateLockerAssignment[];
+        }
+        return (Array.isArray(data) ? data : []) as InmateLockerAssignment[];
+      } catch (err) {
+        console.warn("Error fetching active locker assignments:", err);
+        return [] as InmateLockerAssignment[];
+      }
     },
     enabled: true,
   });
