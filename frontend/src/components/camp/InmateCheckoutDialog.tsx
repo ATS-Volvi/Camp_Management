@@ -316,18 +316,46 @@ export default function InmateCheckoutDialog({ open, onOpenChange, inmate, campI
 
           {/* Clearance Checklist */}
           <div>
-            <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Clearance Checklist</Label>
+            <div className="flex items-center justify-between">
+              <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                Clearance Checklist
+              </Label>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-6 px-2 text-[11px] text-primary hover:text-primary/80"
+                onClick={() => {
+                  const target = !allChecked;
+                  setClearanceItems(prev => prev.map(i => ({ ...i, checked: target })));
+                }}
+              >
+                {allChecked ? "Uncheck All" : "Check All"}
+              </Button>
+            </div>
             <div className="mt-2 space-y-1.5">
               {clearanceItems.map(item => (
-                <label
+                <div
                   key={item.id}
-                  className={`flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-colors border ${item.checked ? "bg-primary/5 border-primary/20" : "hover:bg-muted/50 border-transparent"}`}
+                  role="button"
+                  tabIndex={0}
+                  className={`flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-colors border select-none ${item.checked ? "bg-primary/5 border-primary/20" : "hover:bg-muted/50 border-transparent"}`}
                   onClick={() => toggleClearance(item.id)}
+                  onKeyDown={e => {
+                    if (e.key === " " || e.key === "Enter") {
+                      e.preventDefault();
+                      toggleClearance(item.id);
+                    }
+                  }}
                 >
-                  <Checkbox checked={item.checked} className="pointer-events-none" />
+                  <Checkbox
+                    checked={item.checked}
+                    onCheckedChange={() => toggleClearance(item.id)}
+                    onClick={e => e.stopPropagation()}
+                  />
                   <span className="text-muted-foreground">{item.icon}</span>
-                  <span className="text-sm">{item.label}</span>
-                </label>
+                  <span className="text-sm select-none">{item.label}</span>
+                </div>
               ))}
             </div>
           </div>

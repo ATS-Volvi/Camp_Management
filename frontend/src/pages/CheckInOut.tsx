@@ -1278,9 +1278,23 @@ export default function CheckInOut() {
             {/* Clearance Checklist (Check-Out only) */}
             {mode === "check-out" && (
               <div className="mt-4 border-t pt-4 space-y-3">
-                <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-                  <CheckCircle2 size={14} className="text-primary" /> Clearance Checklist
-                </h3>
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                    <CheckCircle2 size={14} className="text-primary" /> Clearance Checklist
+                  </h3>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 px-2 text-[11px] text-primary hover:text-primary/80"
+                    onClick={() => {
+                      const target = !allClearanceChecked;
+                      setClearanceItems(prev => prev.map(i => ({ ...i, checked: target })));
+                    }}
+                  >
+                    {allClearanceChecked ? "Uncheck All" : "Check All"}
+                  </Button>
+                </div>
                 <div className="space-y-1.5">
                   {clearanceItems.map(item => (
                     <label
