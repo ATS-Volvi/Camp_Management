@@ -26,6 +26,10 @@ export interface DepartmentCostRow {
   stayTo?: string;
   leaveDays?: number;
   leaves?: { from: string; to: string }[];
+  normalRoomCost?: number;
+  holdingCost?: number;
+  lockerCost?: number;
+  absences?: { temporary_out_date: string; expected_return_date: string | null; actual_return_date: string | null; reason: string; ended_by_checkout: boolean }[];
 }
 
 /** Full food value before cancellations; falls back to days x daily rate. */
@@ -88,10 +92,10 @@ export function buildDepartmentStatementPdf(group: DepartmentStatement, month: s
     head: [["Employee / ID", "Supplier / Project", "Camp / Room", "Days", "Room cost", "Breakfast", "Lunch", "Dinner", "Ramadan", "Net food", "Total (SAR)"]],
     body: group.list.map(row => [
       `${row.name}\n${row.emp_code}${row.stayFrom ? `\nFrom: ${row.stayFrom} To: ${row.stayTo}` : ""}`, `${row.supplier}\n${row.project}`, `${row.camp}\n${row.room}`,
-      row.stayDays, statementAmount(row.roomRevenue),
+      row.stayDays, `${statementAmount(row.roomRevenue)}${row.holdingCost ? `\nNormal: ${statementAmount(row.normalRoomCost || 0)}\nHolding: ${statementAmount(row.holdingCost)}` : ""}`,
       statementAmount(meal(row, "breakfastCost")), statementAmount(meal(row, "lunchCost")),
       statementAmount(meal(row, "dinnerCost")), statementAmount(meal(row, "ramadanCost")),
-      statementAmount(row.foodRevenue), statementAmount(row.total),
+      statementAmount(row.foodRevenue), `${statementAmount(row.total)}${row.lockerCost ? `\nLocker: ${statementAmount(row.lockerCost)}` : ""}`,
     ]),
     foot: [["TOTAL TO CHARGE", "", "", group.days, statementAmount(group.room), statementAmount(group.breakfast), statementAmount(group.lunch), statementAmount(group.dinner), statementAmount(group.ramadan), statementAmount(group.food), statementAmount(group.total)]],
     showFoot: "lastPage",
@@ -106,6 +110,10 @@ export function buildDepartmentStatementPdf(group: DepartmentStatement, month: s
     },
   });
   const leaveLines = group.list.flatMap(r => (r.leaves || []).map(l => `${r.name} (${r.emp_code}) from: ${l.from} to: ${l.to}`));
+  const absenceRows = group.list.flatMap(r => (r.absences || []).map(a => [r.emp_code, r.name, r.camp, r.room, a.temporary_out_date, a.expected_return_date || "-", a.ended_by_checkout ? "Permanent checkout" : a.actual_return_date || "Room retained", a.reason, statementAmount(r.normalRoomCost || 0), statementAmount(r.holdingCost || 0)]));
+  if (absenceRows.length) autoTable(doc, { startY: ((doc as any).lastAutoTable?.finalY ?? 100) + 8,
+    head: [["Employee ID", "Name", "Camp", "Room", "Temporary Out", "Expected Return", "Actual Return / Status", "Reason", "Normal Room", "Holding"]], body: absenceRows,
+    styles: { fontSize: 7 }, headStyles: { fillColor: [56, 152, 236], textColor: 255 } });
   if (leaveLines.length) {
     let y = ((doc as any).lastAutoTable?.finalY ?? 100) + 8;
     doc.setFontSize(9);

@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { buildEmployeeStays, type Arrival, type Departure, type StayCancellation } from "@/lib/employeeStays";
 import { billingToday } from "@/lib/stayBilling";
+import { loadAccommodationAbsences } from "./useAccommodationAbsences";
 
 const relations = "employees(name, employee_id, employee_type, department, designation, supplier_name, company, project), camps(name), rooms(room_number, category)";
 export function useEmployeeStays() {
@@ -23,7 +24,8 @@ export function useEmployeeStays() {
         page<Departure>((f, t) => supabase.from("check_outs").select(`id, employee_id, camp_id, room_id, check_out_date, assets_returned, damage_remarks, clearance_notes, ${relations}`).order("check_out_date").order("id").range(f, t)),
         page<StayCancellation>((f, t) => supabase.from("food_cancellation_requests").select("id, employee_id, camp_id, from_date, to_date, status, reason, source, remarks, food_cancellation_request_meals(meal_type)").order("submitted_at").order("id").range(f, t)),
       ]);
-      return buildEmployeeStays(arrivals, departures, requests, today);
+      const absences = await loadAccommodationAbsences();
+      return buildEmployeeStays(arrivals, departures, requests, today).map(stay => ({ ...stay, absences: absences.filter(a => a.check_in_id === stay.id) }));
     },
   });
 }

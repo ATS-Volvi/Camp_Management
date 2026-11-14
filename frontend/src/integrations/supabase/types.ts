@@ -14,6 +14,110 @@ export type Database = {
   }
   public: {
     Tables: {
+      accommodation_absence_reasons: {
+        Row: {
+          absence_status: Database["public"]["Enums"]["presence_status"]
+          id: string
+          is_active: boolean
+          name: string
+        }
+        Insert: {
+          absence_status?: Database["public"]["Enums"]["presence_status"]
+          id?: string
+          is_active?: boolean
+          name: string
+        }
+        Update: {
+          absence_status?: Database["public"]["Enums"]["presence_status"]
+          id?: string
+          is_active?: boolean
+          name?: string
+        }
+        Relationships: []
+      }
+      accommodation_absences: {
+        Row: {
+          absence_status: Database["public"]["Enums"]["presence_status"]
+          actual_return_date: string | null
+          camp_id: string
+          check_in_id: string
+          created_at: string
+          created_by: string
+          employee_id: string
+          ended_by_checkout: boolean
+          expected_return_date: string | null
+          id: string
+          reason: string
+          returned_at: string | null
+          returned_by: string | null
+          room_id: string
+          temporary_out_date: string
+        }
+        Insert: {
+          absence_status?: Database["public"]["Enums"]["presence_status"]
+          actual_return_date?: string | null
+          camp_id: string
+          check_in_id: string
+          created_at?: string
+          created_by: string
+          employee_id: string
+          ended_by_checkout?: boolean
+          expected_return_date?: string | null
+          id?: string
+          reason: string
+          returned_at?: string | null
+          returned_by?: string | null
+          room_id: string
+          temporary_out_date: string
+        }
+        Update: {
+          absence_status?: Database["public"]["Enums"]["presence_status"]
+          actual_return_date?: string | null
+          camp_id?: string
+          check_in_id?: string
+          created_at?: string
+          created_by?: string
+          employee_id?: string
+          ended_by_checkout?: boolean
+          expected_return_date?: string | null
+          id?: string
+          reason?: string
+          returned_at?: string | null
+          returned_by?: string | null
+          room_id?: string
+          temporary_out_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "accommodation_absences_camp_id_fkey"
+            columns: ["camp_id"]
+            isOneToOne: false
+            referencedRelation: "camps"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "accommodation_absences_check_in_id_fkey"
+            columns: ["check_in_id"]
+            isOneToOne: false
+            referencedRelation: "check_ins"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "accommodation_absences_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "accommodation_absences_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       asset_maintenance_logs: {
         Row: {
           action_type: string
@@ -327,6 +431,41 @@ export type Database = {
         }
         Relationships: []
       }
+      block_floors: {
+        Row: {
+          building_id: string
+          created_at: string
+          floor_number: number
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          building_id: string
+          created_at?: string
+          floor_number: number
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          building_id?: string
+          created_at?: string
+          floor_number?: number
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "block_floors_building_id_fkey"
+            columns: ["building_id"]
+            isOneToOne: false
+            referencedRelation: "buildings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       buildings: {
         Row: {
           block_code: string | null
@@ -452,6 +591,50 @@ export type Database = {
             foreignKeyName: "camp_meal_rates_camp_id_fkey"
             columns: ["camp_id"]
             isOneToOne: true
+            referencedRelation: "camps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      camp_room_meal_rates: {
+        Row: {
+          breakfast_rate: number
+          camp_id: string
+          created_at: string
+          dinner_rate: number
+          id: string
+          lunch_rate: number
+          ramadan_rate: number
+          room_category: Database["public"]["Enums"]["room_category"]
+          updated_at: string
+        }
+        Insert: {
+          breakfast_rate?: number
+          camp_id: string
+          created_at?: string
+          dinner_rate?: number
+          id?: string
+          lunch_rate?: number
+          ramadan_rate?: number
+          room_category: Database["public"]["Enums"]["room_category"]
+          updated_at?: string
+        }
+        Update: {
+          breakfast_rate?: number
+          camp_id?: string
+          created_at?: string
+          dinner_rate?: number
+          id?: string
+          lunch_rate?: number
+          ramadan_rate?: number
+          room_category?: Database["public"]["Enums"]["room_category"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "camp_room_meal_rates_camp_id_fkey"
+            columns: ["camp_id"]
+            isOneToOne: false
             referencedRelation: "camps"
             referencedColumns: ["id"]
           },
@@ -1656,9 +1839,11 @@ export type Database = {
           company: string | null
           contract_end_date: string | null
           created_at: string
+          current_location: string | null
           department: string | null
           designation: string | null
           email: string | null
+          employee_group: string | null
           employee_id: string
           employee_type: string
           id: string
@@ -1672,7 +1857,9 @@ export type Database = {
           phone: string | null
           presence_status: Database["public"]["Enums"]["presence_status"]
           project: string | null
+          remarks: string | null
           room_id: string | null
+          sap_department: string | null
           staff_role: string | null
           status: string
           supplier_name: string | null
@@ -1685,9 +1872,11 @@ export type Database = {
           company?: string | null
           contract_end_date?: string | null
           created_at?: string
+          current_location?: string | null
           department?: string | null
           designation?: string | null
           email?: string | null
+          employee_group?: string | null
           employee_id: string
           employee_type?: string
           id?: string
@@ -1701,7 +1890,9 @@ export type Database = {
           phone?: string | null
           presence_status?: Database["public"]["Enums"]["presence_status"]
           project?: string | null
+          remarks?: string | null
           room_id?: string | null
+          sap_department?: string | null
           staff_role?: string | null
           status?: string
           supplier_name?: string | null
@@ -1714,9 +1905,11 @@ export type Database = {
           company?: string | null
           contract_end_date?: string | null
           created_at?: string
+          current_location?: string | null
           department?: string | null
           designation?: string | null
           email?: string | null
+          employee_group?: string | null
           employee_id?: string
           employee_type?: string
           id?: string
@@ -1730,7 +1923,9 @@ export type Database = {
           phone?: string | null
           presence_status?: Database["public"]["Enums"]["presence_status"]
           project?: string | null
+          remarks?: string | null
           room_id?: string | null
+          sap_department?: string | null
           staff_role?: string | null
           status?: string
           supplier_name?: string | null
@@ -2303,6 +2498,287 @@ export type Database = {
             columns: ["employee_id"]
             isOneToOne: false
             referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      locker_allocations: {
+        Row: {
+          allocated_on: string
+          charge_mode: string
+          charge_rate: number
+          created_at: string
+          created_by: string
+          department: string
+          deposit: number
+          employee_code: string
+          employee_id: string | null
+          employee_name: string
+          id: string
+          key_returned: boolean | null
+          locker_id: string
+          override_authorized: boolean
+          previous_allocation_id: string | null
+          project: string
+          release_condition: string | null
+          released_on: string | null
+          remarks: string
+        }
+        Insert: {
+          allocated_on: string
+          charge_mode?: string
+          charge_rate?: number
+          created_at?: string
+          created_by: string
+          department?: string
+          deposit?: number
+          employee_code: string
+          employee_id?: string | null
+          employee_name: string
+          id?: string
+          key_returned?: boolean | null
+          locker_id: string
+          override_authorized?: boolean
+          previous_allocation_id?: string | null
+          project?: string
+          release_condition?: string | null
+          released_on?: string | null
+          remarks?: string
+        }
+        Update: {
+          allocated_on?: string
+          charge_mode?: string
+          charge_rate?: number
+          created_at?: string
+          created_by?: string
+          department?: string
+          deposit?: number
+          employee_code?: string
+          employee_id?: string | null
+          employee_name?: string
+          id?: string
+          key_returned?: boolean | null
+          locker_id?: string
+          override_authorized?: boolean
+          previous_allocation_id?: string | null
+          project?: string
+          release_condition?: string | null
+          released_on?: string | null
+          remarks?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "locker_allocations_locker_id_fkey"
+            columns: ["locker_id"]
+            isOneToOne: false
+            referencedRelation: "lockers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "locker_allocations_previous_allocation_id_fkey"
+            columns: ["previous_allocation_id"]
+            isOneToOne: false
+            referencedRelation: "locker_allocations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      locker_charge_transactions: {
+        Row: {
+          actor: string
+          allocation_id: string
+          amount: number
+          created_at: string
+          effective_date: string
+          id: string
+          kind: string
+          remarks: string
+        }
+        Insert: {
+          actor: string
+          allocation_id: string
+          amount: number
+          created_at?: string
+          effective_date: string
+          id?: string
+          kind: string
+          remarks?: string
+        }
+        Update: {
+          actor?: string
+          allocation_id?: string
+          amount?: number
+          created_at?: string
+          effective_date?: string
+          id?: string
+          kind?: string
+          remarks?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "locker_charge_transactions_allocation_id_fkey"
+            columns: ["allocation_id"]
+            isOneToOne: false
+            referencedRelation: "locker_allocations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      locker_configuration: {
+        Row: {
+          camp_id: string
+          charge_mode: string
+          checkout_policy: string
+          deposit: number
+          id: string
+          rate: number
+        }
+        Insert: {
+          camp_id: string
+          charge_mode?: string
+          checkout_policy?: string
+          deposit?: number
+          id?: string
+          rate?: number
+        }
+        Update: {
+          camp_id?: string
+          charge_mode?: string
+          checkout_policy?: string
+          deposit?: number
+          id?: string
+          rate?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "locker_configuration_camp_id_fkey"
+            columns: ["camp_id"]
+            isOneToOne: true
+            referencedRelation: "camps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      locker_events: {
+        Row: {
+          actor: string | null
+          allocation_id: string | null
+          created_at: string
+          effective_date: string
+          id: string
+          kind: string
+          locker_id: string
+          new_value: Json | null
+          previous_value: Json | null
+          remarks: string
+        }
+        Insert: {
+          actor?: string | null
+          allocation_id?: string | null
+          created_at?: string
+          effective_date?: string
+          id?: string
+          kind: string
+          locker_id: string
+          new_value?: Json | null
+          previous_value?: Json | null
+          remarks?: string
+        }
+        Update: {
+          actor?: string | null
+          allocation_id?: string | null
+          created_at?: string
+          effective_date?: string
+          id?: string
+          kind?: string
+          locker_id?: string
+          new_value?: Json | null
+          previous_value?: Json | null
+          remarks?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "locker_events_allocation_id_fkey"
+            columns: ["allocation_id"]
+            isOneToOne: false
+            referencedRelation: "locker_allocations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "locker_events_locker_id_fkey"
+            columns: ["locker_id"]
+            isOneToOne: false
+            referencedRelation: "lockers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lockers: {
+        Row: {
+          block_id: string
+          camp_id: string
+          capacity: number
+          condition: string
+          created_at: string
+          description: string
+          floor: number
+          id: string
+          number: string
+          remarks: string
+          room_id: string | null
+          status: string
+          type: string
+        }
+        Insert: {
+          block_id: string
+          camp_id: string
+          capacity?: number
+          condition?: string
+          created_at?: string
+          description?: string
+          floor?: number
+          id?: string
+          number: string
+          remarks?: string
+          room_id?: string | null
+          status?: string
+          type?: string
+        }
+        Update: {
+          block_id?: string
+          camp_id?: string
+          capacity?: number
+          condition?: string
+          created_at?: string
+          description?: string
+          floor?: number
+          id?: string
+          number?: string
+          remarks?: string
+          room_id?: string | null
+          status?: string
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lockers_block_id_fkey"
+            columns: ["block_id"]
+            isOneToOne: false
+            referencedRelation: "buildings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lockers_camp_id_fkey"
+            columns: ["camp_id"]
+            isOneToOne: false
+            referencedRelation: "camps"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lockers_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "rooms"
             referencedColumns: ["id"]
           },
         ]
@@ -3727,12 +4203,6 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      delete_employees: {
-        Args: {
-          p_ids: string[]
-        }
-        Returns: number
-      }
       approve_food_cancellation: {
         Args: { p_approver: string; p_request_id: string }
         Returns: undefined
@@ -3746,6 +4216,8 @@ export type Database = {
         }
         Returns: string
       }
+      delete_camp: { Args: { p_camp_id: string }; Returns: undefined }
+      delete_employees: { Args: { p_ids: string[] }; Returns: number }
       food_cancellation_dates_within_stay: {
         Args: {
           p_arrival: string
@@ -3796,6 +4268,67 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_staff: { Args: { _user_id: string }; Returns: boolean }
+      locker_allocate: {
+        Args: {
+          p_date: string
+          p_employee: string
+          p_locker: string
+          p_override?: boolean
+          p_previous?: string
+          p_remarks?: string
+        }
+        Returns: string
+      }
+      locker_maintenance: {
+        Args: {
+          p_condition: string
+          p_date: string
+          p_locker: string
+          p_remarks: string
+          p_status: string
+        }
+        Returns: undefined
+      }
+      locker_refund: {
+        Args: {
+          p_allocation: string
+          p_amount: number
+          p_date: string
+          p_remarks?: string
+        }
+        Returns: undefined
+      }
+      locker_release: {
+        Args: {
+          p_allocation: string
+          p_condition: string
+          p_date: string
+          p_key: boolean
+          p_remarks?: string
+        }
+        Returns: undefined
+      }
+      locker_transfer: {
+        Args: {
+          p_allocation: string
+          p_date: string
+          p_remarks?: string
+          p_target: string
+        }
+        Returns: string
+      }
+      locker_transfer_confirmed: {
+        Args: {
+          p_allocation: string
+          p_condition: string
+          p_date: string
+          p_key: boolean
+          p_remarks?: string
+          p_target: string
+        }
+        Returns: string
+      }
       perform_check_in: {
         Args: {
           p_camp_id: string
@@ -3809,40 +4342,23 @@ export type Database = {
         }
         Returns: string
       }
-      perform_check_out:
-        | {
-            Args: {
-              p_assets_returned?: boolean
-              p_blacklist_reason?: string
-              p_camp_id: string
-              p_clearance_notes?: string
-              p_damage_remarks?: string
-              p_employee_id: string
-              p_feedback?: string
-              p_feedback_rating?: number
-              p_is_blacklisted?: boolean
-              p_performed_by: string
-              p_room_id: string
-            }
-            Returns: string
-          }
-        | {
-            Args: {
-              p_assets_returned?: boolean
-              p_blacklist_reason?: string
-              p_camp_id: string
-              p_check_out_date?: string
-              p_clearance_notes?: string
-              p_damage_remarks?: string
-              p_employee_id: string
-              p_feedback?: string
-              p_feedback_rating?: number
-              p_is_blacklisted?: boolean
-              p_performed_by: string
-              p_room_id: string
-            }
-            Returns: string
-          }
+      perform_check_out: {
+        Args: {
+          p_assets_returned?: boolean
+          p_blacklist_reason?: string
+          p_camp_id: string
+          p_check_out_date?: string
+          p_clearance_notes?: string
+          p_damage_remarks?: string
+          p_employee_id: string
+          p_feedback?: string
+          p_feedback_rating?: number
+          p_is_blacklisted?: boolean
+          p_performed_by: string
+          p_room_id: string
+        }
+        Returns: string
+      }
       perform_room_transfer: {
         Args: {
           p_employee_id: string
@@ -3860,6 +4376,10 @@ export type Database = {
         Args: { p_approver: string; p_reason: string; p_request_id: string }
         Returns: undefined
       }
+      return_from_temporary_absence: {
+        Args: { p_absence_id: string; p_date: string; p_room_id?: string }
+        Returns: string
+      }
       seed_meal_orders_window: {
         Args: { p_end?: string; p_start?: string }
         Returns: undefined
@@ -3875,6 +4395,15 @@ export type Database = {
           p_source?: Database["public"]["Enums"]["food_cancel_source"]
           p_submitted_by?: string
           p_to_date: string
+        }
+        Returns: string
+      }
+      temporary_check_out: {
+        Args: {
+          p_date: string
+          p_employee_id: string
+          p_expected_return?: string
+          p_reason: string
         }
         Returns: string
       }
@@ -3950,6 +4479,7 @@ export type Database = {
         | "4x1"
         | "5x1"
         | "6x1"
+        | "guest"
       room_status:
         | "vacant"
         | "occupied"
@@ -4160,6 +4690,7 @@ export const Constants = {
         "4x1",
         "5x1",
         "6x1",
+        "guest",
       ],
       room_status: [
         "vacant",

@@ -18,6 +18,7 @@ import AssetManagement from "./pages/AssetManagement";
 import AssetDetails from "./pages/AssetDetails";
 import CheckInOut from "./pages/CheckInOut";
 import BulkCheckInOut from "./pages/BulkCheckInOut";
+import LockerManagement from "./pages/LockerManagement";
 import InmatesReport from "./pages/InmatesReport";
 import EmployeeStays from "./pages/EmployeeStays";
 import InventoryManagement from "./pages/InventoryManagement";
@@ -103,7 +104,11 @@ const App = () => (
               <Route path="/assets" element={<AssetManagement />} />
               <Route path="/assets/:id" element={<AssetDetails />} />
               <Route path="/check-in-out" element={<CheckInOut />} />
-              <Route path="/check-in-out/bulk" element={<BulkCheckInOut />} />
+              <Route path="/check-in/bulk" element={<BulkCheckInOut key="checkin" mode="checkin" />} />
+              <Route path="/check-out/bulk" element={<BulkCheckInOut key="checkout" mode="checkout" />} />
+              <Route path="/check-in-out/bulk" element={<Navigate to="/check-in/bulk" replace />} />
+              <Route path="/temporary-absence/bulk" element={<Navigate to="/check-out/bulk" replace />} />
+              <Route path="/lockers" element={<LockerManagement />} />
               <Route path="/inmates-report" element={<InmatesReport />} />
               <Route path="/employee-stays" element={<EmployeeStays />} />
               <Route path="/inventory" element={<InventoryManagement />} />

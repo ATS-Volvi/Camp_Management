@@ -16,10 +16,13 @@ import { CalendarIcon, ClipboardList, Users, UserCheck, UserMinus, Building2, Se
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/hooks/use-toast";
+import { useAccommodationAbsences } from "@/hooks/useAccommodationAbsences";
+import { absenceOnDay } from "@/lib/accommodationAbsence";
 
 type ViewMode = "daily" | "weekly" | "monthly";
 
 export default function Attendance() {
+  const { data: absences = [] } = useAccommodationAbsences();
   const [date, setDate] = useState<Date>(new Date());
   const [campId, setCampId] = useState<string>("all");
   const [viewMode, setViewMode] = useState<ViewMode>("daily");
@@ -240,7 +243,7 @@ export default function Attendance() {
 
   // Stats — follow the active filters
   const filteredIds = useMemo(() => new Set(filteredOccupants.map((e: any) => e.id)), [filteredOccupants]);
-  const totalPresent = filteredOccupants.length;
+  const totalPresent = filteredOccupants.filter(e => !absences.some(a => a.employee_id === e.id && absenceOnDay(a, format(date, "yyyy-MM-dd")))).length;
   const todayKey = format(date, "yyyy-MM-dd");
   const todayCheckIns = [...(checkInsByDay.get(todayKey) || [])].filter((id) => filteredIds.has(id)).length;
   const todayCheckOuts = [...(checkOutsByDay.get(todayKey) || [])].filter((id) => filteredIds.has(id)).length;
@@ -248,6 +251,8 @@ export default function Attendance() {
   const getStatusForDay = (empId: string, day: Date) => {
     if (!attendanceDateAllowed(day)) return "future";
     const dayKey = format(day, "yyyy-MM-dd");
+    const absence = absences.find(a => a.employee_id === empId && absenceOnDay(a, dayKey));
+    if (absence) return absence.absence_status;
     const emp = currentOccupants.find((e: any) => e.id === empId);
     if (!emp) return "absent";
     // Ignore historic in/out cycles from before (or on the first day of) the employee's current stay
@@ -264,6 +269,9 @@ export default function Attendance() {
 
   const statusCell = (status: string) => {
     switch (status) {
+      case "vacation": return <Badge variant="secondary" className="text-[9px]">VAC</Badge>;
+      case "on_site": return <Badge variant="secondary" className="text-[9px]">SITE</Badge>;
+      case "away": return <Badge variant="secondary" className="text-[9px]">AWAY</Badge>;
       case "in":
         return <div className="w-7 h-7 rounded-full bg-emerald-500 flex items-center justify-center text-white text-[10px] font-bold mx-auto">IN</div>;
       case "out":
@@ -277,6 +285,9 @@ export default function Attendance() {
 
   const statusText = (status: string) => {
     switch (status) {
+      case "vacation": return "In Vacation";
+      case "on_site": return "On Site";
+      case "away": return "Temporarily Checked Out";
       case "in": return "Checked In";
       case "out": return "Checked Out";
       case "present": return "Present";

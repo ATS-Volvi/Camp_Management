@@ -18,6 +18,7 @@ import RevenueReportTab from "@/components/reports/RevenueReportTab";
 import DepartmentMonthlyReportTab from "@/components/reports/DepartmentMonthlyReportTab";
 import SupplierCostingReportTab from "@/components/reports/SupplierCostingReportTab";
 import MonthlySummaryReportTab from "@/components/reports/MonthlySummaryReportTab";
+import TotalInmatesReportTab from "@/components/reports/TotalInmatesReportTab";
 import EmployeeStaysView from "@/components/reports/EmployeeStaysView";
 import ExpertiseOccupancyStatementTab from "@/components/reports/ExpertiseOccupancyStatementTab";
 import { exportAllReportsToExcel } from "@/lib/exportAllReportsToExcel";
@@ -252,6 +253,9 @@ export default function Reports() {
             <TabsTrigger value="monthly-summary" className="gap-2">
               <Calendar size={16} /> Monthly Summary
             </TabsTrigger>
+            <TabsTrigger value="total-inmates" className="gap-2">
+              <Users size={16} /> Total Inmates
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="occupancy-charges">
@@ -269,6 +273,7 @@ export default function Reports() {
           <TabsContent value="revenue"><RevenueReportTab /></TabsContent>
           <TabsContent value="supplier-costing"><SupplierCostingReportTab /></TabsContent>
           <TabsContent value="monthly-summary"><MonthlySummaryReportTab /></TabsContent>
+          <TabsContent value="total-inmates"><TotalInmatesReportTab /></TabsContent>
         </Tabs>
       )}
     </div>

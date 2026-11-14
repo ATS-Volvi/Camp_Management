@@ -5,16 +5,18 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Download, Upload, Loader2, Play } from "lucide-react";
 import { existingRoomTemplateRows, resolveUploadLocation, type UploadCamp, type UploadBlock, type UploadRoom } from "@/lib/bulkOccupancyLocations";
 
-const HEADERS = ["Camp Code", "Camp Name", "Block Code", "Block Name", "Floor Number", "Room Number", "Employee ID", "Iqama Number", "Check-In Date", "Check-Out Date", "Remarks"];
+const HEADERS = ["Camp Code", "Camp Name", "Block Code", "Block Name", "Floor Number", "Room Number", "Employee ID", "Iqama Number", "Check-In Date", "Check-Out Date", "Remarks", "Transaction Type", "Reason", "Expected Return Date"];
 const ALIASES: Record<string, string[]> = { "Camp Code": ["Camp No"], "Block Code": ["Block No"], "Floor Number": ["Floor No"], "Room Number": ["Room No"] };
 
 type Row = {
   line: number; camp: string; campName: string; block: string; blockName?: string; floor: string; room: string; empCode: string; iqama: string;
   checkIn: string | null; checkOut: string | null; remarks: string;
+  transaction?: string; reason?: string; expected?: string | null; absenceId?: string;
   campId?: string; roomId?: string; employeeId?: string; action?: string;
   errors: string[]; status?: "done" | "failed"; message?: string;
 };
@@ -42,7 +44,13 @@ async function fetchAll<T>(table: string, cols: string): Promise<T[]> {
   return out;
 }
 
-export default function BulkCheckInOut() {
+type Mode = "checkin" | "checkout";
+const MODE_ACTIONS: Record<Mode, { value: string; label: string }[]> = {
+  checkin: [{ value: "Check-in", label: "New Check-in" }, { value: "Return", label: "Check-in (Return from temporary check-out)" }],
+  checkout: [{ value: "Permanent Check-out", label: "Permanent Check-out" }, { value: "Temporary Check-out", label: "Temporary Check-out" }],
+};
+
+export default function BulkCheckInOut({ mode = "checkin" }: { mode?: Mode }) {
   const qc = useQueryClient();
   const [rows, setRows] = useState<Row[]>([]);
   const [checking, setChecking] = useState(false);
@@ -50,6 +58,8 @@ export default function BulkCheckInOut() {
   const [fileName, setFileName] = useState("");
   const [downloading, setDownloading] = useState(false);
   const [templateError, setTemplateError] = useState("");
+  const [temporaryAction, setTemporaryAction] = useState(MODE_ACTIONS[mode][0].value);
+  const allowed = MODE_ACTIONS[mode].map(a => a.value);
 
   const downloadTemplate = async () => {
     setDownloading(true); setTemplateError("");
@@ -61,7 +71,7 @@ export default function BulkCheckInOut() {
       ]);
       const locations = existingRoomTemplateRows(camps, blocks, rooms);
       const wb = XLSX.utils.book_new();
-      const ws = XLSX.utils.aoa_to_sheet([HEADERS, ...locations.slice(0, 3).map(location => [...location, "", "", "", "", ""])]);
+      const ws = XLSX.utils.aoa_to_sheet([HEADERS, ...locations.slice(0, 3).map(location => [...location, "", "", "", "", "", temporaryAction, "", ""])]);
       ws["!cols"] = HEADERS.map(() => ({ wch: 22 }));
       XLSX.utils.book_append_sheet(wb, ws, "CheckInOut");
       const reference = XLSX.utils.aoa_to_sheet([HEADERS.slice(0, 6), ...locations]);
@@ -74,11 +84,13 @@ export default function BulkCheckInOut() {
         ["Floor Number / Room Number", "Copy the exact saved values from Existing Rooms, including room prefixes such as A-101."],
         ["Sample rows", "The first three locations are real existing rooms. Enter a registered Employee ID, matching Iqama (optional), and your actual dates, or remove unused rows."],
         ["Dates", "DD/MM/YYYY. Leave Check-Out Date blank for check-in only; leave Check-In Date blank for a current resident's checkout."],
+        ["Transaction Type", "Check-in, Permanent Check-out, Temporary Check-out, or Return. Temporary Check-out uses Check-Out Date; Return uses Check-In Date. Reason must match an active absence reason."],
         ["Existing rooms only", "This upload never creates camps, blocks, floors or rooms. Missing locations are rejected."],
+        ["Reason → Status", "Temporary Check-out reasons set the employee's status in Employee Master and Inmates: " + (await fetchAll<any>("accommodation_absence_reasons", "id,name,absence_status,is_active")).filter(r => r.is_active).map(r => `${r.name} = ${({ vacation: "Vacation", on_site: "On Site", away: "Away", active: "Active" } as any)[r.absence_status]}`).join("; ")],
       ]);
       notes["!cols"] = [{ wch: 30 }, { wch: 110 }];
       XLSX.utils.book_append_sheet(wb, notes, "Instructions");
-      XLSX.writeFile(wb, "bulk_check_in_out_template.xlsx");
+      XLSX.writeFile(wb, `bulk_${temporaryAction.toLowerCase().replace(/[^a-z]+/g, "_")}_template.xlsx`);
     } catch (error: any) { setTemplateError(error.message || "Could not load existing rooms for the template"); }
     finally { setDownloading(false); }
   };
@@ -90,13 +102,15 @@ export default function BulkCheckInOut() {
       const raw = XLSX.utils.sheet_to_json<Record<string, unknown>>(wb.Sheets[wb.SheetNames[0]], { defval: "" });
       const pick = (r: Record<string, unknown>, h: string) => { const k = Object.keys(r).find((k) => [h, ...(ALIASES[h] || [])].some(label => norm(k) === norm(label))); return k ? r[k] : ""; };
 
-      const [camps, blocks, rooms, emps, ins, outs] = await Promise.all([
+      const [camps, blocks, rooms, emps, ins, outs, absences, reasons] = await Promise.all([
         fetchAll<any>("camps", "id,name,camp_code"),
         fetchAll<any>("buildings", "id,camp_id,name,block_code"),
         fetchAll<any>("rooms", "id,camp_id,building_id,floor,room_number,status"),
         fetchAll<any>("employees", "id,employee_id,iqama_number"),
         fetchAll<any>("check_ins", "id,employee_id,room_id,check_in_date"),
         fetchAll<any>("check_outs", "id,employee_id,check_out_date"),
+        fetchAll<any>("accommodation_absences", "*"),
+        fetchAll<any>("accommodation_absence_reasons", "*"),
       ]);
       const empByCode = new Map(emps.map((e) => [s(e.employee_id), e]));
       // current room = latest check-in with no later check-out
@@ -113,10 +127,17 @@ export default function BulkCheckInOut() {
           line: idx + 2, camp: s(pick(r, "Camp Code")), campName: s(pick(r, "Camp Name")), block: s(pick(r, "Block Code")), blockName: s(pick(r, "Block Name")), floor: s(pick(r, "Floor Number")),
           room: s(pick(r, "Room Number")), empCode: s(pick(r, "Employee ID")), iqama: s(pick(r, "Iqama Number")),
           checkIn: null, checkOut: null, remarks: s(pick(r, "Remarks")), errors,
+          transaction: s(pick(r, "Transaction Type")) || temporaryAction, reason: s(pick(r, "Reason")), expected: null,
         };
         const ci = toIsoDate(pick(r, "Check-In Date")), co = toIsoDate(pick(r, "Check-Out Date"));
         if (ci === "invalid") errors.push("Invalid check-in date"); else row.checkIn = ci;
         if (co === "invalid") errors.push("Invalid check-out date"); else row.checkOut = co;
+        const expected = toIsoDate(pick(r, "Expected Return Date"));
+        if (expected === "invalid") errors.push("Invalid expected return date"); else row.expected = expected?.slice(0, 10) || null;
+        if (row.transaction && !["Check-in", "Permanent Check-out", "Temporary Check-out", "Return"].includes(row.transaction)) errors.push("Unknown Transaction Type");
+        if (!allowed.includes(row.transaction || "")) errors.push(`Only ${allowed.join(" or ")} is allowed on this page`);
+        if (mode === "checkin" && row.checkOut) errors.push("Leave Check-Out Date blank; use Bulk Check-Out for departures");
+        if (row.transaction === "Permanent Check-out" && row.checkIn) errors.push("Leave Check-In Date blank for permanent check-out");
         if (!row.checkIn && !row.checkOut && ci !== "invalid" && co !== "invalid") errors.push("Check-in or check-out date required");
         if (row.checkIn && row.checkOut && row.checkOut <= row.checkIn) errors.push("Check-out must be after check-in");
 
@@ -132,7 +153,22 @@ export default function BulkCheckInOut() {
         if (camp) row.campId = camp.id; if (room) row.roomId = room.id; if (emp) row.employeeId = emp.id;
         if (emp && room) {
           const cur = currentRoom.get(emp.id);
-          if (row.checkIn) {
+          const absence = absences.find(a => a.employee_id === emp.id && !a.actual_return_date);
+          if (row.transaction === "Temporary Check-out" || row.transaction === "Return") {
+            row.action = row.transaction;
+            if (cur !== room.id) errors.push("Employee does not retain this room");
+            if (row.transaction === "Temporary Check-out") {
+              if (absence) errors.push("Employee is already temporarily checked out");
+              if (!row.checkOut || row.checkIn) errors.push("Enter only Check-Out Date for temporary departure");
+              if (!reasons.some(a => a.is_active && a.name === row.reason)) errors.push("Choose an active absence reason");
+              if (row.expected && row.checkOut && row.expected < row.checkOut.slice(0, 10)) errors.push("Expected return precedes departure");
+            } else {
+              if (!absence) errors.push("Employee is not temporarily checked out");
+              if (!row.checkIn || row.checkOut) errors.push("Enter only Check-In Date for return");
+              row.absenceId = absence?.id;
+              if (row.checkIn && absence && row.checkIn.slice(0, 10) < absence.temporary_out_date) errors.push("Return precedes temporary departure");
+            }
+          } else if (row.checkIn) {
             if (cur) errors.push("Employee is already checked in");
             row.action = row.checkOut ? "Check-in + Check-out" : "Check-in";
           } else if (row.checkOut) {
@@ -165,6 +201,11 @@ export default function BulkCheckInOut() {
           (r.campName && norm(savedRoom.camps?.name || "") !== norm(r.campName)) ||
           (r.block && norm(savedRoom.buildings?.block_code || "") !== norm(r.block)) ||
           (r.blockName && norm(savedRoom.buildings?.name || "") !== norm(r.blockName))) throw new Error("The uploaded location no longer matches an existing room. Re-upload using its saved details.");
+        if (r.transaction === "Temporary Check-out" || r.transaction === "Return") {
+          const result = r.transaction === "Return" ? await supabase.rpc("return_from_temporary_absence", { p_absence_id: r.absenceId || "", p_date: r.checkIn?.slice(0, 10) || "", p_room_id: r.roomId })
+            : await supabase.rpc("temporary_check_out", { p_employee_id: r.employeeId || "", p_date: r.checkOut?.slice(0, 10) || "", p_reason: r.reason || "", p_expected_return: r.expected || null });
+          if (result.error) throw result.error;
+        } else {
         if (r.checkIn) {
           const { error } = await supabase.rpc("perform_check_in", {
             p_employee_id: r.employeeId, p_room_id: r.roomId, p_camp_id: r.campId, p_performed_by: user.id,
@@ -175,16 +216,18 @@ export default function BulkCheckInOut() {
         if (r.checkOut) {
           const { error } = await supabase.rpc("perform_check_out", {
             p_employee_id: r.employeeId, p_room_id: r.roomId, p_camp_id: r.campId, p_performed_by: user.id,
-            p_assets_returned: true, p_damage_remarks: null, p_clearance_notes: r.remarks || "Bulk upload",
+            p_assets_returned: true, p_damage_remarks: null, p_clearance_notes: [r.reason, r.remarks].filter(Boolean).join(" — ") || "Bulk upload",
             p_is_blacklisted: false, p_blacklist_reason: null, p_feedback: null, p_feedback_rating: null, p_check_out_date: r.checkOut,
           } as any);
           if (error) throw error;
         }
         r.status = "done"; r.message = "Saved";
+        }
+        r.status = "done"; r.message = "Saved";
       } catch (e: any) { r.status = "failed"; r.message = e.message; }
       setRows([...next]);
     }
-    ["rooms", "recent-check-ins", "employees", "checked-in-employees", "revenue-data", "invoice-data"].forEach((k) => qc.invalidateQueries({ queryKey: [k] }));
+    qc.invalidateQueries();
     setRunning(false);
   };
 
@@ -196,12 +239,13 @@ export default function BulkCheckInOut() {
   return (
     <div className="space-y-6 p-6">
       <div>
-        <h1 className="text-2xl font-bold">Bulk Check-In / Check-Out</h1>
-        <p className="text-sm text-muted-foreground">Upload an Excel file to check employees in, out, or both. Leave Check-Out Date blank to only check in; leave Check-In Date blank to check out a current resident.</p>
+        <h1 className="text-2xl font-bold">{mode === "checkin" ? "Bulk Check-In" : "Bulk Check-Out"}</h1>
+        <p className="text-sm text-muted-foreground">{mode === "checkin" ? "Upload new check-ins (Check-In Date) or returns from temporary check-out." : "Upload permanent check-outs (room released) or temporary check-outs (room retained). For temporary check-out the Reason sets the employee's status: Vacation, On Site or Away."}</p>
       </div>
       <Card>
         <CardHeader><CardTitle className="text-base">1. Template & upload</CardTitle></CardHeader>
         <CardContent className="flex flex-wrap items-center gap-3">
+          {<Select value={temporaryAction} disabled={checking || running} onValueChange={value => { setTemporaryAction(value); setRows([]); setFileName(""); }}><SelectTrigger aria-label="Bulk transaction" className="w-full sm:w-80"><SelectValue /></SelectTrigger><SelectContent>{MODE_ACTIONS[mode].map(a => <SelectItem key={a.value} value={a.value}>{a.label}</SelectItem>)}</SelectContent></Select>}
           <Button variant="outline" onClick={downloadTemplate} disabled={downloading}>{downloading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}Download template</Button>
           <Button asChild variant="secondary">
             <label className="cursor-pointer"><Upload className="mr-2 h-4 w-4" />Upload file
@@ -226,14 +270,14 @@ export default function BulkCheckInOut() {
               <TableHeader><TableRow>
                 <TableHead>Row</TableHead><TableHead>Camp Code</TableHead><TableHead>Camp Name</TableHead><TableHead>Block Code</TableHead><TableHead>Block Name</TableHead><TableHead>Floor Number</TableHead><TableHead>Room Number</TableHead>
                 <TableHead>Employee ID</TableHead><TableHead>Iqama</TableHead><TableHead>Check-In</TableHead><TableHead>Check-Out</TableHead>
-                <TableHead>Remarks</TableHead><TableHead>Action</TableHead><TableHead>Status</TableHead>
+                <TableHead>Remarks / Reason / Expected Return</TableHead><TableHead>Action</TableHead><TableHead>Status</TableHead>
               </TableRow></TableHeader>
               <TableBody>{rows.map((r) => (
                 <TableRow key={r.line}>
                   <TableCell>{r.line}</TableCell><TableCell>{r.camp || "—"}</TableCell><TableCell>{r.campName || "—"}</TableCell><TableCell>{r.block || "—"}</TableCell><TableCell>{r.blockName || "—"}</TableCell><TableCell>{r.floor}</TableCell>
                   <TableCell>{r.room}</TableCell><TableCell>{r.empCode}</TableCell><TableCell>{r.iqama}</TableCell>
                   <TableCell>{fmt(r.checkIn)}</TableCell><TableCell>{fmt(r.checkOut)}</TableCell>
-                  <TableCell className="max-w-[160px] truncate" title={r.remarks}>{r.remarks}</TableCell>
+                  <TableCell className="max-w-[200px]" title={r.remarks}>{r.remarks}<br />{r.reason}<br />{r.expected}</TableCell>
                   <TableCell>{r.action || "—"}</TableCell>
                   <TableCell className="min-w-[200px]">
                     {r.errors.length ? <span className="text-xs text-destructive">{r.errors.join("; ")}</span>

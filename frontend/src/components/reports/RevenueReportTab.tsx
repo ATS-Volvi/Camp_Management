@@ -1,4 +1,8 @@
 import { computeMealCost, defaultMealRates, type MealRates } from "@/lib/mealCosting";
+import { loadAccommodationAbsences } from "@/hooks/useAccommodationAbsences";
+import { absencePeriods } from "@/lib/accommodationAbsence";
+import { loadLockerBilling } from "@/hooks/useLockers";
+import { lockerCharge } from "@/lib/lockers";
 import { getExcelTierRates, getExcelMealRates } from "@/lib/excelRates";
 import { approvedFoodCancellations } from "@/lib/approvedFoodCancellations";
 import { billableStayWindow, stayDeparture } from "@/lib/stayBilling";
@@ -54,7 +58,9 @@ export function useRevenueData(fromDate: string, toDate: string) {
           .gte("to_date", fromDate)
           .then(rowsOf),
       ]);
-      return { ...base, cancellations };
+      const absences = await loadAccommodationAbsences();
+      const lockerBilling = await loadLockerBilling();
+      return { lockerBilling, absences, ...base, cancellations };
     },
   });
 }
@@ -106,7 +112,8 @@ export function buildRevenueRows(data: any, fromDate: string, toDate: string): a
         : client ? { breakfast: Number(client.breakfast_rate) || 0, lunch: Number(client.lunch_rate) || 0, dinner: Number(client.dinner_rate) || 0, ramadan: Number(client.ramadan_rate) || 0 }
         : campMealByCamp[ci.camp_id] ?? (baseFood > 0 ? defaultMealRates(baseFood) : getExcelMealRates(room.category, room.max_capacity));
       const dailyFood = mealRates.breakfast + mealRates.lunch + mealRates.dinner;
-      const leaves = leaveRangesWithin(leaveByEmp[ci.employee_id] || [], stayStart, stayEnd);
+      const periods = [...(leaveByEmp[ci.employee_id] || []), ...absencePeriods(data.absences || [], ci.id)];
+      const leaves = leaveRangesWithin(periods, stayStart, stayEnd);
       // Leave days automatically remove every meal for those days; the room is charged at the holding rate.
       const meal = computeMealCost(stayStart, stayEnd, mealRates,
         [...(cancelByEmp[ci.employee_id] || []).map((c: any) => ({ from: c.from_date, to: c.to_date, meals: (c.food_cancellation_request_meals || []).map((m: any) => m.meal_type) })),
@@ -114,10 +121,11 @@ export function buildRevenueRows(data: any, fromDate: string, toDate: string): a
         ramadanByCamp[ci.camp_id]);
       const mealsCancelled = meal.mealsCancelled;
       const holdingCharge = (holdingMap[room.category] && holdingMap[room.category] > 0) ? holdingMap[room.category] : standardRates.holdingRate;
-      const leaveDays = Math.min(stayDays, leaveDaysWithin(leaveByEmp[ci.employee_id] || [], stayStart, stayEnd));
+      const leaveDays = Math.min(stayDays, leaveDaysWithin(periods, stayStart, stayEnd));
       const roomRevenue = roomCostWithHolding(stayDays, leaveDays, dailyRoom, holdingCharge);
       const foodRevenue = meal.net;
-      const total = roomRevenue + foodRevenue;
+      const lockerCost = (data.lockerBilling?.allocations || []).filter((a: any) => a.employee_id === ci.employee_id && data.lockerBilling.lockers.find((l: any) => l.id === a.locker_id)?.camp_id === ci.camp_id).reduce((sum: number, a: any) => sum + lockerCharge(a, format(stayStart, "yyyy-MM-dd"), format(stayEnd, "yyyy-MM-dd")), 0);
+      const total = roomRevenue + foodRevenue + lockerCost;
 
       return {
         id: ci.id,
@@ -135,11 +143,15 @@ export function buildRevenueRows(data: any, fromDate: string, toDate: string): a
         stayFrom: dmy(stayStart), stayTo: dmy(stayEnd),
         leaves: leaves.map(l => ({ from: dmy(l.from), to: dmy(l.to) })),
         holdingCharge,
+        normalRoomCost: (stayDays - leaveDays) * dailyRoom,
+        holdingCost: leaveDays * holdingCharge,
+        absences: (data.absences || []).filter((a: any) => a.check_in_id === ci.id),
         dailyFood,
         foodFull: meal.full,
         breakfastCost: meal.breakfast, lunchCost: meal.lunch, dinnerCost: meal.dinner, ramadanCost: meal.ramadan,
         supplierRates: !!client,
         roomRevenue,
+        lockerCost,
         mealsCancelled,
         foodRevenue,
         total,
@@ -231,11 +243,11 @@ export default function RevenueReportTab() {
       </Card>
 
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        <StatCard label="Inmates" value={(totals?.inmates ?? 0).toString()} icon={<Users size={16} />} />
-        <StatCard label="Stay Days" value={(totals?.stayDays ?? 0).toString()} icon={<BedDouble size={16} />} />
-        <StatCard label="Room Revenue" value={`SAR ${(totals?.room ?? 0).toLocaleString()}`} icon={<BedDouble size={16} />} color="text-blue-600" />
-        <StatCard label="Food Revenue" value={`SAR ${(totals?.food ?? 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`} icon={<UtensilsCrossed size={16} />} color="text-orange-600" />
-        <StatCard label="Total Revenue" value={`SAR ${(totals?.total ?? 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`} icon={<DollarSign size={16} />} color="text-green-600" />
+        <StatCard label="Inmates" value={(Number(totals?.inmates) || 0).toString()} icon={<Users size={16} />} />
+        <StatCard label="Stay Days" value={(Number(totals?.stayDays) || 0).toString()} icon={<BedDouble size={16} />} />
+        <StatCard label="Room Revenue" value={`SAR ${(Number(totals?.room) || 0).toLocaleString()}`} icon={<BedDouble size={16} />} color="text-blue-600" />
+        <StatCard label="Food Revenue" value={`SAR ${(Number(totals?.food) || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`} icon={<UtensilsCrossed size={16} />} color="text-orange-600" />
+        <StatCard label="Total Revenue" value={`SAR ${(Number(totals?.total) || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`} icon={<DollarSign size={16} />} color="text-green-600" />
       </div>
 
       {isLoading ? (
@@ -268,10 +280,10 @@ export default function RevenueReportTab() {
                   <TableCell>{r.supplier}</TableCell>
                   <TableCell><div className="text-xs">{r.camp}</div><div className="font-medium">{r.room}</div></TableCell>
                   <TableCell className="text-right">{r.stayDays}</TableCell>
-                  <TableCell className="text-right">{(r.roomRevenue ?? 0).toLocaleString()}</TableCell>
-                  <TableCell className="text-right">{r.mealsCancelled ?? 0}</TableCell>
-                  <TableCell className="text-right">{(r.foodRevenue ?? 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}</TableCell>
-                  <TableCell className="text-right font-semibold">{(r.total ?? 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}</TableCell>
+                  <TableCell className="text-right">{(Number(r.roomRevenue) || 0).toLocaleString()}{Number(r.holdingCost) > 0 && <div className="text-xs text-muted-foreground">Normal {r.normalRoomCost} · Holding {r.holdingCost}</div>}</TableCell>
+                  <TableCell className="text-right">{Number(r.mealsCancelled) || 0}</TableCell>
+                  <TableCell className="text-right">{(Number(r.foodRevenue) || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}</TableCell>
+                  <TableCell className="text-right font-semibold">{(Number(r.total) || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}{Number(r.lockerCost) > 0 && <div className="text-xs text-muted-foreground">Locker Charges {(Number(r.lockerCost) || 0).toFixed(2)}</div>}</TableCell>
                 </TableRow>
               ))}
               {filtered.length === 0 && (
@@ -302,13 +314,15 @@ function StatCard({ label, value, icon, color }: { label: string; value: string;
 
 export function LeaveNotes({ rows }: { rows: any[] }) {
   const items = rows.filter(r => r.leaves?.length);
-  if (!items.length) return null;
+  const absences = rows.flatMap(r => (r.absences || []).map((a: any) => ({ r, a })));
+  if (!items.length && !absences.length) return null;
   return (
     <div className="border-t p-3 text-xs space-y-1 bg-muted/30">
       <div className="font-semibold">Leave days (food auto-deducted, room at holding charge)</div>
       {items.map(r => r.leaves.map((l: any, i: number) => (
         <div key={r.id + i}>{r.name} ({r.emp_code}) from: {l.from} to: {l.to}</div>
       )))}
+      {absences.length > 0 && <Table><TableHeader><TableRow>{["Employee ID / Name", "Camp / Room", "Temporary Out", "Expected Return", "Actual Return / Status", "Reason", "Normal Room", "Holding"].map(h => <TableHead key={h}>{h}</TableHead>)}</TableRow></TableHeader><TableBody>{absences.map(({ r, a }: any) => <TableRow key={`${r.id}-${a.id}`}><TableCell>{r.emp_code} / {r.name}</TableCell><TableCell>{r.camp} / {r.room}</TableCell><TableCell>{a.temporary_out_date}</TableCell><TableCell>{a.expected_return_date || "—"}</TableCell><TableCell>{a.ended_by_checkout ? "Permanent checkout" : a.actual_return_date || "Room retained"}</TableCell><TableCell>{a.reason}</TableCell><TableCell>{r.normalRoomCost}</TableCell><TableCell>{r.holdingCost}</TableCell></TableRow>)}</TableBody></Table>}
     </div>
   );
 }

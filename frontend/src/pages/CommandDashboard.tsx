@@ -21,13 +21,17 @@ import { DashboardBarChart } from "@/components/dashboard/DashboardBarChart";
 import { ChartDrilldown, type ChartSelection } from "@/components/dashboard/ChartDrilldown";
 import { employeeRecord, revenueRecord, roomRecord } from "@/lib/dashboardDrilldown";
 import { ExpertiseBoard } from "@/components/dashboard/ExpertiseBoard";
+import { absenceOnDay } from "@/lib/accommodationAbsence";
 
 type View = "board" | "utilization" | "snapshot" | "contracts" | "expertise";
 const titles: Record<View, string> = { board: "Board Overview", utilization: "Camp Utilization & Departments", snapshot: "Monthly Board Snapshot", contracts: "Contract Overview", expertise: "Expertise Camps — Board Dashboard" };
 const colors = [1, 2, 3, 4, 5].map(i => `hsl(var(--chart-${i}))`);
 const money = (n: any) => `SAR ${(Number(n) || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
 /** Short form for the KPI tiles, which are too narrow for a full figure. */
-const moneyShort = (n: number) => n >= 1_000_000 ? `SAR ${(n / 1_000_000).toFixed(2)}M` : n >= 10_000 ? `SAR ${(n / 1000).toFixed(1)}K` : money(n);
+const moneyShort = (n: any) => {
+  const v = Number(n) || 0;
+  return v >= 1_000_000 ? `SAR ${(v / 1_000_000).toFixed(2)}M` : v >= 10_000 ? `SAR ${(v / 1000).toFixed(1)}K` : money(v);
+};
 const percent = (n: number, total: number) => total ? `${(n / total * 100).toFixed(1)}%` : "0.0%";
 const tooltip = { background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", color: "hsl(var(--foreground))", borderRadius: 8 };
 
@@ -126,7 +130,8 @@ export default function CommandDashboard({ view }: { view: View }) {
   const occupiedRooms = new Set(residents.map(r => r.room_id)).size;
   const presence = residents.reduce<Record<string, number>>((acc, r) => {
     const log = (data?.presence ?? []).filter(l => l.employee_id === r.employee_id && l.effective_from <= snapshotAt && (!l.effective_to || l.effective_to > snapshotAt)).sort((a, b) => b.effective_from.localeCompare(a.effective_from))[0];
-    const key = log?.to_status ?? "active"; acc[key] = (acc[key] ?? 0) + 1; return acc;
+    const absence = data?.absences.find(a => a.employee_id === r.employee_id && absenceOnDay(a, snapshotAt.slice(0, 10)));
+    const key = absence?.absence_status ?? log?.to_status ?? "active"; acc[key] = (acc[key] ?? 0) + 1; return acc;
   }, {});
   const trend = Array.from({ length: 6 }, (_, i) => {
     const date = subMonths(new Date(`${safeTo}T12:00:00`), 5 - i);
@@ -207,7 +212,8 @@ export default function CommandDashboard({ view }: { view: View }) {
     const room = data?.rooms.find(r => r.id === event.room_id);
     const campName = data?.camps.find(c => c.id === event.camp_id)?.name;
     const log = (data?.presence ?? []).filter(l => l.employee_id === event.employee_id && l.effective_from <= snapshotAt && (!l.effective_to || l.effective_to > snapshotAt)).sort((a, b) => b.effective_from.localeCompare(a.effective_from))[0];
-    return employee ? [employeeRecord(employee, { Camp: campName, Room: room?.room_number, Block: room?.buildings?.name, "Check-in": event.check_in_date, "Food required": event.food_required, Presence: log?.to_status ?? "active" })] : [];
+    const absence = data?.absences.find(a => a.employee_id === event.employee_id && absenceOnDay(a, snapshotAt.slice(0, 10)));
+    return employee ? [employeeRecord(employee, { Camp: campName, Room: room?.room_number, Block: room?.buildings?.name, "Check-in": event.check_in_date, "Food required": event.food_required, Presence: absence?.absence_status ?? log?.to_status ?? "active", "Retained room": !!absence })] : [];
   });
   const openRevenue = (title: string, rows = costRows, description = `${safeFrom} — ${safeTo}`) => setChartSelection({ title, description, rows: rows.map(revenueRecord) });
   const openResidents = (title: string, events = residents) => setChartSelection({ title, description: `Occupancy as of ${snapshotAt.slice(0, 10)}`, rows: residentRecords(events) });
@@ -289,7 +295,7 @@ export default function CommandDashboard({ view }: { view: View }) {
       <SectionTitle>Revenue & resident overview</SectionTitle>
       <div className="command-kpis grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
         <Panel title="Total Revenue" icon={<DollarSign size={16} />}><Metric label="Selected period" value={money(total)} tone="text-primary" /><Metric label="Room / Food" value={<span className="text-sm">{money(rent)} / {money(food)}</span>} /></Panel>
-        <Panel title="Camp Occupancy" icon={<BedDouble size={16} />}><Metric label="Occupied beds / Designed beds" value={percent(residents.length, capacity)} detail={`${(residents?.length ?? 0).toLocaleString()} / ${(capacity ?? 0).toLocaleString()} beds`} tone="text-campgreen" /><div className="h-2 bg-muted rounded-full overflow-hidden mt-4"><div className="h-full bg-campgreen" style={{ width: `${Math.min(capacity ? residents.length / capacity * 100 : 0, 100)}%` }} /></div></Panel>
+        <Panel title="Camp Occupancy" icon={<BedDouble size={16} />}><Metric label="Occupied beds / Designed beds" value={percent(residents.length, capacity)} detail={`${(residents.length || 0).toLocaleString()} / ${(Number(capacity) || 0).toLocaleString()} beds`} tone="text-campgreen" /><div className="h-2 bg-muted rounded-full overflow-hidden mt-4"><div className="h-full bg-campgreen" style={{ width: `${Math.min(capacity ? residents.length / capacity * 100 : 0, 100)}%` }} /></div></Panel>
         <Panel title={view === "utilization" ? "Check-In / Check-Out" : "Revenue Contributors"} icon={<Users size={16} />}>{view === "utilization" ? <><Metric label="Check-ins in period" value={(data?.checkIns ?? []).filter(e => e.check_in_date >= `${safeFrom}T00:00:00` && e.check_in_date <= `${safeTo}T23:59:59` && match(e.camp_id, e.employee_id)).length} /><Metric label="Check-outs in period" value={(data?.checkOuts ?? []).filter(e => e.check_out_date >= `${safeFrom}T00:00:00` && e.check_out_date <= `${safeTo}T23:59:59` && match(e.camp_id, e.employee_id)).length} /></> : <><Metric label="Highest contributor" value={contributors[0]?.name ?? "—"} detail={`${money(contributors[0]?.amount ?? 0)} · ${percent(contributors[0]?.amount ?? 0, total)}`} /><Metric label="Lowest contributor" value={contributors.at(-1)?.name ?? "—"} detail={money(contributors.at(-1)?.amount ?? 0)} /></>}</Panel>
         <Panel title="People Status" icon={<Users size={16} />}><Metric label="Active" value={presence.active ?? 0} /><div className="grid grid-cols-3 gap-2 pt-3">{[["Vacation", "vacation"], ["On Site", "on_site"], ["Away", "away"]].map(([label, key]) => <div key={key}><p className="text-xs text-muted-foreground">{label}</p><p className="font-bold mt-1">{presence[key] ?? 0}</p></div>)}</div></Panel>
       </div>

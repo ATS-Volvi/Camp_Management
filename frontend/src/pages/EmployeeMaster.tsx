@@ -15,7 +15,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import EmployeeStaysView from "@/components/reports/EmployeeStaysView";
 import { useEmployeeStays } from "@/hooks/useEmployeeStays";
-import { employeePresence } from "@/lib/employeePresence";
+import { employeePresence, employeeCampMap, matchesEmployeeCamp } from "@/lib/employeePresence";
 import { useEmployees } from "@/hooks/useEmployees";
 import { useDepartments } from "@/hooks/useDepartments";
 import { useQuery } from "@tanstack/react-query";
@@ -24,7 +24,6 @@ import AddEmployeeDialog from "@/components/employees/AddEmployeeDialog";
 import EditEmployeeDialog from "@/components/employees/EditEmployeeDialog";
 import BulkUploadDialog from "@/components/employees/BulkUploadDialog";
 import { Employee } from "@/hooks/useEmployees";
-import { TablePager, usePaged } from "@/components/TablePager";
 
 const statusColors: Record<string, string> = {
   Active: "bg-primary/10 text-primary",
@@ -37,6 +36,7 @@ type EmployeeTab = "own" | "supplier" | "camp_staff";
 export default function EmployeeMaster() {
   const [tab, setTab] = useState<EmployeeTab>("own");
   const [search, setSearch] = useState("");
+  const [campFilter, setCampFilter] = useState("all");
   const [nationalityFilter, setNationalityFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [designationFilter, setDesignationFilter] = useState("all");
@@ -57,7 +57,7 @@ export default function EmployeeMaster() {
       "Employee Group": e.employee_group || "", Company: e.company || "", Supplier: e.supplier_name || "",
       Project: e.project || "", "Staff Role": e.staff_role || "",
       "Current Location": e.current_location || "", Remarks: e.remarks || "",
-      "Camp No": locationMap[e.id]?.camp || "", "Block No": locationMap[e.id]?.block || "", "Room No": locationMap[e.id]?.room || "",
+      "Camp Name": locationMap[e.id]?.camp || "", "Block No": locationMap[e.id]?.block || "", "Room No": locationMap[e.id]?.room || "",
       "Passport No": e.passport_number || "", "Iqama No": e.iqama_number || "", Phone: e.phone || "",
       Nationality: e.nationality || "", Status: presenceMap[e.id] || "",
     }));
@@ -82,6 +82,7 @@ export default function EmployeeMaster() {
   );
   const { data: departments = [] } = useDepartments();
   const presenceMap = useMemo(() => Object.fromEntries(employees.map(e => [e.id, staysLoading ? "Loading…" : staysError ? "Unavailable" : employeePresence(e, stays)])), [employees, stays, staysLoading, staysError]);
+  const currentCamps = useMemo(() => employeeCampMap(stays), [stays]);
 
   const { data: camps = [] } = useQuery({
     queryKey: ["camps-list"],
@@ -116,12 +117,6 @@ export default function EmployeeMaster() {
     return map;
   }, [camps]);
 
-  const campCodeMap = useMemo(() => {
-    const map: Record<string, string> = {};
-    camps.forEach((c: any) => { map[c.id] = c.camp_code || c.name; });
-    return map;
-  }, [camps]);
-
   // Current camp/block/room per employee, from their active saved stay. Empty when not in a room.
   const locationMap = useMemo(() => {
     const map: Record<string, { camp: string; block: string; room: string }> = {};
@@ -129,13 +124,13 @@ export default function EmployeeMaster() {
       if (s.status !== "In camp" || map[s.employee_id]) continue;
       const room = roomLocations[s.room_id];
       map[s.employee_id] = {
-        camp: campCodeMap[s.camp_id] ?? s.camp,
+        camp: campMap[s.camp_id] ?? s.camp,
         block: room?.buildings?.block_code || room?.buildings?.name || "",
         room: room?.room_number ?? s.room,
       };
     }
     return map;
-  }, [stays, roomLocations, campCodeMap]);
+  }, [stays, roomLocations, campMap]);
 
   const nationalityOptions = useMemo(
     () => [...new Set(employees.map((e) => e.nationality).filter(Boolean) as string[])].sort(),
@@ -158,6 +153,7 @@ export default function EmployeeMaster() {
 
   const filtered = employees.filter(
     (e) =>
+      (campFilter === "all" || (!staysLoading && !staysError && matchesEmployeeCamp(e, campFilter, currentCamps))) &&
       (nationalityFilter === "all" || e.nationality === nationalityFilter) &&
       (statusFilter === "all" || presenceMap[e.id] === statusFilter) &&
       (designationFilter === "all" || e.designation === designationFilter) &&
@@ -227,7 +223,7 @@ export default function EmployeeMaster() {
               <Wrench size={14} /> Camp Staff
             </TabsTrigger>
           </TabsList>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 min-w-0">
             <div className="relative">
               <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <Input
@@ -237,6 +233,14 @@ export default function EmployeeMaster() {
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
+            <Select value={campFilter} onValueChange={(value) => { setCampFilter(value); setSelected(new Set()); }}>
+              <SelectTrigger className="w-[200px]" aria-label="Filter by camp"><SelectValue placeholder="Camp" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Camps</SelectItem>
+                <SelectItem value="unassigned">No Assigned Camp</SelectItem>
+                {camps.map((camp) => <SelectItem key={camp.id} value={camp.id}>{camp.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
             <Select value={nationalityFilter} onValueChange={setNationalityFilter}>
               <SelectTrigger className="w-[150px]"><SelectValue placeholder="Nationality" /></SelectTrigger>
               <SelectContent>
@@ -357,47 +361,45 @@ function EmployeeTable({
   }
 
   const isCampStaff = type === "camp_staff";
-  const paged = usePaged(employees);
 
   return (
-    <div className="space-y-4">
-      <div className="border rounded-lg">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-8"><Checkbox checked={employees.length > 0 && employees.every((e) => selected.has(e.id))} onCheckedChange={(v) => onToggleAll(employees.map((e) => e.id), !!v)} aria-label="Select all" /></TableHead>
-              <TableHead>Employee ID</TableHead>
-              <TableHead>Name</TableHead>
-              {isCampStaff ? (
-                <>
-                  <TableHead>Staff Role</TableHead>
-                  <TableHead>Assigned Camp</TableHead>
-                </>
-              ) : (
-                <>
-                  <TableHead>Designation</TableHead>
-                  <TableHead>Department</TableHead>
-                  <TableHead>Department as per SAP</TableHead>
-                  <TableHead>Employee Group</TableHead>
-                  <TableHead>{type === "supplier" ? "Supplier" : "Company"}</TableHead>
-                  <TableHead>Project</TableHead>
-                  <TableHead>Current Location</TableHead>
-                  <TableHead>Remarks</TableHead>
-                </>
-              )}
-              <TableHead>Camp No</TableHead>
-              <TableHead>Block No</TableHead>
-              <TableHead>Room No</TableHead>
-              <TableHead>Passport No.</TableHead>
-              <TableHead>Iqama No.</TableHead>
-              <TableHead>Phone</TableHead>
-              <TableHead>Nationality</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {paged.rows.map((emp) => (
+    <div className="border rounded-lg">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead className="w-8"><Checkbox checked={employees.length > 0 && employees.every((e) => selected.has(e.id))} onCheckedChange={(v) => onToggleAll(employees.map((e) => e.id), !!v)} aria-label="Select all" /></TableHead>
+            <TableHead>Employee ID</TableHead>
+            <TableHead>Name</TableHead>
+            {isCampStaff ? (
+              <>
+                <TableHead>Staff Role</TableHead>
+                <TableHead>Assigned Camp</TableHead>
+              </>
+            ) : (
+              <>
+                <TableHead>Designation</TableHead>
+                <TableHead>Department</TableHead>
+                <TableHead>Department as per SAP</TableHead>
+                <TableHead>Employee Group</TableHead>
+                <TableHead>{type === "supplier" ? "Supplier" : "Company"}</TableHead>
+                <TableHead>Project</TableHead>
+                <TableHead>Current Location</TableHead>
+                <TableHead>Remarks</TableHead>
+              </>
+            )}
+            <TableHead>Camp Name</TableHead>
+            <TableHead>Block No</TableHead>
+            <TableHead>Room No</TableHead>
+            <TableHead>Passport No.</TableHead>
+            <TableHead>Iqama No.</TableHead>
+            <TableHead>Phone</TableHead>
+            <TableHead>Nationality</TableHead>
+            <TableHead>Status</TableHead>
+            <TableHead className="text-right">Actions</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {employees.map((emp) => (
             <TableRow key={emp.id} data-state={selected.has(emp.id) ? "selected" : undefined}>
               <TableCell><Checkbox checked={selected.has(emp.id)} onCheckedChange={() => onToggle(emp.id)} aria-label={`Select ${emp.name}`} /></TableCell>
               <TableCell className="font-medium">{emp.employee_id}</TableCell>
@@ -455,15 +457,6 @@ function EmployeeTable({
           ))}
         </TableBody>
       </Table>
-      </div>
-      <TablePager
-        page={paged.page}
-        totalPages={paged.totalPages}
-        onPageChange={paged.setPage}
-        pageSize={paged.pageSize}
-        onPageSizeChange={paged.setPageSize}
-        totalRows={paged.totalRows}
-      />
     </div>
   );
 }

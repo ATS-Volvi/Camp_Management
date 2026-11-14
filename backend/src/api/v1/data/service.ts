@@ -22,7 +22,9 @@ const SAFE_TABLES = [
     'clients', 'client_room_rates', 'employee_status_log', 'camp_food_cancellation_settings',
     'employee_shift_assignments', 'food_cancellation_requests', 'food_cancellation_request_meals',
     'asset_maintenance_log', 'room_category_master', 'camp_meal_rates',
-    'camp_lockers', 'inmate_locker_assignments'
+    'camp_lockers', 'inmate_locker_assignments',
+    'accommodation_absence_reasons', 'accommodation_absences',
+    'lockers', 'locker_allocations', 'locker_events', 'locker_configuration', 'locker_charge_transactions'
 ];
 
 const IDENT = /^[A-Za-z_]\w*$/;
@@ -171,11 +173,12 @@ class DataService {
                     }
                     if (relatedTable === 'pm_equipment') foreignKey = 'equipment_id';
                     if (relatedTable === 'rooms') foreignKey = 'room_id';
-                    if (relatedTable === 'buildings') foreignKey = 'building_id';
+                    if (relatedTable === 'buildings') foreignKey = 'block_id' in data[0] ? 'block_id' : 'building_id';
                     if (relatedTable === 'meal_orders') foreignKey = 'meal_order_id';
                     if (relatedTable === 'employees') foreignKey = 'employee_id';
                     if (relatedTable === 'camp_lockers') foreignKey = 'locker_id';
                     if (relatedTable === 'lockers') foreignKey = 'locker_id';
+                    if (relatedTable === 'locker_allocations') foreignKey = 'allocation_id';
 
                     const validCols = columns
                         .split(',')

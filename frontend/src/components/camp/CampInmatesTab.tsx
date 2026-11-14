@@ -10,14 +10,16 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Search, LogOut, MessageCircle, Phone, Upload, Download, FileText, RotateCcw, Lock, Plus } from "lucide-react";
+import { Search, LogOut, MessageCircle, Phone, Upload, Download, FileText, RotateCcw } from "lucide-react";
 import { getRoomCategoryLabel } from "@/constants/roomCategories";
 import CampBulkUploadDialog from "@/components/camp/CampBulkUploadDialog";
 import InmateCheckoutDialog from "@/components/camp/InmateCheckoutDialog";
-import PresenceStatusCell from "@/components/employees/PresenceStatusCell";
-import { useActiveLockerAssignments, type InmateLockerAssignment } from "@/hooks/useLockers";
-import AssignLockerDialog from "@/components/lockers/AssignLockerDialog";
-import ReleaseLockerDialog from "@/components/lockers/ReleaseLockerDialog";
+import TemporaryAbsenceDialog from "./TemporaryAbsenceDialog";
+import { usePermissions } from "@/hooks/usePermissions";
+import AbsenceReasonSettings from "./AbsenceReasonSettings";
+import EmployeeLockerDetails from "./EmployeeLockerDetails";
+import { useLockerData } from "@/hooks/useLockers";
+import { RESIDENT_STATUSES } from "@/lib/accommodationAbsence";
 
 interface Props {
   campId?: string;
@@ -26,6 +28,13 @@ interface Props {
 
 export default function CampInmatesTab({ campId, campName }: Props) {
   const [search, setSearch] = useState("");
+  const [lockerEmployee, setLockerEmployee] = useState("");
+  const { data: lockerData } = useLockerData();
+  const employeeLockers = (id: string) => (lockerData?.allocations || []).filter(a => a.employee_id === id && !a.released_on).map(a => ({ ...a, locker: lockerData?.lockers.find(l => l.id === a.locker_id) }));
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [absenceInmate, setAbsenceInmate] = useState<any>(null);
+  const { userRoles = [] } = usePermissions();
+  const canManage = userRoles.some(r => ["super_admin", "hr_admin", "camp_manager"].includes(r));
   const [bulkUploadOpen, setBulkUploadOpen] = useState(false);
   const [checkoutDialogOpen, setCheckoutDialogOpen] = useState(false);
   const [selectedInmate, setSelectedInmate] = useState<any>(null);
@@ -34,18 +43,6 @@ export default function CampInmatesTab({ campId, campName }: Props) {
   const [blockFilter, setBlockFilter] = useState("all");
   const [floorFilter, setFloorFilter] = useState("all");
   const [roomFilter, setRoomFilter] = useState("all");
-
-  const [assignLockerOpen, setAssignLockerOpen] = useState(false);
-  const [releaseLockerOpen, setReleaseLockerOpen] = useState(false);
-  const [lockerInmate, setLockerInmate] = useState<any>(null);
-  const [selectedAssignment, setSelectedAssignment] = useState<InmateLockerAssignment | null>(null);
-
-  const { data: activeAssignments = [] } = useActiveLockerAssignments(campId);
-  const assignmentsByEmployeeId = new Map<string, InmateLockerAssignment>();
-  (Array.isArray(activeAssignments) ? activeAssignments : []).forEach((a) => {
-    if (a?.employee_id) assignmentsByEmployeeId.set(a.employee_id, a);
-  });
-
   const { data: inmates = [], isLoading, isError, refetch } = useInmatesReport(campId);
   const resetLocations = () => { setBlockFilter("all"); setFloorFilter("all"); setRoomFilter("all"); };
   const scope = { camp: campId ?? campFilter, block: blockFilter, floor: floorFilter, room: roomFilter };
@@ -60,7 +57,7 @@ export default function CampInmatesTab({ campId, campName }: Props) {
       <Label>{label}</Label>
       <Select value={value} onValueChange={change}>
         <SelectTrigger aria-label={label}><SelectValue /></SelectTrigger>
-        <SelectContent><SelectItem value="all">All {label === "Camp" ? "Camps" : label === "Block" ? "Blocks" : label === "Floor" ? "Floors" : "Rooms"}</SelectItem>
+        <SelectContent><SelectItem value="all">All {label === "Status" ? "Statuses" : label === "Camp" ? "Camps" : label === "Block" ? "Blocks" : label === "Floor" ? "Floors" : "Rooms"}</SelectItem>
           {items.map(item => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}
         </SelectContent>
       </Select>
@@ -72,19 +69,9 @@ export default function CampInmatesTab({ campId, campName }: Props) {
     setCheckoutDialogOpen(true);
   };
 
-  const handleAssignLockerClick = (inmate: any) => {
-    setLockerInmate(inmate);
-    setAssignLockerOpen(true);
-  };
-
-  const handleLockerClick = (inmate: any, assignment: InmateLockerAssignment) => {
-    setLockerInmate(inmate);
-    setSelectedAssignment(assignment);
-    setReleaseLockerOpen(true);
-  };
-
   const filtered = inmates.filter((i: any) => {
     if (!matchesInmateLocation(i, scope)) return false;
+    if (statusFilter !== "all" && i.status !== statusFilter) return false;
     if (!search) return true;
     const s = search.toLowerCase();
     return (
@@ -100,12 +87,19 @@ export default function CampInmatesTab({ campId, campName }: Props) {
   const exportRows = filtered.map((i: any) => ({
     "Employee ID": i.employee_id, Name: i.name, Camp: i.camp_name, Block: i.block_name,
     Floor: i.floor_name, Room: i.room_number, "Room Type": getRoomCategoryLabel(i.room_category),
-    Locker: assignmentsByEmployeeId.get(i.id)?.camp_lockers?.locker_number || "None",
     Project: i.project ?? "", Supplier: i.employee_type === "own" ? "Own" : i.supplier_name ?? "",
     "Check-In Date": new Date(i.check_in_date).toLocaleDateString("en-GB"),
-    "Passport / Iqama": i.passport_number || i.iqama_number || "", Presence: i.presence_status ?? "active",
+    "Passport / Iqama": i.passport_number || i.iqama_number || "", Status: i.status, "Accommodation": i.accommodation_status,
+    "Temporary Check-out": i.absence?.temporary_out_date ?? "", "Expected Return": i.absence?.expected_return_date ?? "", "Absence Reason": i.absence?.reason ?? "",
+    "Holding Charge / Day": i.holding_charge, "Normal Room Rate / Day": i.normal_room_rate,
     "Room Rate / Day (SAR)": i.daily_rate, "Food Rate / Day (SAR)": i.daily_food_rate,
     "Tariff / Day (SAR)": Number((i.daily_rate + i.daily_food_rate).toFixed(2)),
+    "Locker Allocated": employeeLockers(i.id).length ? "Yes" : "No",
+    "Locker Number": employeeLockers(i.id).map(a => a.locker?.number).join(", "),
+    "Locker Camp": employeeLockers(i.id).map(a => lockerData?.camps.find(c => c.id === a.locker?.camp_id)?.name).join(", "),
+    "Locker Block": employeeLockers(i.id).map(a => lockerData?.blocks.find(b => b.id === a.locker?.block_id)?.name).join(", "),
+    "Locker Room": employeeLockers(i.id).map(a => lockerData?.rooms.find(r => r.id === a.locker?.room_id)?.room_number || "").join(", "),
+    "Locker Allocation Date": employeeLockers(i.id).map(a => a.allocated_on).join(", "),
   }));
   const exportExcel = () => {
     const book = XLSX.utils.book_new();
@@ -134,6 +128,7 @@ export default function CampInmatesTab({ campId, campName }: Props) {
           Inmates ({filtered.length})
         </h2>
         <div className="flex flex-wrap items-center gap-2">
+          {userRoles.some(r => r === "super_admin" || r === "hr_admin") && <AbsenceReasonSettings />}
           <Button variant="outline" size="sm" onClick={exportExcel} disabled={!filtered.length || isLoading || isError} className="gap-1.5"><Download size={14} /> Excel</Button>
           <Button variant="outline" size="sm" onClick={exportPdf} disabled={!filtered.length || isLoading || isError} className="gap-1.5"><FileText size={14} /> PDF</Button>
           {campId && <Button variant="outline" size="sm" onClick={() => setBulkUploadOpen(true)} className="gap-1.5">
@@ -152,11 +147,12 @@ export default function CampInmatesTab({ campId, campName }: Props) {
       </div>
 
       <div className={`grid gap-3 items-end ${campId ? "sm:grid-cols-4" : "sm:grid-cols-2 xl:grid-cols-5"}`}>
+        {filterSelect("Status", statusFilter, setStatusFilter, [...RESIDENT_STATUSES].map(value => ({ value, label: value })))}
         {!campId && filterSelect("Camp", campFilter, value => { setCampFilter(value); resetLocations(); }, options(inmates, "camp_id", row => row.camp_name))}
         {filterSelect("Block", blockFilter, value => { setBlockFilter(value); setFloorFilter("all"); setRoomFilter("all"); }, options(campRows, "block_id", row => !campId && campFilter === "all" ? `${row.camp_name} / ${row.block_name}` : row.block_name))}
         {filterSelect("Floor", floorFilter, value => { setFloorFilter(value); setRoomFilter("all"); }, options(blockRows, "floor_key", row => blockFilter === "all" ? `${row.block_name} / ${row.floor_name}` : row.floor_name))}
         {filterSelect("Room", roomFilter, setRoomFilter, options(floorRows, "room_id", row => `${row.block_name} / ${row.floor_name} / ${row.room_number}`))}
-        <Button variant="outline" onClick={() => { setCampFilter("all"); resetLocations(); setSearch(""); }} className="gap-2"><RotateCcw size={14} /> Reset</Button>
+        <Button variant="outline" onClick={() => { setCampFilter("all"); resetLocations(); setSearch(""); setStatusFilter("all"); }} className="gap-2"><RotateCcw size={14} /> Reset</Button>
       </div>
 
       {isError ? <div className="text-sm text-destructive py-8 text-center">Unable to load inmates. <Button variant="outline" size="sm" onClick={() => refetch()}>Retry</Button></div> : isLoading ? (
@@ -179,12 +175,12 @@ export default function CampInmatesTab({ campId, campName }: Props) {
                 <TableHead>Floor</TableHead>
                 <TableHead>Room</TableHead>
                 <TableHead>Room Type</TableHead>
-                <TableHead>Locker</TableHead>
                 <TableHead>Food</TableHead>
-                <TableHead>Presence</TableHead>
+                <TableHead>Status</TableHead>
                 <TableHead className="text-right">Tariff/Day</TableHead>
                 <TableHead>Contact</TableHead>
-                {campId && <TableHead className="text-center">Actions</TableHead>}
+                <TableHead>Locker</TableHead>
+                {canManage && <TableHead className="text-center">Actions</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -223,39 +219,6 @@ export default function CampInmatesTab({ campId, campName }: Props) {
                       {getRoomCategoryLabel(inmate.room_category)}
                     </TableCell>
                     <TableCell>
-                      {(() => {
-                        const assignment = assignmentsByEmployeeId.get(inmate.id);
-                        if (assignment) {
-                          return (
-                            <Badge
-                              variant="outline"
-                              className="font-mono text-[11px] gap-1 border-primary/40 bg-primary/5 text-foreground cursor-pointer hover:bg-primary/10 transition-colors py-0.5"
-                              onClick={() => handleLockerClick(inmate, assignment)}
-                              title="Click to inspect or release locker"
-                            >
-                              <Lock size={11} className="text-primary shrink-0" />
-                              <span>{assignment.camp_lockers?.locker_number || "Assigned"}</span>
-                              {assignment.camp_lockers?.key_number && (
-                                <span className="text-muted-foreground text-[10px]">({assignment.camp_lockers.key_number})</span>
-                              )}
-                            </Badge>
-                          );
-                        }
-                        return campId ? (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-6 text-[11px] text-muted-foreground hover:text-primary gap-1 px-2 border border-dashed border-border hover:border-primary/50"
-                            onClick={() => handleAssignLockerClick(inmate)}
-                          >
-                            <Plus size={11} /> Assign
-                          </Button>
-                        ) : (
-                          <span className="text-muted-foreground text-xs">—</span>
-                        );
-                      })()}
-                    </TableCell>
-                    <TableCell>
                       {inmate.daily_food_rate > 0 ? (
                         <Badge variant="outline" className="text-xs text-green-600 border-green-300">
                           Included
@@ -267,7 +230,8 @@ export default function CampInmatesTab({ campId, campName }: Props) {
                       )}
                     </TableCell>
                     <TableCell>
-                      {campId ? <PresenceStatusCell employeeId={inmate.id} status={inmate.presence_status} /> : <Badge variant="secondary">{inmate.presence_status?.replace("_", " ") ?? "active"}</Badge>}
+                      <Badge variant={inmate.status === "Active" ? "default" : "secondary"}>{inmate.status}</Badge>
+                      {inmate.absence && <div className="text-xs text-muted-foreground min-w-40">{inmate.absence.reason}<br />Out: {inmate.absence.temporary_out_date}<br />Expected: {inmate.absence.expected_return_date || "—"}</div>}
                     </TableCell>
                     <TableCell className="text-right font-medium text-sm">
                       {(inmate.daily_rate + inmate.daily_food_rate).toFixed(2)} SAR
@@ -293,7 +257,10 @@ export default function CampInmatesTab({ campId, campName }: Props) {
                         {!phone && <span className="text-xs text-muted-foreground">—</span>}
                       </div>
                     </TableCell>
-                    {campId && <TableCell className="text-center">
+                    <TableCell><div className="text-xs">{employeeLockers(inmate.id).length ? employeeLockers(inmate.id).map(a => `${a.locker?.number} · ${a.allocated_on}`).join(", ") : "No"}</div><Button variant="ghost" size="sm" onClick={() => setLockerEmployee(inmate.id)}>View Locker Details</Button></TableCell>
+                    {canManage && <TableCell className="text-center">
+                      <Button variant="outline" size="sm" className="mb-1 whitespace-nowrap" onClick={() => setAbsenceInmate(inmate)}>{inmate.absence ? "Check-in (Return)" : "Temporary Check-out"}</Button>
+                      {campId && <>
                       <Button
                         variant="destructive"
                         size="sm"
@@ -302,7 +269,7 @@ export default function CampInmatesTab({ campId, campName }: Props) {
                       >
                         <LogOut size={12} />
                         Check Out
-                      </Button>
+                      </Button></>}
                     </TableCell>}
                   </TableRow>
                 );
@@ -312,6 +279,8 @@ export default function CampInmatesTab({ campId, campName }: Props) {
         </div>
       )}
 
+      {absenceInmate && <TemporaryAbsenceDialog key={absenceInmate.id} inmate={absenceInmate} onClose={() => setAbsenceInmate(null)} />}
+      {lockerEmployee && <EmployeeLockerDetails employeeId={lockerEmployee} onClose={() => setLockerEmployee("")} />}
       {campId && <>
       <CampBulkUploadDialog
         open={bulkUploadOpen}
@@ -326,21 +295,6 @@ export default function CampInmatesTab({ campId, campName }: Props) {
         inmate={selectedInmate}
         campId={campId}
         campName={campName || "Camp"}
-      />
-
-      <AssignLockerDialog
-        open={assignLockerOpen}
-        onOpenChange={setAssignLockerOpen}
-        inmate={lockerInmate}
-        campId={campId}
-      />
-
-      <ReleaseLockerDialog
-        open={releaseLockerOpen}
-        onOpenChange={setReleaseLockerOpen}
-        assignment={selectedAssignment}
-        inmateName={lockerInmate?.name}
-        inmateNumber={lockerInmate?.employee_id}
       />
       </>}
     </div>

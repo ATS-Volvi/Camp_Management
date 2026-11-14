@@ -1,4 +1,5 @@
 import { billingDay, billingToday } from "./stayBilling";
+import type { AccommodationAbsence } from "./accommodationAbsence";
 
 export interface StayEmployee {
   name: string; employee_id: string; employee_type: string;
@@ -27,6 +28,7 @@ export interface EmployeeStay {
   arrival: string | null; departure: string | null; days: number | null;
   status: "Checked out" | "In camp" | "Missing checkout" | "Missing check-in";
   checkout: Departure | null; requests: StayCancellation[];
+  absences?: AccommodationAbsence[];
 }
 
 /** Calendar days: arrival included, departure excluded; ongoing stays stop at today. */

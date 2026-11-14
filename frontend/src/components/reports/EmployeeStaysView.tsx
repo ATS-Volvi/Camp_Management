@@ -16,6 +16,7 @@ import "./employeeStaysPrint.css";
 function RequestDetails({ stay }: { stay: EmployeeStay }) {
   return <div className="space-y-3">
     <h3 className="font-semibold">{stay.employee?.employee_id} · {stay.employee?.name}</h3>
+    {!!stay.absences?.length && <Table><TableHeader><TableRow>{["Temporary Check-out", "Expected Return", "Actual Return", "Reason", "Closed by"].map(h => <TableHead key={h}>{h}</TableHead>)}</TableRow></TableHeader><TableBody>{stay.absences.map(a => <TableRow key={a.id}><TableCell>{stayDate(a.temporary_out_date)}</TableCell><TableCell>{stayDate(a.expected_return_date)}</TableCell><TableCell>{a.ended_by_checkout ? "—" : stayDate(a.actual_return_date)}</TableCell><TableCell>{a.reason}</TableCell><TableCell>{a.ended_by_checkout ? "Permanent checkout" : a.actual_return_date ? "Return" : "Ongoing absence"}</TableCell></TableRow>)}</TableBody></Table>}
     <p className="text-sm">{stay.camp} · Room {stay.room} · {stayDate(stay.arrival)} – {stay.departure ? stayDate(stay.departure) : stay.status} · {stay.days ?? "Unknown"} days</p>
     {stay.requests.length ? <Table><TableHeader><TableRow>{["From", "To", "Meals", "Reason", "Status", "Source", "Remarks"].map(h => <TableHead key={h}>{h}</TableHead>)}</TableRow></TableHeader><TableBody>{stay.requests.map(r => <TableRow key={r.id}>
       <TableCell className="whitespace-nowrap">{stayDate(r.from_date)}</TableCell><TableCell className="whitespace-nowrap">{stayDate(r.to_date)}</TableCell>
@@ -50,10 +51,10 @@ export default function EmployeeStaysView({ checkoutOnly = false, campId, campNa
   const visible = filtered.slice(currentPage * 50, currentPage * 50 + 50);
   const filterSummary = [employeeId ? `Employee: ${base[0]?.employee?.employee_id ?? ""} ${base[0]?.employee?.name ?? ""} | All camps` : "", campId ? `Camp: ${campName || base[0]?.camp || campId}` : "", search ? `Employee: ${search}` : "", ...Object.entries(filters).filter(([, v]) => v !== "all").map(([k, v]) => `${readable(k)}: ${v}`), from ? `From ${stayDate(from)}` : "", to ? `To ${stayDate(to)}` : ""].filter(Boolean).join(" | ") || "All camps";
   const exportCsv = () => {
-    const columns = ["Employee ID", "Name", "Department", "Designation", "Type", "Company", "Supplier", "Project", "Camp", "Room", "Category", "Check-in", "Checkout", "Days stayed", "Status", "Food cancellation requests", "Assets returned", "Damage remarks", "Clearance notes"];
+    const columns = ["Employee ID", "Name", "Department", "Designation", "Type", "Company", "Supplier", "Project", "Camp", "Room", "Category", "Check-in", "Checkout", "Days stayed", "Status", "Food cancellation requests", "Assets returned", "Damage remarks", "Clearance notes", "Temporary absences and returns"];
     const rows = filtered.map(r => [r.employee?.employee_id, r.employee?.name, r.employee?.department, r.employee?.designation, r.employee?.employee_type, r.employee?.company, r.employee?.supplier_name, r.employee?.project, r.camp, r.room, getRoomCategoryLabel(r.category), r.arrival, r.departure, r.days, r.status,
       r.requests.map(q => `${q.id}: ${q.from_date} to ${q.to_date}; ${q.food_cancellation_request_meals.map(m => m.meal_type).join("/")}; ${q.status}; ${q.reason}`).join(" | "),
-      r.checkout?.assets_returned === null || !r.checkout ? "" : r.checkout.assets_returned ? "Yes" : "No", r.checkout?.damage_remarks, r.checkout?.clearance_notes]);
+      r.checkout?.assets_returned === null || !r.checkout ? "" : r.checkout.assets_returned ? "Yes" : "No", r.checkout?.damage_remarks, r.checkout?.clearance_notes, r.absences?.map(a => `${a.temporary_out_date}; ${a.reason}; expected ${a.expected_return_date || "—"}; ${a.ended_by_checkout ? "permanent checkout" : "return"} ${a.actual_return_date || "ongoing"}`).join(" | ")]);
     const csv = [columns, ...rows].map(row => row.map(cell => `"${String(cell ?? "").replace(/"/g, '""')}"`).join(",")).join("\r\n");
     const url = URL.createObjectURL(new Blob(["\uFEFF", csv], { type: "text/csv;charset=utf-8" }));
     const link = document.createElement("a"); link.href = url; link.download = checkoutOnly ? "checkout-report.csv" : "employee-stays.csv";

@@ -1,7 +1,35 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import { toast } from "@/hooks/use-toast";
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from '@/hooks/use-toast';
 
+export async function lockerPages(table: 'lockers' | 'locker_allocations' | 'locker_events' | 'locker_configuration' | 'locker_charge_transactions' | 'camps' | 'buildings' | 'rooms' | 'block_floors', columns = '*'): Promise<any[]> {
+ const rows: any[] = [];
+ for(let f = 0; ; f += 1000) {
+  const {data,error} = await supabase.from(table).select(columns).order('id').range(f,f+999);
+  if(error) throw error;
+  rows.push(...(data || [])); if(!data || data.length < 1000) return rows;
+ }
+}
+
+export async function loadLockerBilling() {
+ const [allocations,lockers] = await Promise.all([lockerPages('locker_allocations'), lockerPages('lockers')]);
+ return {allocations,lockers};
+}
+
+export function useLockerData() {
+ return useQuery({queryKey:['locker-data'],queryFn:async()=> {
+ const [lockers,allocations,events,configs,charges,camps,blocks,rooms,floors] = await Promise.all([
+ lockerPages('lockers'),lockerPages('locker_allocations'),lockerPages('locker_events'),lockerPages('locker_configuration'),lockerPages('locker_charge_transactions'),lockerPages('camps'),lockerPages('buildings'),lockerPages('rooms'),lockerPages('block_floors')]);
+ return {lockers,allocations,events,configs,charges,camps,blocks,rooms,floors};
+ }});
+}
+
+export function useLockerAction() {
+ const qc=useQueryClient();
+ return useMutation({mutationFn:async(action:()=>Promise<any>)=>{const result=await action();if(result.error)throw result.error;return result.data;},onSuccess:()=>{qc.invalidateQueries({queryKey:['locker-data']});qc.invalidateQueries({queryKey:['revenue-data']});qc.invalidateQueries({queryKey:['invoice-data']});}});
+}
+
+// Compatibility layer for CampLockersTab, AssignLockerDialog, and ReleaseLockerDialog
 export interface CampLocker {
   id: string;
   camp_id: string;
@@ -115,7 +143,6 @@ export function useAssignLocker() {
       keyNumber?: string;
       notes?: string;
     }) => {
-      // 1. Check if employee already has an active assignment
       const { data: existing } = await supabase
         .from("inmate_locker_assignments")
         .select("id")
@@ -126,7 +153,6 @@ export function useAssignLocker() {
         throw new Error("This inmate already has an active locker assigned. Please release it before assigning a new one.");
       }
 
-      // 2. Insert new assignment
       const { data: assignment, error: assignError } = await supabase
         .from("inmate_locker_assignments")
         .insert({
@@ -145,7 +171,6 @@ export function useAssignLocker() {
 
       if (assignError) throw assignError;
 
-      // 3. Mark locker as assigned
       const updatePayload: any = { status: "assigned" };
       if (keyNumber) updatePayload.key_number = keyNumber;
 
@@ -191,7 +216,6 @@ export function useReleaseLocker() {
       const today = new Date().toISOString().split("T")[0];
       const assignStatus = !keyReturned ? "lost_key" : condition === "damaged" ? "damaged" : "returned";
 
-      // 1. Update assignment
       const { error: assignError } = await supabase
         .from("inmate_locker_assignments")
         .update({
@@ -206,7 +230,6 @@ export function useReleaseLocker() {
 
       if (assignError) throw assignError;
 
-      // 2. Update locker status back to available or maintenance
       const lockerStatus = condition === "damaged" || condition === "repair" ? "maintenance" : "available";
       const { error: lockerError } = await supabase
         .from("camp_lockers")
@@ -267,4 +290,3 @@ export function useCreateLocker() {
     },
   });
 }
-

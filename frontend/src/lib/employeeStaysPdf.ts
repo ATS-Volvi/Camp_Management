@@ -22,7 +22,7 @@ export function buildEmployeeStaysPdf(rows: EmployeeStay[], checkoutOnly = false
     styles: { fontSize: 8, cellPadding: 2.5 }, headStyles: { fillColor: [173, 211, 245], textColor: [24, 49, 79] },
   });
   // Separate request detail tables retain every date, meal and status without crowding stay rows.
-  const withDetails = rows.filter(r => r.requests.length || (checkoutOnly && r.checkout));
+  const withDetails = rows.filter(r => r.requests.length || r.absences?.length || (checkoutOnly && r.checkout));
   for (const r of withDetails) {
     let y = ((doc as jsPDF & { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? 34) + 12;
     if (y > 165) { doc.addPage(); y = 16; }
@@ -34,6 +34,10 @@ export function buildEmployeeStaysPdf(rows: EmployeeStay[], checkoutOnly = false
       : [["No food cancellation requests for this stay", "", "", "", "", "", "", ""]];
     autoTable(doc, { startY: y + lines.length * 5 + 2, margin: 12, theme: "grid", head: [["Request ID", "From", "To", "Meals", "Reason", "Status", "Source", "Remarks"]], body,
       styles: { fontSize: 7.5, cellPadding: 2 }, headStyles: { fillColor: [173, 211, 245], textColor: [24, 49, 79] } });
+    if (r.absences?.length) autoTable(doc, { startY: ((doc as jsPDF & { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? 34) + 5, margin: 12,
+      head: [["Temporary Check-out", "Expected Return", "Actual Return", "Reason", "Outcome"]],
+      body: r.absences.map(a => [stayDate(a.temporary_out_date), stayDate(a.expected_return_date), a.ended_by_checkout ? "-" : stayDate(a.actual_return_date), a.reason, a.ended_by_checkout ? "Permanent checkout" : a.actual_return_date ? "Returned" : "Room retained"]),
+      styles: { fontSize: 8 }, headStyles: { fillColor: [173, 211, 245], textColor: [24, 49, 79] } });
     if (checkoutOnly && r.checkout) {
       autoTable(doc, { startY: ((doc as jsPDF & { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? 34) + 3, margin: 12, theme: "plain",
         body: [["Assets returned", r.checkout.assets_returned === null ? "Not recorded" : r.checkout.assets_returned ? "Yes" : "No", "Damage remarks", r.checkout.damage_remarks ?? "-"], ["Clearance notes", r.checkout.clearance_notes ?? "-", "Days stayed", r.days ?? "Unknown"]], styles: { fontSize: 8 } });

@@ -1,15 +1,14 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { loadAccommodationAbsences } from "./useAccommodationAbsences";
 
-// Pages are large because each page is a sequential round trip; the API has no row cap.
-const PAGE = 10_000;
 async function allPages<T>(fetchPage: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: unknown }>): Promise<T[]> {
   const rows: T[] = [];
-  for (let offset = 0; ; offset += PAGE) {
-    const { data, error } = await fetchPage(offset, offset + PAGE - 1);
+  for (let offset = 0; ; offset += 1000) {
+    const { data, error } = await fetchPage(offset, offset + 999);
     if (error) throw error;
     rows.push(...(data ?? []));
-    if (!data || data.length < PAGE) return rows;
+    if (!data || data.length < 1000) return rows;
   }
 }
 
@@ -25,7 +24,8 @@ export function useCommandDashboard() {
         allPages((a, b) => supabase.from("check_outs").select("id,employee_id,camp_id,check_out_date").order("id").range(a, b)),
         allPages((a, b) => supabase.from("employee_status_log").select("id,employee_id,to_status,effective_from,effective_to").order("id").range(a, b)),
       ]);
-      return { camps, rooms, employees, checkIns, checkOuts, presence };
+      const absences = await loadAccommodationAbsences();
+      return { camps, rooms, employees, checkIns, checkOuts, presence, absences };
     },
   });
 }
