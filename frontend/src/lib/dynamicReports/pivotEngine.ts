@@ -295,3 +295,4 @@ export function computePivotMatrix(
     chartSeriesKeys,
   };
 }
+

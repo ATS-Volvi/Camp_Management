@@ -43,3 +43,4 @@ function getCustomOnlyReports(): PresetTemplate[] {
     return [];
   }
 }
+

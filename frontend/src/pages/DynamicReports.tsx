@@ -31,7 +31,13 @@ import {
   Trash2,
   RefreshCw,
   Sparkles,
+  TrendingUp,
+  Users,
+  Building2,
+  Receipt,
+  Layers,
 } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
 
 export default function DynamicReports() {
@@ -69,7 +75,6 @@ export default function DynamicReports() {
     const def = DATASET_DEFINITIONS[newDataset];
     if (!def) return;
 
-    // Pick reasonable default rows and values for the new dataset
     const defaultMeasure = def.fields.find((f) => f.category === "measure") || def.fields[def.fields.length - 1];
     const defaultDim = def.fields.find((f) => f.category === "dimension") || def.fields[0];
 
@@ -167,29 +172,29 @@ export default function DynamicReports() {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Top Header */}
-      <div className="flex flex-wrap items-center justify-between gap-4 pb-3 border-b border-border">
+    <div className="space-y-5">
+      {/* PowerBI Top Command Ribbon */}
+      <div className="bg-[#0c2340] text-white rounded-xl p-4 shadow-sm flex flex-wrap items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <SlidersHorizontal size={22} className="text-primary" />
-            <h1 className="text-2xl font-bold text-foreground">Dynamic Reports & Pivot Studio</h1>
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-primary/10 text-primary border border-primary/20">
-              <Sparkles size={11} /> PowerBI-Style
+            <SlidersHorizontal size={20} className="text-[#fe932c]" />
+            <h1 className="text-xl font-bold tracking-tight">Dynamic Reports & Pivot Studio</h1>
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#fe932c]/20 text-[#fe932c] border border-[#fe932c]/30">
+              <Sparkles size={10} /> Stitch BI Suite
             </span>
           </div>
-          <p className="text-muted-foreground text-xs mt-1">
-            Drag & drop dimensions into rows, columns, and metric values to cross-tabulate live operations and billing.
+          <p className="text-slate-300 text-xs mt-0.5">
+            Interactive multi-dimensional cross-tabulation, magnetic drop wells, and synced drill-down visualizations.
           </p>
         </div>
 
-        {/* Global Toolbar */}
+        {/* Global Toolbar Commands */}
         <div className="flex flex-wrap items-center gap-2">
           {/* Preset Selector */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button size="sm" variant="outline" className="h-8 text-xs font-semibold gap-1.5 bg-card">
-                <Bookmark size={13} className="text-orange-500" />
+              <Button size="sm" variant="outline" className="h-8 text-xs font-semibold gap-1.5 bg-white/10 hover:bg-white/20 text-white border-white/20">
+                <Bookmark size={13} className="text-amber-400" />
                 <span>
                   {presets.find((p) => p.id === selectedPresetId)?.name || "Select Preset"}
                 </span>
@@ -197,7 +202,7 @@ export default function DynamicReports() {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-64 max-h-96 overflow-y-auto text-xs">
               <div className="px-2 py-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                Standard Corporate Templates
+                Standard BI Templates
               </div>
               {presets
                 .filter((p) => p.isBuiltIn)
@@ -216,7 +221,7 @@ export default function DynamicReports() {
                 <>
                   <DropdownMenuSeparator />
                   <div className="px-2 py-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                    My Saved Reports
+                    Saved Custom Templates
                   </div>
                   {presets
                     .filter((p) => !p.isBuiltIn)
@@ -248,12 +253,11 @@ export default function DynamicReports() {
           {/* Save Report Modal Trigger */}
           <Button
             size="sm"
-            variant="outline"
             onClick={() => setSaveModalOpen(true)}
-            className="h-8 text-xs font-medium gap-1.5"
+            className="h-8 text-xs font-semibold gap-1.5 bg-amber-500 hover:bg-amber-600 text-slate-950 shadow-xs"
             title="Save current layout as a custom template"
           >
-            <BookmarkPlus size={13} className="text-primary" />
+            <BookmarkPlus size={13} />
             <span>Save Report</span>
           </Button>
 
@@ -261,7 +265,7 @@ export default function DynamicReports() {
           <Button
             size="sm"
             onClick={handleExportExcel}
-            className="h-8 bg-emerald-700 hover:bg-emerald-800 text-white font-semibold text-xs shadow-xs gap-1.5"
+            className="h-8 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs shadow-xs gap-1.5"
           >
             <FileSpreadsheet size={13} />
             <span>Export Excel</span>
@@ -272,7 +276,7 @@ export default function DynamicReports() {
             size="sm"
             variant="outline"
             onClick={handleExportCsv}
-            className="h-8 text-xs font-medium gap-1.5"
+            className="h-8 text-xs font-semibold gap-1.5 bg-white/10 hover:bg-white/20 text-white border-white/20"
           >
             <Download size={13} />
             <span>CSV</span>
@@ -283,7 +287,7 @@ export default function DynamicReports() {
             size="sm"
             variant="ghost"
             onClick={handleReset}
-            className="h-8 text-xs text-muted-foreground hover:text-foreground"
+            className="h-8 text-xs text-slate-300 hover:text-white hover:bg-white/10"
             title="Reset layout"
           >
             <RotateCcw size={13} />
@@ -291,55 +295,70 @@ export default function DynamicReports() {
         </div>
       </div>
 
-      {/* Dataset Selector Bar */}
-      <div className="bg-card border border-border rounded-xl p-3 flex flex-wrap items-center justify-between gap-3 shadow-xs">
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-2">
-            <Database size={15} className="text-muted-foreground" />
-            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-              Dataset:
+      {/* Dataset & Live Stat Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        {/* Dataset Card */}
+        <Card className="border-border bg-card shadow-2xs">
+          <CardContent className="p-3">
+            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">
+              Data Model
             </span>
-          </div>
+            <Select
+              value={config.dataset}
+              onValueChange={(val) => handleDatasetChange(val as DatasetId)}
+            >
+              <SelectTrigger className="h-7 text-xs font-semibold bg-background">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="text-xs">
+                <SelectItem value="inmates">👥 Inmates & Occupancy</SelectItem>
+                <SelectItem value="billing">💰 Billing & Charges</SelectItem>
+                <SelectItem value="movements">🔄 In/Out Movements</SelectItem>
+                <SelectItem value="catering">🍽️ Mess & Catering</SelectItem>
+              </SelectContent>
+            </Select>
+          </CardContent>
+        </Card>
 
-          <Select
-            value={config.dataset}
-            onValueChange={(val) => handleDatasetChange(val as DatasetId)}
-          >
-            <SelectTrigger className="w-[280px] h-8 text-xs bg-background font-semibold">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent className="text-xs">
-              <SelectItem value="inmates">👥 Inmates & Room Occupancy</SelectItem>
-              <SelectItem value="billing">💰 Accommodation & Catering Billing</SelectItem>
-              <SelectItem value="movements">🔄 Check-In & Check-Out Movements</SelectItem>
-              <SelectItem value="catering">🍽️ Mess & Catering Costing</SelectItem>
-            </SelectContent>
-          </Select>
+        {/* Metric 1: Total Records */}
+        <Card className="border-blue-200 bg-blue-50/40 dark:bg-blue-950/20 border-t-2 border-t-blue-600 shadow-2xs">
+          <CardContent className="p-3">
+            <span className="text-[10px] font-bold text-blue-900 dark:text-blue-300 uppercase tracking-wider block">
+              Records Analyzed
+            </span>
+            <div className="text-lg font-bold font-mono text-blue-950 dark:text-blue-200 mt-0.5">
+              {isLoading ? "..." : rawRecords.length.toLocaleString()}
+            </div>
+          </CardContent>
+        </Card>
 
-          <span className="text-xs text-muted-foreground hidden sm:inline">
-            • {activeDatasetDef.description}
-          </span>
-        </div>
+        {/* Metric 2: Primary Grand Total */}
+        <Card className="border-amber-200 bg-amber-50/40 dark:bg-amber-950/20 border-t-2 border-t-amber-500 shadow-2xs">
+          <CardContent className="p-3">
+            <span className="text-[10px] font-bold text-amber-900 dark:text-amber-300 uppercase tracking-wider block">
+              Grand Total Metric ({config.values[0]?.aggregation.toUpperCase() || "SUM"})
+            </span>
+            <div className="text-lg font-bold font-mono text-amber-950 dark:text-amber-200 mt-0.5 truncate">
+              {matrixResult.grandTotal?.formatted || "0"}
+            </div>
+          </CardContent>
+        </Card>
 
-        <div className="flex items-center gap-3">
-          <div className="text-xs text-muted-foreground font-mono">
-            {isLoading ? "Querying database..." : `${rawRecords.length.toLocaleString()} records loaded`}
-          </div>
-
-          <Button
-            size="icon"
-            variant="ghost"
-            onClick={() => refetch()}
-            className="h-7 w-7 text-muted-foreground hover:text-foreground"
-            title="Refresh dataset from database"
-          >
-            <RefreshCw size={13} className={isLoading ? "animate-spin" : ""} />
-          </Button>
-        </div>
+        {/* Metric 3: Active Groups */}
+        <Card className="border-slate-200 bg-slate-50/50 dark:bg-slate-900/30 border-t-2 border-t-slate-700 shadow-2xs">
+          <CardContent className="p-3">
+            <span className="text-[10px] font-bold text-slate-800 dark:text-slate-300 uppercase tracking-wider block">
+              Active Hierarchy
+            </span>
+            <div className="text-xs font-semibold text-foreground mt-1 truncate">
+              {config.rows.map((r) => fieldMap[r]?.label || r).join(" ➔ ") || "All Data"}
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Main Studio Work Area */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
         {/* Left Column: Field Palette (3 cols) */}
         <div className="lg:col-span-3 sticky top-4">
           <FieldCatalogPane
@@ -348,9 +367,9 @@ export default function DynamicReports() {
           />
         </div>
 
-        {/* Right Column: Drop Zones & Matrix Workspace (9 cols) */}
-        <div className="lg:col-span-9 space-y-5">
-          {/* Drop Zones */}
+        {/* Right Column: Drop Wells & Matrix Workspace (9 cols) */}
+        <div className="lg:col-span-9 space-y-4">
+          {/* Magnetic Drop Wells */}
           <DropZoneSection
             config={config}
             fieldMap={fieldMap}
@@ -364,7 +383,7 @@ export default function DynamicReports() {
             onChartTypeChange={(chartType) => setConfig({ ...config, chartType })}
           />
 
-          {/* Interactive Pivot Matrix Table */}
+          {/* High-Density Pivot Matrix Table */}
           <PivotMatrixTable
             matrix={matrixResult}
             config={config}

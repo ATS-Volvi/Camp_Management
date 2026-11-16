@@ -80,3 +80,4 @@ export interface PivotMatrixResult {
   chartData: Array<Record<string, any>>;
   chartSeriesKeys: string[];
 }
+

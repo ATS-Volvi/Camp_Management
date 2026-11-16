@@ -90,3 +90,4 @@ describe("pivotEngine", () => {
     expect(formatPivotValue(85.4, "percentage")).toBe("85.4%");
   });
 });
+
