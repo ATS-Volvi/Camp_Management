@@ -1674,6 +1674,124 @@ export type Database = {
           },
         ]
       }
+      department_lunch_managers: {
+        Row: {
+          department_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          department_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          department_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "department_lunch_managers_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: true
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      department_lunch_rates: {
+        Row: {
+          camp_id: string
+          unit_price: number
+          updated_at: string
+        }
+        Insert: {
+          camp_id: string
+          unit_price: number
+          updated_at?: string
+        }
+        Update: {
+          camp_id?: string
+          unit_price?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "department_lunch_rates_camp_id_fkey"
+            columns: ["camp_id"]
+            isOneToOne: true
+            referencedRelation: "camps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      department_lunch_requests: {
+        Row: {
+          approved_by: string | null
+          camp_id: string
+          created_at: string
+          decided_at: string | null
+          decision_note: string
+          department_id: string
+          id: string
+          meal_date: string
+          quantity: number
+          remarks: string
+          requested_by: string
+          status: string
+          total_cost: number | null
+          unit_price: number
+        }
+        Insert: {
+          approved_by?: string | null
+          camp_id: string
+          created_at?: string
+          decided_at?: string | null
+          decision_note?: string
+          department_id: string
+          id?: string
+          meal_date: string
+          quantity: number
+          remarks?: string
+          requested_by?: string
+          status?: string
+          total_cost?: number | null
+          unit_price: number
+        }
+        Update: {
+          approved_by?: string | null
+          camp_id?: string
+          created_at?: string
+          decided_at?: string | null
+          decision_note?: string
+          department_id?: string
+          id?: string
+          meal_date?: string
+          quantity?: number
+          remarks?: string
+          requested_by?: string
+          status?: string
+          total_cost?: number | null
+          unit_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "department_lunch_requests_camp_id_fkey"
+            columns: ["camp_id"]
+            isOneToOne: false
+            referencedRelation: "camps"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "department_lunch_requests_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       departments: {
         Row: {
           billing_notes: string | null
@@ -4216,6 +4334,10 @@ export type Database = {
         }
         Returns: string
       }
+      decide_department_lunch: {
+        Args: { p_note?: string; p_request: string; p_status: string }
+        Returns: undefined
+      }
       delete_camp: { Args: { p_camp_id: string }; Returns: undefined }
       delete_employees: { Args: { p_ids: string[] }; Returns: number }
       food_cancellation_dates_within_stay: {
@@ -4376,6 +4498,16 @@ export type Database = {
         Args: { p_approver: string; p_reason: string; p_request_id: string }
         Returns: undefined
       }
+      request_department_lunch: {
+        Args: {
+          p_camp: string
+          p_date: string
+          p_department: string
+          p_quantity: number
+          p_remarks?: string
+        }
+        Returns: string
+      }
       return_from_temporary_absence: {
         Args: { p_absence_id: string; p_date: string; p_room_id?: string }
         Returns: string
@@ -4383,6 +4515,17 @@ export type Database = {
       seed_meal_orders_window: {
         Args: { p_end?: string; p_start?: string }
         Returns: undefined
+      }
+      submit_department_lunch: {
+        Args: {
+          p_camp: string
+          p_date: string
+          p_department: string
+          p_price: number
+          p_quantity: number
+          p_remarks?: string
+        }
+        Returns: string
       }
       submit_food_cancellation: {
         Args: {

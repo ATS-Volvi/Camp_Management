@@ -12,6 +12,11 @@ import autoTable from "jspdf-autotable";
 import { useRevenueData, buildRevenueRows } from "./RevenueReportTab";
 import { downloadStatementBlob, statementAmount as fmt } from "./departmentStatement";
 
+import { useDepartmentLunch } from "@/hooks/useDepartmentLunch";
+import { matchesLunchDepartment, summarizeDepartmentLunch } from "@/lib/departmentLunch";
+import DepartmentLunchTable from "./DepartmentLunchTable";
+import { reportPeriodEnd } from "@/lib/stayBilling";
+
 const CATEGORIES = ["1x1", "2x1", "3x1", "4x1", "5x1", "6x1", "guest"];
 const catLabel = (c: string) => (c === "guest" ? "Guest" : c);
 
@@ -21,7 +26,8 @@ export function summarizeByCategory(rows: any[]) {
   rows.forEach(r => {
     const key = r.category || "—";
     if (!map.has(key)) map.set(key, { rooms: new Set(), residents: 0, food: 0, room: 0 });
-    const g = map.get(key)!;
+    const g = map.get(key);
+    if (!g) return;
     g.rooms.add(`${r.camp}|${r.room}`);
     g.residents += 1; g.food += r.foodRevenue || 0; g.room += r.roomRevenue || 0;
   });
@@ -37,11 +43,22 @@ export default function MonthlySummaryReportTab() {
   const toDate = format(endOfMonth(monthDate), "yyyy-MM-dd");
   const { data, isLoading, isError, refetch } = useRevenueData(fromDate, toDate);
   const rows = useMemo(() => buildRevenueRows(data, fromDate, toDate), [data, fromDate, toDate]);
-  const depts = useMemo(() => [...new Set(rows.map((r: any) => r.department))].sort(), [rows]);
-  const camps = useMemo(() => [...new Set(rows.map((r: any) => r.camp))].sort(), [rows]);
-  const filtered = rows.filter((r: any) => (dept === "all" || r.department === dept) && (camp === "all" || r.camp === camp));
+  const lunchQuery = useDepartmentLunch(fromDate,toDate);
+  const departmentLabel = (label: string) => {
+    const master = (lunchQuery.data || []).find(r => r.departments && matchesLunchDepartment(label,r.departments))?.departments;
+    return master ? rows.find((r: any) => matchesLunchDepartment(r.department,master))?.department || master.code : label;
+  };
+  const depts = useMemo(() => {
+    const residentDepartments = [...new Set(rows.map((r: any) => departmentLabel(r.department) as string))];
+    const lunchDepartments = (lunchQuery.data || []).flatMap(r => r.departments && !residentDepartments.some(label => matchesLunchDepartment(label, r.departments as {name:string;code:string})) ? [r.departments.code] : []);
+    return [...new Set([...residentDepartments, ...lunchDepartments])].sort();
+  }, [rows,lunchQuery.data]);
+  const camps = useMemo(() => [...new Set([...rows.map((r: any) => r.camp), ...(lunchQuery.data || []).map(r=>r.camps?.name).filter(Boolean)])].sort(), [rows,lunchQuery.data]);
+  const filtered = rows.filter((r: any) => (dept === "all" || departmentLabel(r.department) === dept) && (camp === "all" || r.camp === camp));
   const summary = summarizeByCategory(filtered);
   const totals = summary.reduce((s, r) => ({ rooms: s.rooms + r.rooms, residents: s.residents + r.residents, food: s.food + r.food, room: s.room + r.room, total: s.total + r.total }), { rooms: 0, residents: 0, food: 0, room: 0, total: 0 });
+  const lunches = (lunchQuery.data || []).filter(r => (dept === "all" || (r.departments && matchesLunchDepartment(dept, r.departments))) && (camp === "all" || r.camps?.name === camp));
+  const lunch = summarizeDepartmentLunch(lunches,fromDate,reportPeriodEnd(toDate));
   const scope = `${camp === "all" ? "All Camps" : camp} | ${dept === "all" ? "All Departments" : dept} | ${format(monthDate, "MMMM yyyy")}`;
 
   const exportPdf = () => {
@@ -52,10 +69,11 @@ export default function MonthlySummaryReportTab() {
       startY: 28,
       head: [["Room Category", "Total Rooms", "Residents", "Food Cost (SAR)", "Accommodation Cost (SAR)", "Total Cost (SAR)"]],
       body: summary.map(r => [catLabel(r.category), r.rooms, r.residents, fmt(r.food), fmt(r.room), fmt(r.total)]),
-      foot: [["Total", totals.rooms, totals.residents, fmt(totals.food), fmt(totals.room), fmt(totals.total)]],
+      foot: [["Inmate Subtotal", totals.rooms, totals.residents, fmt(totals.food), fmt(totals.room), fmt(totals.total)], ["Monthly Department Lunch", "", lunch.quantity, "", "", fmt(lunch.cost)], ["Grand Total", "", "", "", "", fmt(totals.total+lunch.cost)]],
       headStyles: { fillColor: [96, 165, 250] }, footStyles: { fillColor: [219, 234, 254], textColor: 20 },
       columnStyles: { 1: { halign: "right" }, 2: { halign: "right" }, 3: { halign: "right" }, 4: { halign: "right" }, 5: { halign: "right" } },
     });
+    autoTable(doc,{startY:((doc as any).lastAutoTable?.finalY || 100)+8,head:[["Approved Department Lunch Date","Count","Cost (SAR)"]],body:lunch.daily.map(d=>[d.date,d.quantity,fmt(d.cost)]),foot:[["Monthly Department Lunch",lunch.quantity,fmt(lunch.cost)]],showFoot:"lastPage",headStyles:{fillColor:[96,165,250]},footStyles:{fillColor:[219,234,254],textColor:20}});
     downloadStatementBlob(doc.output("blob"), `monthly-summary-${month}.pdf`);
   };
 
@@ -71,12 +89,12 @@ export default function MonthlySummaryReportTab() {
           <div className="space-y-1"><Label className="text-xs">Department</Label>
             <Select value={dept} onValueChange={setDept}><SelectTrigger aria-label="Department" className="w-[200px]"><SelectValue /></SelectTrigger>
               <SelectContent><SelectItem value="all">All Departments</SelectItem>{depts.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent></Select></div>
-          <Button disabled={isLoading || isError} onClick={exportPdf}><Download size={16} className="mr-1" /> Download PDF</Button>
+          <Button disabled={isLoading || isError || lunchQuery.isLoading || lunchQuery.isError} onClick={exportPdf}><Download size={16} className="mr-1" /> Download PDF</Button>
         </CardContent>
       </Card>
       <h3 className="font-semibold">Monthly Summary — {scope}</h3>
-      {isError ? <div role="alert" className="py-8 text-center">Unable to load summary. <Button variant="outline" onClick={() => refetch()}>Retry</Button></div>
-        : isLoading ? <div className="text-center py-12 text-muted-foreground">Loading...</div> : (
+      {(isError || lunchQuery.isError) ? <div role="alert" className="py-8 text-center">Unable to load summary. <Button variant="outline" onClick={() => {refetch();lunchQuery.refetch();}}>Retry</Button></div>
+        : (isLoading || lunchQuery.isLoading) ? <div className="text-center py-12 text-muted-foreground">Loading...</div> : (
         <div className="border rounded-lg overflow-auto">
           <Table>
             <TableHeader><TableRow>
@@ -94,11 +112,14 @@ export default function MonthlySummaryReportTab() {
                 </TableRow>
               ))}
               <TableRow className="font-bold border-t-2 bg-primary/10">
-                <TableCell>Total</TableCell><TableCell className="text-right">{totals.rooms}</TableCell><TableCell className="text-right">{totals.residents}</TableCell>
+                <TableCell>Inmate Subtotal</TableCell><TableCell className="text-right">{totals.rooms}</TableCell><TableCell className="text-right">{totals.residents}</TableCell>
                 <TableCell className="text-right">{fmt(totals.food)}</TableCell><TableCell className="text-right">{fmt(totals.room)}</TableCell><TableCell className="text-right">{fmt(totals.total)}</TableCell>
               </TableRow>
+              <TableRow><TableCell>Monthly Department Lunch</TableCell><TableCell/><TableCell className="text-right">{lunch.quantity}</TableCell><TableCell/><TableCell/><TableCell className="text-right">{fmt(lunch.cost)}</TableCell></TableRow>
+              <TableRow className="font-bold"><TableCell>Grand Total</TableCell><TableCell/><TableCell/><TableCell/><TableCell/><TableCell className="text-right">{fmt(totals.total+lunch.cost)}</TableCell></TableRow>
             </TableBody>
           </Table>
+          <DepartmentLunchTable summary={lunch}/>
         </div>
       )}
     </div>

@@ -55,6 +55,7 @@ const navGroups: {
       { label: "Grocery Inventory", icon: Package, path: "/grocery-inventory" },
       { label: "Cook Requests & PO", icon: ChefHat, path: "/cook-requests" },
       { label: "Food Cancellation", icon: Ban, path: "/food-cancellation" },
+      { label: "Department Lunch Meals", icon: UtensilsCrossed, path: "/department-lunch" },
     ],
   },
   {
@@ -98,6 +99,7 @@ const adminNav = [
   { label: "Supplier Master", icon: Truck, path: "/admin/suppliers" },
   { label: "Designation Mapping", icon: Link2, path: "/admin/designation-mapping" },
   { label: "Camp Food Rates", icon: UtensilsCrossed, path: "/admin/camp-food-rates" },
+  { label: "Department Lunch Rates", icon: UtensilsCrossed, path: "/admin/department-lunch-rates" },
   { label: "User Management", icon: UserCog, path: "/admin/users" },
   { label: "Permission Matrix", icon: Shield, path: "/admin/permissions" },
   { label: "Audit Logs", icon: FileText, path: "/admin/audit-logs" },

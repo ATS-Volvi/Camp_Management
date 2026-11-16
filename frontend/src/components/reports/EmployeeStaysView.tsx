@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useEmployeeStays } from "@/hooks/useEmployeeStays";
-import { scopeEmployeeStays, type EmployeeStay } from "@/lib/employeeStays";
+import { rangeStayedDays, scopeEmployeeStays, type EmployeeStay } from "@/lib/employeeStays";
 import { downloadEmployeeStaysPdf, readable, stayDate } from "@/lib/employeeStaysPdf";
 import { getRoomCategoryLabel } from "@/constants/roomCategories";
 import "./employeeStaysPrint.css";
@@ -47,12 +47,13 @@ export default function EmployeeStaysView({ checkoutOnly = false, campId, campNa
     if (checkoutOnly) { const d = r.departure?.slice(0, 10) ?? ""; return (!from || d >= from) && (!to || d <= to); }
     return (!to || !r.arrival || r.arrival.slice(0, 10) <= to) && (!from || !r.departure || r.departure.slice(0, 10) >= from);
   }), [base, search, filters, from, to, checkoutOnly]);
+  const daysOf = (r: EmployeeStay) => rangeStayedDays(r, from, to);
   const pages = Math.max(1, Math.ceil(filtered.length / 50)); const currentPage = Math.min(page, pages - 1);
   const visible = filtered.slice(currentPage * 50, currentPage * 50 + 50);
   const filterSummary = [employeeId ? `Employee: ${base[0]?.employee?.employee_id ?? ""} ${base[0]?.employee?.name ?? ""} | All camps` : "", campId ? `Camp: ${campName || base[0]?.camp || campId}` : "", search ? `Employee: ${search}` : "", ...Object.entries(filters).filter(([, v]) => v !== "all").map(([k, v]) => `${readable(k)}: ${v}`), from ? `From ${stayDate(from)}` : "", to ? `To ${stayDate(to)}` : ""].filter(Boolean).join(" | ") || "All camps";
   const exportCsv = () => {
     const columns = ["Employee ID", "Name", "Department", "Designation", "Type", "Company", "Supplier", "Project", "Camp", "Room", "Category", "Check-in", "Checkout", "Days stayed", "Status", "Food cancellation requests", "Assets returned", "Damage remarks", "Clearance notes", "Temporary absences and returns"];
-    const rows = filtered.map(r => [r.employee?.employee_id, r.employee?.name, r.employee?.department, r.employee?.designation, r.employee?.employee_type, r.employee?.company, r.employee?.supplier_name, r.employee?.project, r.camp, r.room, getRoomCategoryLabel(r.category), r.arrival, r.departure, r.days, r.status,
+    const rows = filtered.map(r => [r.employee?.employee_id, r.employee?.name, r.employee?.department, r.employee?.designation, r.employee?.employee_type, r.employee?.company, r.employee?.supplier_name, r.employee?.project, r.camp, r.room, getRoomCategoryLabel(r.category), r.arrival, r.departure, daysOf(r), r.status,
       r.requests.map(q => `${q.id}: ${q.from_date} to ${q.to_date}; ${q.food_cancellation_request_meals.map(m => m.meal_type).join("/")}; ${q.status}; ${q.reason}`).join(" | "),
       r.checkout?.assets_returned === null || !r.checkout ? "" : r.checkout.assets_returned ? "Yes" : "No", r.checkout?.damage_remarks, r.checkout?.clearance_notes, r.absences?.map(a => `${a.temporary_out_date}; ${a.reason}; expected ${a.expected_return_date || "—"}; ${a.ended_by_checkout ? "permanent checkout" : "return"} ${a.actual_return_date || "ongoing"}`).join(" | ")]);
     const csv = [columns, ...rows].map(row => row.map(cell => `"${String(cell ?? "").replace(/"/g, '""')}"`).join(",")).join("\r\n");
@@ -62,7 +63,7 @@ export default function EmployeeStaysView({ checkoutOnly = false, campId, campNa
   };
   return <section className="space-y-4 employee-stays-view">
     <div className="flex flex-wrap justify-between items-center gap-3 print:hidden">
-      <div className="flex flex-wrap gap-6 text-sm"><span><strong>{filtered.length}</strong> {checkoutOnly ? "check-outs" : "stays"}</span><span><strong>{new Set(filtered.map(r => r.employee_id)).size}</strong> employees</span><span><strong>{filtered.reduce((n, r) => n + (r.days ?? 0), 0)}</strong> total days{filtered.some(r => r.days === null) ? " (known stays)" : ""}</span><span><strong>{filtered.reduce((n, r) => n + r.requests.length, 0)}</strong> food requests</span></div>
+      <div className="flex flex-wrap gap-6 text-sm"><span><strong>{filtered.length}</strong> {checkoutOnly ? "check-outs" : "stays"}</span><span><strong>{new Set(filtered.map(r => r.employee_id)).size}</strong> employees</span><span><strong>{filtered.reduce((n, r) => n + (daysOf(r) ?? 0), 0)}</strong> total days{(from || to) ? " in range" : ""}{filtered.some(r => daysOf(r) === null) ? " (known stays)" : ""}</span><span><strong>{filtered.reduce((n, r) => n + r.requests.length, 0)}</strong> food requests</span></div>
       <div className="flex flex-wrap gap-2"><Button variant="outline" disabled={isLoading || !!error || !filtered.length} onClick={() => downloadEmployeeStaysPdf(filtered, checkoutOnly, filterSummary)}><Download size={16} className="mr-2" />Export PDF</Button><Button variant="outline" disabled={isLoading || !!error || !filtered.length} onClick={exportCsv}><Download size={16} className="mr-2" />Export CSV</Button><Button variant="outline" disabled={!filtered.length || !!error} onClick={() => window.print()}><Printer size={16} className="mr-2" />Print</Button></div>
     </div>
     <div className="space-y-3 print:hidden">
@@ -73,7 +74,7 @@ export default function EmployeeStaysView({ checkoutOnly = false, campId, campNa
     {isLoading ? <p className="py-12 text-center text-muted-foreground">Loading employee stays…</p> : error ? <div role="alert" className="py-8 text-center"><p>Unable to load employee stays.</p><Button variant="outline" onClick={() => refetch()}>Retry</Button></div> : !filtered.length ? <p className="py-12 text-center text-muted-foreground">No stays match these filters.</p> : <>
       <div className="border rounded-lg overflow-auto print:hidden"><Table><TableHeader><TableRow>{["Stay #", "Employee", "Department", "Designation", "Camp", "Room / Type", "Check-in", "Checkout", "Days stayed", "Reason for exit", "Status", "Food requests"].map(h => <TableHead key={h} className="whitespace-nowrap">{h}</TableHead>)}</TableRow></TableHeader><TableBody>{visible.map((r, index) => <TableRow key={r.id}>
         <TableCell>{currentPage * 50 + index + 1}</TableCell>
-        <TableCell className="min-w-40"><div className="font-medium">{r.employee?.name ?? "Unknown employee"}</div><div className="text-xs text-muted-foreground">{r.employee?.employee_id ?? "—"}</div></TableCell><TableCell>{r.employee?.department || "—"}</TableCell><TableCell>{r.employee?.designation || "—"}</TableCell><TableCell>{r.camp}</TableCell><TableCell className="whitespace-nowrap">{r.room} / {getRoomCategoryLabel(r.category)}</TableCell><TableCell className="whitespace-nowrap">{stayDate(r.arrival)}</TableCell><TableCell className="whitespace-nowrap">{r.departure ? stayDate(r.departure) : r.status === "In camp" ? "In camp" : "Not recorded"}</TableCell><TableCell>{r.days ?? "Unknown"}</TableCell>
+        <TableCell className="min-w-40"><div className="font-medium">{r.employee?.name ?? "Unknown employee"}</div><div className="text-xs text-muted-foreground">{r.employee?.employee_id ?? "—"}</div></TableCell><TableCell>{r.employee?.department || "—"}</TableCell><TableCell>{r.employee?.designation || "—"}</TableCell><TableCell>{r.camp}</TableCell><TableCell className="whitespace-nowrap">{r.room} / {getRoomCategoryLabel(r.category)}</TableCell><TableCell className="whitespace-nowrap">{stayDate(r.arrival)}</TableCell><TableCell className="whitespace-nowrap">{r.departure ? stayDate(r.departure) : r.status === "In camp" ? "In camp" : "Not recorded"}</TableCell><TableCell>{daysOf(r) ?? "Unknown"}</TableCell>
         <TableCell className="max-w-56">{r.checkout?.clearance_notes || "—"}</TableCell>
         <TableCell><Badge variant="outline" className="whitespace-nowrap">{r.status}</Badge></TableCell><TableCell><Button variant="ghost" size="sm" aria-label={`View stay for ${r.employee?.employee_id ?? r.id}`} onClick={() => setSelected(r)}><Eye size={14} className="mr-2" />{r.requests.length}</Button></TableCell>
       </TableRow>)}</TableBody></Table></div>

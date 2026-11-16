@@ -32,6 +32,7 @@ export default function Attendance() {
   const [departmentFilter, setDepartmentFilter] = useState<string>("all");
   const [nationalityFilter, setNationalityFilter] = useState<string>("all");
   const [designationFilter, setDesignationFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
 
   const { data: camps = [] } = useCamps();
 
@@ -232,6 +233,13 @@ export default function Attendance() {
     if (designationFilter !== "all") {
       list = list.filter((e: any) => e.designation === designationFilter);
     }
+    if (statusFilter !== "all") {
+      list = list.filter((e: any) => {
+        const absence = absences.find((a) => a.employee_id === e.id);
+        if (statusFilter === "active") return !absence;
+        return absence?.absence_status === statusFilter;
+      });
+    }
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       list = list.filter((e: any) =>
@@ -239,7 +247,7 @@ export default function Attendance() {
       );
     }
     return list;
-  }, [currentOccupants, searchQuery, supplierFilter, employeeTypeFilter, departmentFilter, nationalityFilter, designationFilter]);
+  }, [currentOccupants, searchQuery, supplierFilter, employeeTypeFilter, departmentFilter, nationalityFilter, designationFilter, statusFilter, absences]);
 
   // Stats — follow the active filters
   const filteredIds = useMemo(() => new Set(filteredOccupants.map((e: any) => e.id)), [filteredOccupants]);
@@ -438,6 +446,19 @@ export default function Attendance() {
                   {designationOptions.map((d) => (
                     <SelectItem key={d} value={d}>{d}</SelectItem>
                   ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Status</label>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-[140px] h-9"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Statuses</SelectItem>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="on_site">On Site</SelectItem>
+                  <SelectItem value="vacation">Vacation</SelectItem>
+                  <SelectItem value="away">Away</SelectItem>
                 </SelectContent>
               </Select>
             </div>

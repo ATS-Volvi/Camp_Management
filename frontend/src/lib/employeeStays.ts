@@ -1,4 +1,4 @@
-import { billingDay, billingToday } from "./stayBilling";
+import { billableStayWindow, billingDay, billingToday } from "./stayBilling";
 import type { AccommodationAbsence } from "./accommodationAbsence";
 
 export interface StayEmployee {
@@ -39,6 +39,13 @@ export function scopeEmployeeStays(rows: EmployeeStay[], campId?: string, checko
 export function stayedDays(arrival: string, departure: string | null, today = billingToday()) {
   const end = departure ? billingDay(departure).getTime() : billingDay(today).getTime() + 86400000;
   return Math.max(0, Math.round((end - billingDay(arrival).getTime()) / 86400000));
+}
+
+/** Days inside a selected from/to range; without a range, the stay's full days. */
+export function rangeStayedDays(stay: Pick<EmployeeStay, "arrival" | "departure" | "days">, from: string, to: string, today = billingToday()): number | null {
+  if (!from && !to) return stay.days;
+  if (!stay.arrival || stay.days === null) return null;
+  return billableStayWindow(stay.arrival, stay.departure, from || stay.arrival.slice(0, 10), to || stay.departure?.slice(0, 10) || today, today).days;
 }
 
 /** Pair actual events one-to-one. A later arrival is a boundary, never an invented checkout. */

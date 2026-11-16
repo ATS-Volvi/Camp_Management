@@ -5,7 +5,14 @@ export interface MealCostBreakdown {
   breakfast: number; lunch: number; dinner: number; ramadan: number;
   breakfastDays: number; lunchDays: number; dinnerDays: number; ramadanDays: number;
   mealsCancelled: number; full: number; net: number;
+  deductions: MealDeductions;
 }
+
+export interface MealDeductions {
+  breakfastCount: number; lunchCount: number; dinnerCount: number; ramadanCount: number;
+  breakfast: number; lunch: number; dinner: number; ramadan: number; total: number;
+}
+export const emptyMealDeductions = (): MealDeductions => ({ breakfastCount: 0, lunchCount: 0, dinnerCount: 0, ramadanCount: 0, breakfast: 0, lunch: 0, dinner: 0, ramadan: 0, total: 0 });
 
 const DAY = 86400000;
 const utcDay = (d: Date | string) => { const x = new Date(d); return Date.UTC(x.getUTCFullYear(), x.getUTCMonth(), x.getUTCDate()); };
@@ -19,7 +26,7 @@ export function computeMealCost(
   stayStart: Date, stayEnd: Date, rates: MealRates, cancellations: MealCancellation[],
   ramadan?: { start: string; end: string } | null,
 ): MealCostBreakdown {
-  const out: MealCostBreakdown = { breakfast: 0, lunch: 0, dinner: 0, ramadan: 0, breakfastDays: 0, lunchDays: 0, dinnerDays: 0, ramadanDays: 0, mealsCancelled: 0, full: 0, net: 0 };
+  const out: MealCostBreakdown = { breakfast: 0, lunch: 0, dinner: 0, ramadan: 0, breakfastDays: 0, lunchDays: 0, dinnerDays: 0, ramadanDays: 0, mealsCancelled: 0, full: 0, net: 0, deductions: emptyMealDeductions() };
   const rs = ramadan ? utcDay(ramadan.start) : null;
   const re = ramadan ? utcDay(ramadan.end) : null;
   for (let t = utcDay(stayStart); t <= utcDay(stayEnd); t += DAY) {
@@ -32,16 +39,24 @@ export function computeMealCost(
       // Ramadan day = Iftar + Suhoor; each cancelled half removes half the day rate.
       const halves = ["iftar", "suhoor"].filter(m => !cancelled.has(m)).length;
       out.mealsCancelled += 2 - halves;
+      out.deductions.ramadanCount += (2 - halves) / 2;
+      out.deductions.ramadan += rates.ramadan * (2 - halves) / 2;
       if (halves) { out.ramadan += (rates.ramadan * halves) / 2; out.ramadanDays += halves / 2; }
       continue;
     }
     out.full += rates.breakfast + rates.lunch + rates.dinner;
     (["breakfast", "lunch", "dinner"] as const).forEach(m => {
-      if (cancelled.has(m)) { out.mealsCancelled++; return; }
+      if (cancelled.has(m)) {
+        out.mealsCancelled++;
+        out.deductions[`${m}Count`]++;
+        out.deductions[m] += rates[m];
+        return;
+      }
       out[m] += rates[m];
       out[`${m}Days` as const]++;
     });
   }
   out.net = out.breakfast + out.lunch + out.dinner + out.ramadan;
+  out.deductions.total = out.deductions.breakfast + out.deductions.lunch + out.deductions.dinner + out.deductions.ramadan;
   return out;
 }

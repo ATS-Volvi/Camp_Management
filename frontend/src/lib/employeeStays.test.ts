@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildEmployeeStays, scopeEmployeeStays, stayedDays, type Arrival, type Departure, type StayCancellation } from "./employeeStays";
+import { buildEmployeeStays, rangeStayedDays, scopeEmployeeStays, stayedDays, type Arrival, type Departure, type StayCancellation } from "./employeeStays";
 const arrival = (id: string, date: string, camp = "c1", room = "r1"): Arrival => ({ id, employee_id: "e1", camp_id: camp, room_id: room, check_in_date: date, employees: null, camps: null, rooms: null });
 const departure = (id: string, date: string, camp = "c1", room = "r1"): Departure => ({ id, employee_id: "e1", camp_id: camp, room_id: room, check_out_date: date, employees: null, camps: null, rooms: null, assets_returned: true, damage_remarks: null, clearance_notes: null });
 const request = (id: string, status: string, from = "2026-10-12", to = "2026-10-15"): StayCancellation => ({ id, employee_id: "e1", camp_id: "c1", from_date: from, to_date: to, status, reason: "leave", source: "manual", remarks: null, food_cancellation_request_meals: [{ meal_type: "lunch" }] });
@@ -32,6 +32,23 @@ describe("employee stay reports", () => {
   it("shows pending, approved, rejected and cancelled requests, scoped to the stay", () => {
     const rows = buildEmployeeStays([arrival("a", "2026-10-10")], [departure("x", "2026-10-20")], [request("p", "pending"), request("a", "approved"), request("r", "rejected"), request("c", "cancelled"), request("later", "approved", "2026-11-01", "2026-11-05")]);
     expect(rows[0].requests.map(r => r.id)).toEqual(["p", "a", "r", "c"]);
+  });
+  it("clips days to the selected range: 10–20 Oct stay with 12–15 Oct range counts 4 days", () => {
+    const stay = { arrival: "2026-10-10", departure: "2026-10-20", days: 10 };
+    expect(rangeStayedDays(stay, "2026-10-12", "2026-10-15")).toBe(4);
+  });
+  it("keeps full stay days when no range is selected", () => {
+    expect(rangeStayedDays({ arrival: "2026-10-10", departure: "2026-10-20", days: 10 }, "", "")).toBe(10);
+  });
+  it("clips an ongoing stay from the range start through today", () => {
+    expect(rangeStayedDays({ arrival: "2026-11-01", departure: null, days: 7 }, "2026-11-03", "", "2026-11-07")).toBe(5);
+  });
+  it("clips only the range end when no range start is selected", () => {
+    expect(rangeStayedDays({ arrival: "2026-10-10", departure: "2026-10-20", days: 10 }, "", "2026-10-12")).toBe(3);
+  });
+  it("never counts negative range days and keeps unknown stays unknown", () => {
+    expect(rangeStayedDays({ arrival: "2026-10-10", departure: "2026-10-20", days: 10 }, "2026-10-21", "2026-10-25")).toBe(0);
+    expect(rangeStayedDays({ arrival: null, departure: "2026-10-20", days: null }, "2026-10-12", "2026-10-15")).toBeNull();
   });
   it("never counts negative days for future arrivals or same-day checkout", () => {
     expect(stayedDays("2026-11-10", null, "2026-11-07")).toBe(0);

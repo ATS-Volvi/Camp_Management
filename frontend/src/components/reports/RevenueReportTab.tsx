@@ -30,7 +30,7 @@ export function rowsOf<T>({ data, error }: { data: T[] | null; error: unknown })
 /** Everything revenue needs except cancellations. Not date-bound: stays outside a window bill 0 days. */
 async function fetchRevenueBase() {
   const [checkIns, checkOuts, rates, categories, suppliers, ramadan, campMealRates, leaves] = await Promise.all([
-    supabase.from("check_ins").select("id, employee_id, room_id, camp_id, check_in_date, food_required, employees(id, employee_id, name, department, supplier_name, employee_type, project), rooms(id, room_number, category, daily_food_rate), camps(id, name)").then(rowsOf),
+    supabase.from("check_ins").select("id, employee_id, room_id, camp_id, check_in_date, food_required, employees(id, employee_id, name, department, supplier_name, employee_type, project, presence_status), rooms(id, room_number, category, daily_food_rate, building_id, buildings(name)), camps(id, name)").then(rowsOf),
     supabase.from("check_outs").select("employee_id, check_out_date").then(rowsOf),
     supabase.from("camp_room_rates").select("*").then(rowsOf),
     supabase.from("room_categories").select("code, category_key, holding_charge").then(rowsOf),
@@ -120,6 +120,8 @@ export function buildRevenueRows(data: any, fromDate: string, toDate: string): a
          ...leaves.map(l => ({ from: l.from, to: l.to, meals: [] as string[] }))],
         ramadanByCamp[ci.camp_id]);
       const mealsCancelled = meal.mealsCancelled;
+      const leaveFoodDeductions = computeMealCost(stayStart, stayEnd, mealRates,
+        leaves.map(l => ({ from: l.from, to: l.to, meals: [] })), ramadanByCamp[ci.camp_id]).deductions;
       const holdingCharge = (holdingMap[room.category] && holdingMap[room.category] > 0) ? holdingMap[room.category] : standardRates.holdingRate;
       const leaveDays = Math.min(stayDays, leaveDaysWithin(periods, stayStart, stayEnd));
       const roomRevenue = roomCostWithHolding(stayDays, leaveDays, dailyRoom, holdingCharge);
@@ -129,14 +131,20 @@ export function buildRevenueRows(data: any, fromDate: string, toDate: string): a
 
       return {
         id: ci.id,
+        employeeId: emp.id,
         emp_code: emp.employee_id,
         name: emp.name,
         department: emp.department || "—",
         supplier: emp.supplier_name || (emp.employee_type === "own" ? "Own" : "—"),
         project: emp.project || "—",
         camp: camp?.name || "—",
+        campId: ci.camp_id,
+        block: room.buildings?.name || "—",
+        blockId: room.building_id || "—",
         room: room.room_number,
         category: room.category,
+        presenceStatus: emp.presence_status,
+        statusPeriods: (data.leaves || []).filter((l: any) => l.employee_id === ci.employee_id).map((l: any) => ({ status: l.to_status, from: l.effective_from, to: l.effective_to || null })),
         stayDays,
         dailyRoom,
         leaveDays,
@@ -148,6 +156,9 @@ export function buildRevenueRows(data: any, fromDate: string, toDate: string): a
         absences: (data.absences || []).filter((a: any) => a.check_in_id === ci.id),
         dailyFood,
         foodFull: meal.full,
+        foodDeductions: meal.deductions,
+        leaveFoodDeductions,
+        breakfastCount: meal.breakfastDays, lunchCount: meal.lunchDays, dinnerCount: meal.dinnerDays, ramadanCount: meal.ramadanDays,
         breakfastCost: meal.breakfast, lunchCost: meal.lunch, dinnerCost: meal.dinner, ramadanCost: meal.ramadan,
         supplierRates: !!client,
         roomRevenue,
