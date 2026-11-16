@@ -204,7 +204,7 @@ export default function DynamicReports() {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-64 max-h-96 overflow-y-auto text-xs">
               <div className="px-2 py-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                Standard BI Templates
+                Pre-made Reports
               </div>
               {presets
                 .filter((p) => p.isBuiltIn)
@@ -223,7 +223,7 @@ export default function DynamicReports() {
                 <>
                   <DropdownMenuSeparator />
                   <div className="px-2 py-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                    Saved Custom Templates
+                    My Saved Reports
                   </div>
                   {presets
                     .filter((p) => !p.isBuiltIn)
@@ -344,7 +344,7 @@ export default function DynamicReports() {
         <Card className="border-border bg-card shadow-2xs">
           <CardContent className="p-3">
             <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">
-              Data Model
+              Report Topic
             </span>
             <Select
               value={config.dataset}
@@ -367,7 +367,7 @@ export default function DynamicReports() {
         <Card className="border-blue-200 bg-blue-50/40 dark:bg-blue-950/20 border-t-2 border-t-blue-600 shadow-2xs">
           <CardContent className="p-3">
             <span className="text-[10px] font-bold text-blue-900 dark:text-blue-300 uppercase tracking-wider block">
-              Records Analyzed
+              Total Records Loaded
             </span>
             <div className="text-lg font-bold font-mono text-blue-950 dark:text-blue-200 mt-0.5">
               {isLoading ? "..." : rawRecords.length.toLocaleString()}
@@ -379,7 +379,7 @@ export default function DynamicReports() {
         <Card className="border-amber-200 bg-amber-50/40 dark:bg-amber-950/20 border-t-2 border-t-amber-500 shadow-2xs">
           <CardContent className="p-3">
             <span className="text-[10px] font-bold text-amber-900 dark:text-amber-300 uppercase tracking-wider block">
-              Grand Total Metric ({config.values[0]?.aggregation.toUpperCase() || "SUM"})
+              Overall Total ({config.values[0]?.aggregation.toUpperCase() || "SUM"})
             </span>
             <div className="text-lg font-bold font-mono text-amber-950 dark:text-amber-200 mt-0.5 truncate">
               {matrixResult.grandTotal?.formatted || "0"}
@@ -391,7 +391,7 @@ export default function DynamicReports() {
         <Card className="border-slate-200 bg-slate-50/50 dark:bg-slate-900/30 border-t-2 border-t-slate-700 shadow-2xs">
           <CardContent className="p-3">
             <span className="text-[10px] font-bold text-slate-800 dark:text-slate-300 uppercase tracking-wider block">
-              Active Hierarchy
+              Grouped By
             </span>
             <div className="text-xs font-semibold text-foreground mt-1 truncate">
               {config.rows.map((r) => fieldMap[r]?.label || r).join(" ➔ ") || "All Data"}

@@ -87,7 +87,7 @@ export default function PivotChartPreview({
         <div className="flex items-center gap-2">
           <BarChart3 size={15} className="text-primary" />
           <span className="text-xs font-bold text-foreground uppercase tracking-wide">
-            Chart Visualization ({config.chartType.replace("_", " ")})
+            Visual Chart ({config.chartType.replace("_", " ")})
           </span>
         </div>
 
@@ -136,7 +136,7 @@ export default function PivotChartPreview({
             variant={config.chartType === "3d_bar" ? "default" : "ghost"}
             onClick={() => onChartTypeChange("3d_bar")}
             className="h-6 px-2 text-[11px] text-blue-600 dark:text-blue-400 font-semibold"
-            title="Interactive 3D Isometric Bar Grid"
+            title="3D Bar Chart"
           >
             <Box size={12} className="mr-1 text-blue-500" /> 3D Bar
           </Button>
@@ -145,7 +145,7 @@ export default function PivotChartPreview({
             variant={config.chartType === "3d_line" ? "default" : "ghost"}
             onClick={() => onChartTypeChange("3d_line")}
             className="h-6 px-2 text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold"
-            title="Interactive 3D Flowing Line Ribbon"
+            title="3D Line Chart"
           >
             <TrendingUp size={12} className="mr-1 text-emerald-500" /> 3D Line
           </Button>
@@ -154,7 +154,7 @@ export default function PivotChartPreview({
             variant={config.chartType === "3d_donut" ? "default" : "ghost"}
             onClick={() => onChartTypeChange("3d_donut")}
             className="h-6 px-2 text-[11px] text-amber-600 dark:text-amber-400 font-semibold"
-            title="Interactive 3D Extruded Donut"
+            title="3D Donut Chart"
           >
             <PieIcon size={12} className="mr-1 text-amber-500" /> 3D Donut
           </Button>

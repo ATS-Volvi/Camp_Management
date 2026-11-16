@@ -37,6 +37,8 @@ interface DrilldownRecordsModalProps {
   subtitle?: string;
   records: Array<Record<string, any>>;
   metricValue?: string;
+  datasetUnit?: string;
+  datasetRecordsName?: string;
 }
 
 export default function DrilldownRecordsModal({
@@ -46,6 +48,8 @@ export default function DrilldownRecordsModal({
   subtitle,
   records,
   metricValue,
+  datasetUnit,
+  datasetRecordsName = "Records",
 }: DrilldownRecordsModalProps) {
   const [searchTerm, setSearchTerm] = useState("");
 
@@ -120,7 +124,7 @@ export default function DrilldownRecordsModal({
             <div>
               <DialogTitle className="flex items-center gap-2 text-base font-bold text-foreground">
                 <Users size={18} className="text-primary" />
-                <span>Underlying Records: {title}</span>
+                <span>{datasetRecordsName} List: {title}</span>
               </DialogTitle>
               {subtitle && (
                 <DialogDescription className="text-xs text-muted-foreground mt-0.5">
@@ -131,7 +135,7 @@ export default function DrilldownRecordsModal({
 
             {metricValue && (
               <Badge variant="outline" className="text-xs font-mono font-bold px-3 py-1 bg-amber-50 dark:bg-amber-950/40 border-amber-300 text-amber-800 dark:text-amber-300">
-                Aggregated Total: {metricValue}
+                Total: {metricValue}
               </Badge>
             )}
           </div>
@@ -144,7 +148,7 @@ export default function DrilldownRecordsModal({
             <Input
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search records by name, badge, room, dept..."
+              placeholder="Search by name, badge, camp, room, dept..."
               className="pl-8 h-8 text-xs bg-background"
             />
             {searchTerm && (
@@ -160,15 +164,16 @@ export default function DrilldownRecordsModal({
 
           <div className="flex items-center gap-2">
             <span className="text-xs font-mono text-muted-foreground font-semibold">
-              Showing {filteredRecords.length} of {records.length} records
+              Showing {filteredRecords.length} of {records.length} {records.length === 1 ? datasetRecordsName.toLowerCase() : `${datasetRecordsName.toLowerCase()}`}
             </span>
             <Button
               size="sm"
               onClick={handleExport}
               className="h-8 text-xs font-semibold gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white shadow-2xs"
+              title="Download Excel spreadsheet with all matching rows"
             >
               <FileSpreadsheet size={13} />
-              <span>Export Slice</span>
+              <span>Download Excel Sheet</span>
             </Button>
           </div>
         </div>
@@ -225,7 +230,7 @@ export default function DrilldownRecordsModal({
 
         {filteredRecords.length > 150 && (
           <div className="text-[11px] text-muted-foreground text-center pt-2">
-            Displaying first 150 rows. Click "Export Slice" to download all {filteredRecords.length} records.
+            Displaying first 150 rows. Click "Download Excel Sheet" to save all {filteredRecords.length} records.
           </div>
         )}
       </DialogContent>

@@ -190,6 +190,67 @@ export default function ThreeDimensionMatrixView({
   const [hoveredInfo, setHoveredInfo] = useState<ActiveItemData | null>(null);
   const [selectedItem, setSelectedItem] = useState<ActiveItemData | null>(null);
 
+  // Layman dataset-aware terminology mapping
+  const datasetContext = useMemo(() => {
+    switch (config.dataset) {
+      case "inmates":
+        return {
+          unit: "People",
+          limitName: "Capacity Limit",
+          recordsName: "Inmate",
+          recordsPlural: "Inmates List",
+          categoryName: "Room Category",
+          rowNameFallback: "Camp / Dept",
+          entityOver: "Camps Over Limit",
+          allWithin: "All camps within capacity limit",
+        };
+      case "billing":
+        return {
+          unit: "SAR",
+          limitName: "Budget Limit",
+          recordsName: "Charge",
+          recordsPlural: "Billing Charges",
+          categoryName: "Billing Category",
+          rowNameFallback: "Camp / Company",
+          entityOver: "Facilities Over Budget",
+          allWithin: "All facilities within budget limit",
+        };
+      case "catering":
+        return {
+          unit: "Meals",
+          limitName: "Meal Limit",
+          recordsName: "Meal",
+          recordsPlural: "Meal Records",
+          categoryName: "Meal Type",
+          rowNameFallback: "Mess / Kitchen",
+          entityOver: "Kitchens Over Limit",
+          allWithin: "All kitchens within meal limit",
+        };
+      case "movements":
+        return {
+          unit: "Movements",
+          limitName: "Target Limit",
+          recordsName: "Movement",
+          recordsPlural: "Movement Logs",
+          categoryName: "Movement Type",
+          rowNameFallback: "Location / Gate",
+          entityOver: "Locations Over Limit",
+          allWithin: "All locations within target limit",
+        };
+      default:
+        return {
+          unit: "Units",
+          limitName: "Target Limit",
+          recordsName: "Record",
+          recordsPlural: "Detailed List",
+          categoryName: "Category",
+          rowNameFallback: "Item",
+          entityOver: "Items Over Limit",
+          allWithin: "All items within limit",
+        };
+    }
+  }, [config.dataset]);
+
   const { chartData: rawChartData, chartSeriesKeys } = matrix;
   const grandTotalRaw = matrix.grandTotal?.raw || 1;
 
@@ -639,15 +700,15 @@ export default function ThreeDimensionMatrixView({
       wire.position.set(0, thresholdY, 0);
       group.add(wire);
 
-      // Ceiling label badge
+      // Capacity Limit label badge
       const ceilingSprite = createTextSprite(
-        `CEILING: ${thresholdValue.toLocaleString()}`,
+        `${datasetContext.limitName.toUpperCase()}: ${thresholdValue.toLocaleString()} ${datasetContext.unit}`,
         "#ffffff",
-        22,
+        20,
         "#ef4444"
       );
       ceilingSprite.position.set(-((numRows - 1) / 2) * spacingX - 3.2, thresholdY + 0.3, 0);
-      ceilingSprite.scale.set(3.8, 0.9, 1);
+      ceilingSprite.scale.set(4.2, 0.9, 1);
       group.add(ceilingSprite);
     }
 
@@ -795,6 +856,22 @@ export default function ThreeDimensionMatrixView({
       const planeMesh = new THREE.Mesh(planeGeo, planeMat);
       planeMesh.position.set(0, thresholdY, 0);
       group.add(planeMesh);
+
+      const edges = new THREE.EdgesGeometry(planeGeo);
+      const wireMat = new THREE.LineBasicMaterial({ color: 0xef4444, linewidth: 2 });
+      const wire = new THREE.LineSegments(edges, wireMat);
+      wire.position.set(0, thresholdY, 0);
+      group.add(wire);
+
+      const ceilingSprite = createTextSprite(
+        `${datasetContext.limitName.toUpperCase()}: ${thresholdValue.toLocaleString()} ${datasetContext.unit}`,
+        "#ffffff",
+        20,
+        "#ef4444"
+      );
+      ceilingSprite.position.set(-((numRows - 1) / 2) * spacingX - 3.2, thresholdY + 0.3, 0);
+      ceilingSprite.scale.set(4.2, 0.9, 1);
+      group.add(ceilingSprite);
     }
 
     // Build Tubes
@@ -1041,10 +1118,12 @@ export default function ThreeDimensionMatrixView({
     const curveLine = new THREE.Line(curveGeo, curveMat);
     group.add(curveLine);
 
-    // Delta badge in mid-air
+    // Difference badge in mid-air
     const diff = itemB.value - itemA.value;
     const pct = itemA.value > 0 ? (diff / itemA.value) * 100 : 0;
-    const deltaText = `Δ ${diff >= 0 ? "+" : ""}${diff.toLocaleString()} (${pct >= 0 ? "+" : ""}${pct.toFixed(1)}%)`;
+    const diffSign = diff >= 0 ? "+" : "";
+    const pctSign = pct >= 0 ? "+" : "";
+    const deltaText = `Diff: ${diffSign}${diff.toLocaleString()} (${pctSign}${pct.toFixed(1)}%)`;
 
     const deltaSprite = createTextSprite(
       deltaText,
@@ -1053,7 +1132,7 @@ export default function ThreeDimensionMatrixView({
       diff >= 0 ? "#10b981" : "#ef4444"
     );
     deltaSprite.position.set(midPoint.x, midPoint.y + 0.8, midPoint.z);
-    deltaSprite.scale.set(3.8, 0.9, 1);
+    deltaSprite.scale.set(4.0, 0.9, 1);
     group.add(deltaSprite);
 
     // Vertical dashed drop-lines to each pillar
@@ -1239,17 +1318,17 @@ export default function ThreeDimensionMatrixView({
               onClick={() => {
                 const nextState = !showThresholdPlane;
                 setShowThresholdPlane(nextState);
-                toast.info(nextState ? "3D Threshold Plane enabled: Drag elevation ceiling" : "Threshold Plane disabled");
+                toast.info(nextState ? `${datasetContext.limitName} Alert enabled: Move slider to adjust limit` : `${datasetContext.limitName} Alert disabled`);
               }}
               className={`h-6 px-2 text-[10px] font-semibold gap-1 ${
                 showThresholdPlane
                   ? "bg-red-600 hover:bg-red-700 text-white font-bold shadow-xs"
                   : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100"
               }`}
-              title="Toggle 3D Capacity / Budget Ceiling Plane"
+              title={`Toggle ${datasetContext.limitName} Alert Plane`}
             >
               <Target size={11} className={showThresholdPlane ? "text-white" : "text-red-500"} />
-              <span>Ceiling</span>
+              <span>Limit Alert</span>
             </Button>
           )}
 
@@ -1263,10 +1342,10 @@ export default function ThreeDimensionMatrixView({
               if (!nextMode) {
                 setCompareItemA(null);
                 setCompareItemB(null);
-                toast.info("Comparison mode exited");
+                toast.info("Exited comparison mode");
               } else {
                 setSelectedItem(null);
-                toast.info("Comparison Mode: Click first 3D pillar for Item A, then click Item B");
+                toast.info("Compare Mode: Click any 2 bars to see difference");
               }
             }}
             className={`h-6 px-2 text-[10px] font-semibold gap-1 ${
@@ -1274,7 +1353,7 @@ export default function ThreeDimensionMatrixView({
                 ? "bg-purple-600 hover:bg-purple-700 text-white font-bold shadow-xs"
                 : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100"
             }`}
-            title="Toggle Multi-Pillar Comparison Mode"
+            title="Compare 2 items side-by-side"
           >
             <GitCompare size={11} className={isCompareMode ? "text-white" : "text-purple-600"} />
             <span>Compare</span>
@@ -1288,10 +1367,10 @@ export default function ThreeDimensionMatrixView({
             className={`h-6 px-2 text-[10px] font-medium border-slate-200 ${
               showDataLabels ? "bg-blue-100 text-blue-900 font-bold border-blue-300" : "bg-white text-slate-700"
             }`}
-            title="Toggle Floating 3D Value Data Labels"
+            title="Show or hide numbers above each bar"
           >
             <Hash size={11} className="mr-0.5 text-blue-600" />
-            Labels
+            Show Numbers
           </Button>
 
           {/* Interactive 3D Sort */}
@@ -1303,12 +1382,12 @@ export default function ThreeDimensionMatrixView({
                 const nextSort: SortOrder =
                   sortOrder === "none" ? "desc" : sortOrder === "desc" ? "asc" : "none";
                 setSortOrder(nextSort);
-                toast.info(`3D Bars sorted: ${nextSort === "none" ? "Original" : nextSort === "desc" ? "Highest First" : "Lowest First"}`);
+                toast.info(`Sorted by value: ${nextSort === "none" ? "Original Order" : nextSort === "desc" ? "Highest First" : "Lowest First"}`);
               }}
               className={`h-6 px-2 text-[10px] font-medium border-slate-200 ${
                 sortOrder !== "none" ? "bg-amber-100 text-amber-900 font-bold border-amber-300" : "bg-white text-slate-700"
               }`}
-              title="Sort 3D Bars by Value"
+              title="Sort bars: Highest first or Lowest first"
             >
               <ArrowUpDown size={11} className="mr-1 text-amber-600" />
               {sortOrder === "none" ? "Sort" : sortOrder === "desc" ? "High➔Low" : "Low➔High"}
@@ -1322,16 +1401,16 @@ export default function ThreeDimensionMatrixView({
               variant="ghost"
               onClick={() => setCameraAngle("iso")}
               className="h-6 px-1.5 text-[10px] text-slate-600 hover:text-slate-900"
-              title="Isometric 3D View"
+              title="3D View"
             >
-              Iso
+              3D
             </Button>
             <Button
               size="sm"
               variant="ghost"
               onClick={() => setCameraAngle("top")}
               className="h-6 px-1.5 text-[10px] text-slate-600 hover:text-slate-900"
-              title="Top Plan View"
+              title="Top Down View"
             >
               Top
             </Button>
@@ -1340,7 +1419,7 @@ export default function ThreeDimensionMatrixView({
               variant="ghost"
               onClick={() => setCameraAngle("front")}
               className="h-6 px-1.5 text-[10px] text-slate-600 hover:text-slate-900"
-              title="Front Horizon"
+              title="Front View"
             >
               Front
             </Button>
@@ -1349,7 +1428,7 @@ export default function ThreeDimensionMatrixView({
               variant="ghost"
               onClick={() => setCameraAngle("side")}
               className="h-6 px-1.5 text-[10px] text-slate-600 hover:text-slate-900"
-              title="Side Elevation"
+              title="Side View"
             >
               Side
             </Button>
@@ -1363,7 +1442,7 @@ export default function ThreeDimensionMatrixView({
                 variant={towerShape === "box" ? "secondary" : "ghost"}
                 onClick={() => setTowerShape("box")}
                 className="h-6 w-6 p-0"
-                title="Square Cuboids"
+                title="Box Shape"
               >
                 <Square size={12} />
               </Button>
@@ -1372,7 +1451,7 @@ export default function ThreeDimensionMatrixView({
                 variant={towerShape === "cylinder" ? "secondary" : "ghost"}
                 onClick={() => setTowerShape("cylinder")}
                 className="h-6 w-6 p-0"
-                title="Cylinders"
+                title="Round Shape"
               >
                 <Circle size={12} />
               </Button>
@@ -1381,7 +1460,7 @@ export default function ThreeDimensionMatrixView({
                 variant={towerShape === "hexagon" ? "secondary" : "ghost"}
                 onClick={() => setTowerShape("hexagon")}
                 className="h-6 w-6 p-0"
-                title="Hexagonal Prisms"
+                title="Hexagon Shape"
               >
                 <Hexagon size={12} />
               </Button>
@@ -1398,10 +1477,10 @@ export default function ThreeDimensionMatrixView({
                 ? "bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold"
                 : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100"
             }`}
-            title="Toggle Smooth 360° Orbit Presentation"
+            title="Start or pause 360° automatic rotation"
           >
             {autoRotate ? <Pause size={10} /> : <Play size={10} />}
-            Orbit
+            Auto-Spin
           </Button>
 
           {/* Snapshot PNG */}
@@ -1410,7 +1489,7 @@ export default function ThreeDimensionMatrixView({
             variant="ghost"
             onClick={handleSnapshot}
             className="h-6 w-6 p-0 text-slate-600 hover:text-slate-900 hover:bg-slate-200"
-            title="Download Crisp 3D Snapshot (PNG)"
+            title="Save Picture as PNG"
           >
             <Download size={13} />
           </Button>
@@ -1421,7 +1500,7 @@ export default function ThreeDimensionMatrixView({
             variant="ghost"
             onClick={() => setIsFullscreen(!isFullscreen)}
             className="h-6 w-6 p-0 text-slate-600 hover:text-slate-900 hover:bg-slate-200"
-            title={isFullscreen ? "Exit Fullscreen" : "Fullscreen 3D Studio"}
+            title={isFullscreen ? "Exit Full Screen" : "Full Screen"}
           >
             {isFullscreen ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
           </Button>
@@ -1452,7 +1531,7 @@ export default function ThreeDimensionMatrixView({
         <div className="absolute top-14 left-4 bg-white/95 backdrop-blur-md border border-red-200 shadow-lg px-3 py-2 rounded-xl flex flex-wrap items-center gap-3 z-10 text-xs">
           <div className="flex items-center gap-1.5 text-red-700 font-bold">
             <Target size={14} className="text-red-600" />
-            <span>Capacity / Target Ceiling:</span>
+            <span>{datasetContext.limitName}:</span>
           </div>
 
           <div className="flex items-center gap-2">
@@ -1465,7 +1544,7 @@ export default function ThreeDimensionMatrixView({
               className="w-32"
             />
             <span className="font-mono font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded border border-red-200">
-              {thresholdValue.toLocaleString()}
+              {thresholdValue.toLocaleString()} {datasetContext.unit}
             </span>
           </div>
 
@@ -1479,10 +1558,10 @@ export default function ThreeDimensionMatrixView({
           >
             {thresholdTelemetry.count > 0 ? (
               <span className="flex items-center gap-1">
-                <AlertTriangle size={11} /> {thresholdTelemetry.count} Exceeding (+{thresholdTelemetry.totalExcess.toLocaleString()})
+                <AlertTriangle size={11} /> {thresholdTelemetry.count} {thresholdTelemetry.count === 1 ? "Location" : "Locations"} Over Limit (+{thresholdTelemetry.totalExcess.toLocaleString()} {datasetContext.unit})
               </span>
             ) : (
-              "All Facilities within Ceiling"
+              datasetContext.allWithin
             )}
           </Badge>
         </div>
@@ -1494,7 +1573,7 @@ export default function ThreeDimensionMatrixView({
           <div className="flex items-center justify-between border-b border-purple-100 pb-1.5">
             <div className="flex items-center gap-1.5 font-bold text-xs text-purple-900">
               <GitCompare size={14} className="text-purple-600" />
-              <span>3D Multi-Pillar Comparison</span>
+              <span>Side-by-Side Comparison</span>
             </div>
             <button
               type="button"
@@ -1511,29 +1590,29 @@ export default function ThreeDimensionMatrixView({
           <div className="grid grid-cols-2 gap-2 text-xs">
             {/* Item A */}
             <div className="p-2 rounded-lg bg-blue-50 border border-blue-200">
-              <span className="text-[10px] font-bold text-blue-800 uppercase block">Pillar A</span>
+              <span className="text-[10px] font-bold text-blue-800 uppercase block">1st Item</span>
               {compareItemA ? (
                 <div className="mt-0.5">
-                  <div className="font-bold text-slate-900 truncate">{compareItemA.rowName}</div>
-                  <div className="text-[10px] text-slate-500 truncate">{compareItemA.colName}</div>
-                  <div className="font-mono font-bold text-blue-700 mt-1">{compareItemA.formatted}</div>
+                  <div className="font-bold text-slate-900 truncate" title={compareItemA.rowName}>{compareItemA.rowName}</div>
+                  <div className="text-[10px] text-slate-500 truncate" title={compareItemA.colName}>{compareItemA.colName}</div>
+                  <div className="font-mono font-bold text-blue-700 mt-1">{compareItemA.formatted} {datasetContext.unit}</div>
                 </div>
               ) : (
-                <div className="text-[10px] text-slate-400 italic mt-1">Click a 3D pillar...</div>
+                <div className="text-[10px] text-slate-400 italic mt-1">Click any bar...</div>
               )}
             </div>
 
             {/* Item B */}
             <div className="p-2 rounded-lg bg-amber-50 border border-amber-200">
-              <span className="text-[10px] font-bold text-amber-800 uppercase block">Pillar B</span>
+              <span className="text-[10px] font-bold text-amber-800 uppercase block">2nd Item</span>
               {compareItemB ? (
                 <div className="mt-0.5">
-                  <div className="font-bold text-slate-900 truncate">{compareItemB.rowName}</div>
-                  <div className="text-[10px] text-slate-500 truncate">{compareItemB.colName}</div>
-                  <div className="font-mono font-bold text-amber-700 mt-1">{compareItemB.formatted}</div>
+                  <div className="font-bold text-slate-900 truncate" title={compareItemB.rowName}>{compareItemB.rowName}</div>
+                  <div className="text-[10px] text-slate-500 truncate" title={compareItemB.colName}>{compareItemB.colName}</div>
+                  <div className="font-mono font-bold text-amber-700 mt-1">{compareItemB.formatted} {datasetContext.unit}</div>
                 </div>
               ) : (
-                <div className="text-[10px] text-slate-400 italic mt-1">Click second pillar...</div>
+                <div className="text-[10px] text-slate-400 italic mt-1">Click another bar...</div>
               )}
             </div>
           </div>
@@ -1547,15 +1626,15 @@ export default function ThreeDimensionMatrixView({
                 const isPositive = diff >= 0;
                 return (
                   <div className="flex items-center justify-between bg-purple-50/80 p-2 rounded-lg border border-purple-200">
-                    <span className="text-slate-600 font-semibold text-[11px]">Variance (B vs A):</span>
+                    <span className="text-slate-600 font-semibold text-[11px]">Difference:</span>
                     <span
                       className={`font-mono font-bold text-xs ${
                         isPositive ? "text-emerald-700" : "text-red-600"
                       }`}
                     >
                       {isPositive ? "+" : ""}
-                      {diff.toLocaleString()} ({isPositive ? "+" : ""}
-                      {pct.toFixed(1)}%)
+                      {diff.toLocaleString()} {datasetContext.unit} ({isPositive ? "+" : ""}
+                      {pct.toFixed(1)}% {isPositive ? "higher" : "lower"})
                     </span>
                   </div>
                 );
@@ -1570,7 +1649,7 @@ export default function ThreeDimensionMatrixView({
         <div className="px-4 py-2 bg-slate-50/90 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2 text-xs">
           <div className="flex items-center gap-1.5 text-slate-500 font-semibold text-[11px]">
             <Filter size={12} className="text-primary" />
-            <span>Interactive Series (Click to isolate):</span>
+            <span>Click a category below to isolate:</span>
           </div>
 
           <div className="flex flex-wrap items-center gap-1.5">
@@ -1583,7 +1662,7 @@ export default function ThreeDimensionMatrixView({
                   onClick={() => {
                     setActiveSeriesFilter(isSelected ? null : key);
                     toast.info(
-                      isSelected ? "Showing all series" : `Isolated 3D series: ${key}`
+                      isSelected ? "Showing all categories" : `Showing only: ${key}`
                     );
                   }}
                   className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-medium transition-all ${
@@ -1623,7 +1702,7 @@ export default function ThreeDimensionMatrixView({
         <div className="absolute bottom-12 left-4 bg-white/95 backdrop-blur-md border border-slate-200 px-3 py-1.5 rounded-lg flex items-center gap-2 text-slate-700 shadow-md z-10">
           <Sliders size={12} className="text-primary" />
           <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-            Elevation:
+            Bar Height:
           </span>
           <Slider
             value={[heightScale]}
@@ -1639,11 +1718,11 @@ export default function ThreeDimensionMatrixView({
 
       {/* Gesture Guide Hint Overlay */}
       <div className="absolute bottom-12 right-4 hidden sm:flex items-center gap-2 bg-white/85 backdrop-blur-xs border border-slate-200 px-2.5 py-1 rounded-md text-[10px] text-slate-500 shadow-2xs pointer-events-none z-10">
-        <span>Click: Inspect</span>
+        <span>Click: Details</span>
         <span>•</span>
-        <span>Left-drag: Orbit</span>
+        <span>Left-Click: Rotate</span>
         <span>•</span>
-        <span>Right-drag: Pan</span>
+        <span>Right-Click: Move</span>
       </div>
 
       {/* FEATURE 1: Selection Drilldown Inspector HUD Card */}
@@ -1652,7 +1731,7 @@ export default function ThreeDimensionMatrixView({
           <div className="flex items-start justify-between gap-2 border-b border-slate-100 pb-2">
             <div>
               <span className="text-[10px] font-bold uppercase tracking-wider text-primary block">
-                Selected 3D Item
+                Selected Details
               </span>
               <h4 className="font-bold text-sm text-slate-900 leading-tight">
                 {selectedItem.rowName}
@@ -1662,6 +1741,7 @@ export default function ThreeDimensionMatrixView({
               type="button"
               onClick={handleResetFocus}
               className="text-slate-400 hover:text-slate-700 p-1 rounded-md hover:bg-slate-100"
+              title="Close details"
             >
               <X size={14} />
             </button>
@@ -1669,11 +1749,11 @@ export default function ThreeDimensionMatrixView({
 
           <div className="space-y-1.5 text-xs">
             <div className="flex justify-between py-1 border-b border-slate-100">
-              <span className="text-slate-500">Series:</span>
+              <span className="text-slate-500">Category:</span>
               <span className="font-semibold text-slate-800">{selectedItem.colName}</span>
             </div>
             <div className="flex justify-between py-1 border-b border-slate-100">
-              <span className="text-slate-500">Metric Value:</span>
+              <span className="text-slate-500">Total {datasetContext.unit}:</span>
               <span className="font-mono font-bold text-base text-primary">
                 {selectedItem.formatted}
               </span>
@@ -1688,16 +1768,16 @@ export default function ThreeDimensionMatrixView({
 
           {/* Interactive Actions (Feature 1 Drill-Down Button included!) */}
           <div className="pt-2 flex flex-col gap-1.5 border-t border-slate-100">
-            {/* FEATURE 1: View Underlying Inmates / Records */}
+            {/* FEATURE 1: View Underlying Records */}
             <Button
               size="sm"
               onClick={() => setDrilldownModalOpen(true)}
               className="h-7 text-xs font-semibold gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white w-full shadow-xs"
-              title="Inspect individual inmate/billing records contributing to this 3D pillar"
+              title={`Inspect individual ${datasetContext.recordsPlural.toLowerCase()} for this selection`}
             >
               <Users size={12} />
               <span>
-                View Inmates / Records ({matchingDrilldownRecords.length})
+                View {datasetContext.recordsPlural} ({matchingDrilldownRecords.length})
               </span>
             </Button>
 
@@ -1708,7 +1788,7 @@ export default function ThreeDimensionMatrixView({
               className="h-7 text-xs font-semibold gap-1.5 border-slate-300 text-slate-700 hover:bg-slate-100 w-full"
             >
               <Filter size={12} className="text-primary" />
-              <span>Filter Report to this Row</span>
+              <span>Filter Report to this Item</span>
             </Button>
 
             <Button
@@ -1717,7 +1797,7 @@ export default function ThreeDimensionMatrixView({
               onClick={handleResetFocus}
               className="h-6 text-[11px] text-slate-500 hover:text-slate-800 w-full"
             >
-              Reset Focus
+              Clear Selection
             </Button>
           </div>
         </div>
@@ -1744,18 +1824,18 @@ export default function ThreeDimensionMatrixView({
           <div className="flex justify-between items-center text-[11px] pt-0.5">
             <span className="text-slate-400 truncate pr-2">{hoveredInfo.colName}:</span>
             <span className="font-mono font-bold text-amber-300 text-sm">
-              {hoveredInfo.formatted}
+              {hoveredInfo.formatted} {datasetContext.unit}
             </span>
           </div>
 
           {showThresholdPlane && hoveredInfo.value > thresholdValue && (
             <div className="text-[10px] text-red-400 font-bold flex items-center gap-1 pt-0.5">
-              <AlertTriangle size={11} /> Exceeds ceiling by +{(hoveredInfo.value - thresholdValue).toLocaleString()}
+              <AlertTriangle size={11} /> Over {datasetContext.limitName.toLowerCase()} by +{(hoveredInfo.value - thresholdValue).toLocaleString()} {datasetContext.unit}
             </div>
           )}
 
           <div className="text-[9px] text-slate-400 italic pt-0.5">
-            Click to inspect and view underlying records
+            Click to view {datasetContext.recordsPlural.toLowerCase()}
           </div>
         </div>
       )}
@@ -1766,9 +1846,11 @@ export default function ThreeDimensionMatrixView({
           open={drilldownModalOpen}
           onOpenChange={setDrilldownModalOpen}
           title={`${selectedItem.rowName} ${selectedItem.colName ? `— ${selectedItem.colName}` : ""}`}
-          subtitle={`Detailed line-item records matching the selected 3D pillar`}
+          subtitle={`All individual ${datasetContext.recordsPlural.toLowerCase()} for this selection`}
           records={matchingDrilldownRecords}
-          metricValue={selectedItem.formatted}
+          metricValue={`${selectedItem.formatted} ${datasetContext.unit}`}
+          datasetUnit={datasetContext.unit}
+          datasetRecordsName={datasetContext.recordsPlural}
         />
       )}
     </div>
