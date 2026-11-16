@@ -86,9 +86,10 @@ const dashboardNav = [
 ];
 
 const reportsNav = [
-  { label: "Occupancy Statement", icon: Building2, path: "/reports?tab=occupancy-charges" },
-  { label: "Web View", icon: LayoutGrid, path: "/reports?view=web" },
-  { label: "Excel View", icon: FileSpreadsheet, path: "/reports?view=excel" },
+  { label: "Occupancy & Charges", icon: Building2, path: "/reports?tab=occupancy-charges" },
+  { label: "Department Monthly", icon: Receipt, path: "/reports?tab=dept-monthly" },
+  { label: "Total Inmates", icon: Users, path: "/reports?tab=total-inmates" },
+  { label: "Revenue Summary", icon: TrendingUp, path: "/reports?tab=revenue" },
 ];
 
 const adminNav = [
@@ -242,12 +243,9 @@ export default function AppSidebar() {
           {reportsOpen && (
             <div id="reports-menu" className="ml-3 pl-2 border-l space-y-0.5">
               {reportsNav.map((item) => {
-                const isExcelView = item.path.includes("view=excel");
-                const isOccupancy = item.path.includes("tab=occupancy-charges");
-                const currentIsExcel = location.pathname.startsWith("/reports") && location.search.includes("view=excel");
-                const currentIsOccupancy = location.pathname.startsWith("/reports") && !currentIsExcel && (location.search.includes("tab=occupancy-charges") || !location.search.includes("tab="));
-                const currentIsWeb = location.pathname.startsWith("/reports") && !currentIsExcel && !currentIsOccupancy;
-                const isSelected = isExcelView ? currentIsExcel : isOccupancy ? currentIsOccupancy : currentIsWeb;
+                const targetTab = new URLSearchParams(item.path.split("?")[1] || "").get("tab");
+                const currentTab = new URLSearchParams(location.search).get("tab") || "occupancy-charges";
+                const isSelected = location.pathname.startsWith("/reports") && targetTab === currentTab;
 
                 return (
                   <NavLink
@@ -262,7 +260,7 @@ export default function AppSidebar() {
                     <item.icon
                       size={15}
                       className={`shrink-0 ${
-                        isExcelView ? "text-emerald-500" : isOccupancy ? "text-orange-500" : "text-blue-500"
+                        isSelected ? "text-primary" : "text-muted-foreground"
                       }`}
                     />
                     <span className="truncate">{item.label}</span>
