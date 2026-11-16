@@ -139,7 +139,7 @@ export default function PivotMatrixTable({ matrix, config }: PivotMatrixTablePro
           <TableHeader>
             <TableRow className="bg-muted/60 border-b border-border">
               <TableHead className="font-bold text-xs text-foreground border-r border-border min-w-[200px] py-2.5 px-3">
-                Hierarchy / Dimensions
+                Group / Category
               </TableHead>
               {matrix.columnHeaders.map((cKey) => (
                 <TableHead

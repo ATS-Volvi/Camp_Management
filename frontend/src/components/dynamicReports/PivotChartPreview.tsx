@@ -176,12 +176,12 @@ export default function PivotChartPreview({
           {config.chartType === "bar" ? (
             <BarChart data={chartData} margin={{ top: 10, right: 20, left: 10, bottom: 25 }}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.3} />
-              <XAxis dataKey="name" tick={{ fontSize: 11 }} angle={-15} textAnchor="end" />
-              <YAxis tick={{ fontSize: 11 }} />
+              <XAxis dataKey="name" tick={{ fontSize: 12, fill: "#334155", fontWeight: 600 }} angle={-15} textAnchor="end" />
+              <YAxis tick={{ fontSize: 12, fill: "#334155", fontWeight: 600 }} />
               <Tooltip
-                contentStyle={{ borderRadius: 8, fontSize: 12, backgroundColor: "var(--card)" }}
+                contentStyle={{ borderRadius: 8, fontSize: 12, fontWeight: 600, backgroundColor: "var(--card)" }}
               />
-              <Legend wrapperStyle={{ fontSize: 11 }} />
+              <Legend wrapperStyle={{ fontSize: 12, fontWeight: 600 }} />
               {chartSeriesKeys.map((seriesKey, i) => (
                 <Bar
                   key={seriesKey}
@@ -194,12 +194,12 @@ export default function PivotChartPreview({
           ) : config.chartType === "stacked_bar" ? (
             <BarChart data={chartData} margin={{ top: 10, right: 20, left: 10, bottom: 25 }}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.3} />
-              <XAxis dataKey="name" tick={{ fontSize: 11 }} angle={-15} textAnchor="end" />
-              <YAxis tick={{ fontSize: 11 }} />
+              <XAxis dataKey="name" tick={{ fontSize: 12, fill: "#334155", fontWeight: 600 }} angle={-15} textAnchor="end" />
+              <YAxis tick={{ fontSize: 12, fill: "#334155", fontWeight: 600 }} />
               <Tooltip
-                contentStyle={{ borderRadius: 8, fontSize: 12, backgroundColor: "var(--card)" }}
+                contentStyle={{ borderRadius: 8, fontSize: 12, fontWeight: 600, backgroundColor: "var(--card)" }}
               />
-              <Legend wrapperStyle={{ fontSize: 11 }} />
+              <Legend wrapperStyle={{ fontSize: 12, fontWeight: 600 }} />
               {chartSeriesKeys.map((seriesKey, i) => (
                 <Bar
                   key={seriesKey}
@@ -212,12 +212,12 @@ export default function PivotChartPreview({
           ) : config.chartType === "line" ? (
             <LineChart data={chartData} margin={{ top: 10, right: 20, left: 10, bottom: 25 }}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.3} />
-              <XAxis dataKey="name" tick={{ fontSize: 11 }} angle={-15} textAnchor="end" />
-              <YAxis tick={{ fontSize: 11 }} />
+              <XAxis dataKey="name" tick={{ fontSize: 12, fill: "#334155", fontWeight: 600 }} angle={-15} textAnchor="end" />
+              <YAxis tick={{ fontSize: 12, fill: "#334155", fontWeight: 600 }} />
               <Tooltip
-                contentStyle={{ borderRadius: 8, fontSize: 12, backgroundColor: "var(--card)" }}
+                contentStyle={{ borderRadius: 8, fontSize: 12, fontWeight: 600, backgroundColor: "var(--card)" }}
               />
-              <Legend wrapperStyle={{ fontSize: 11 }} />
+              <Legend wrapperStyle={{ fontSize: 12, fontWeight: 600 }} />
               {chartSeriesKeys.map((seriesKey, i) => (
                 <Line
                   key={seriesKey}
@@ -232,9 +232,9 @@ export default function PivotChartPreview({
           ) : (
             <PieChart>
               <Tooltip
-                contentStyle={{ borderRadius: 8, fontSize: 12, backgroundColor: "var(--card)" }}
+                contentStyle={{ borderRadius: 8, fontSize: 12, fontWeight: 600, backgroundColor: "var(--card)" }}
               />
-              <Legend wrapperStyle={{ fontSize: 11 }} />
+              <Legend wrapperStyle={{ fontSize: 12, fontWeight: 600 }} />
               <Pie
                 data={donutData}
                 dataKey="value"

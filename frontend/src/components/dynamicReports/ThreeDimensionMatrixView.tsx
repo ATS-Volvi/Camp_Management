@@ -102,35 +102,86 @@ function getVibrantHeatmapColor(t: number): THREE.Color {
   return color;
 }
 
-function createTextSprite(text: string, color = "#1e293b", fontSize = 24, bgColor?: string): THREE.Sprite {
+function createTextSprite(
+  text: string,
+  color = "#0f172a",
+  fontSize = 32,
+  bgColor = "#ffffff",
+  borderColor = "#cbd5e1",
+  options?: {
+    scale?: [number, number];
+    shadow?: boolean;
+    borderWidth?: number;
+    badgePadding?: number;
+    maxChars?: number;
+  }
+): THREE.Sprite {
+  // Use a crisp 512x128 high-DPI canvas for razor-sharp legibility
   const canvas = document.createElement("canvas");
-  canvas.width = 256;
-  canvas.height = 64;
+  canvas.width = 512;
+  canvas.height = 128;
   const ctx = canvas.getContext("2d");
   if (!ctx) return new THREE.Sprite();
 
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  if (bgColor) {
+  const paddingX = options?.badgePadding ?? 20;
+  const paddingY = 14;
+  const cardWidth = canvas.width - paddingX * 2;
+  const cardHeight = canvas.height - paddingY * 2;
+  const radius = 24;
+
+  // Draw background pill card
+  if (bgColor && bgColor !== "transparent") {
+    if (options?.shadow) {
+      ctx.shadowColor = "rgba(15, 23, 42, 0.22)";
+      ctx.shadowBlur = 18;
+      ctx.shadowOffsetX = 0;
+      ctx.shadowOffsetY = 8;
+    }
     ctx.fillStyle = bgColor;
     ctx.beginPath();
-    ctx.roundRect(16, 8, 224, 48, 8);
+    ctx.roundRect(paddingX, paddingY, cardWidth, cardHeight, radius);
     ctx.fill();
   }
 
-  ctx.font = `bold ${fontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+  // Draw crisp border outline
+  if (borderColor && borderColor !== "transparent") {
+    ctx.shadowColor = "transparent";
+    ctx.lineWidth = options?.borderWidth ?? 3.5;
+    ctx.strokeStyle = borderColor;
+    ctx.beginPath();
+    ctx.roundRect(paddingX, paddingY, cardWidth, cardHeight, radius);
+    ctx.stroke();
+  }
+
+  // Reset shadow for crisp text rendering
+  ctx.shadowColor = "transparent";
+
+  // Typography with high-contrast bold font
+  ctx.font = `bold ${fontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif`;
   ctx.fillStyle = color;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
 
-  const display = text.length > 15 ? text.slice(0, 13) + "…" : text;
-  ctx.fillText(display, 128, 32);
+  const maxLen = options?.maxChars ?? 24;
+  const display = text.length > maxLen ? text.slice(0, maxLen - 1) + "…" : text;
+  ctx.fillText(display, canvas.width / 2, canvas.height / 2 + 1);
 
   const texture = new THREE.CanvasTexture(canvas);
   texture.minFilter = THREE.LinearFilter;
-  const spriteMat = new THREE.SpriteMaterial({ map: texture, transparent: true, depthWrite: false });
+  texture.magFilter = THREE.LinearFilter;
+  texture.needsUpdate = true;
+
+  const spriteMat = new THREE.SpriteMaterial({
+    map: texture,
+    transparent: true,
+    depthWrite: false,
+  });
+
   const sprite = new THREE.Sprite(spriteMat);
-  sprite.scale.set(3.4, 0.85, 1);
+  const [sx, sy] = options?.scale || [3.8, 0.95];
+  sprite.scale.set(sx, sy, 1);
   return sprite;
 }
 
@@ -659,21 +710,35 @@ export default function ThreeDimensionMatrixView({
     gridHelper.position.set(0, 0.02, 0);
     group.add(gridHelper);
 
-    // Row Labels
+    // Row Labels (Camps / Departments)
     chartData.forEach((row, r) => {
       const x = (r - (numRows - 1) / 2) * spacingX;
-      const z = ((numCols - 1) / 2) * spacingZ + 2.4;
-      const sprite = createTextSprite(row.name, "#1e293b", 22);
-      sprite.position.set(x, 0.35, z);
+      const z = ((numCols - 1) / 2) * spacingZ + 2.8;
+      const sprite = createTextSprite(
+        row.name,
+        "#0f172a", // Dark navy / slate-950
+        30,
+        "#ffffff", // Crisp white pill
+        "#94a3b8", // Crisp border
+        { scale: [4.0, 1.0], shadow: true, borderWidth: 3 }
+      );
+      sprite.position.set(x, 0.45, z);
       group.add(sprite);
     });
 
-    // Column Labels
+    // Column Labels (Breakdown Series)
     chartSeriesKeys.forEach((colKey, c) => {
       const z = (c - (numCols - 1) / 2) * spacingZ;
-      const x = -((numRows - 1) / 2) * spacingX - 2.4;
-      const sprite = createTextSprite(colKey, "#0369a1", 22);
-      sprite.position.set(x, 0.35, z);
+      const x = -((numRows - 1) / 2) * spacingX - 2.8;
+      const sprite = createTextSprite(
+        colKey,
+        "#0369a1", // Deep sky-700
+        30,
+        "#f0f9ff", // Crisp sky-50 pill
+        "#38bdf8", // Sky-400 border
+        { scale: [4.0, 1.0], shadow: true, borderWidth: 3 }
+      );
+      sprite.position.set(x, 0.45, z);
       group.add(sprite);
     });
 
@@ -704,11 +769,12 @@ export default function ThreeDimensionMatrixView({
       const ceilingSprite = createTextSprite(
         `${datasetContext.limitName.toUpperCase()}: ${thresholdValue.toLocaleString()} ${datasetContext.unit}`,
         "#ffffff",
-        20,
-        "#ef4444"
+        28,
+        "#dc2626",
+        "#ffffff",
+        { scale: [4.8, 1.05], shadow: true, borderWidth: 3.5 }
       );
-      ceilingSprite.position.set(-((numRows - 1) / 2) * spacingX - 3.2, thresholdY + 0.3, 0);
-      ceilingSprite.scale.set(4.2, 0.9, 1);
+      ceilingSprite.position.set(-((numRows - 1) / 2) * spacingX - 3.4, thresholdY + 0.35, 0);
       group.add(ceilingSprite);
     }
 
@@ -775,13 +841,16 @@ export default function ThreeDimensionMatrixView({
         // Optional 3D Floating Value Data Label or Alert Label
         if (showDataLabels && val > 0) {
           const labelSprite = createTextSprite(
-            isExceeding ? `⚠️ ${val.toLocaleString()}` : val > 9999 ? `${(val / 1000).toFixed(1)}k` : val.toString(),
+            isExceeding
+              ? `⚠️ ${val.toLocaleString()} ${datasetContext.unit}`
+              : `${val.toLocaleString()} ${datasetContext.unit}`,
             isExceeding ? "#ffffff" : "#0f172a",
-            24,
-            isExceeding ? "#ef4444" : "rgba(255, 255, 255, 0.85)"
+            28,
+            isExceeding ? "#dc2626" : "#ffffff",
+            isExceeding ? "#991b1b" : "#475569",
+            { scale: [3.6, 0.9], shadow: true, borderWidth: 3 }
           );
-          labelSprite.position.set(x, h + 0.8, z);
-          labelSprite.scale.set(2.4, 0.65, 1);
+          labelSprite.position.set(x, h + 1.1, z);
           group.add(labelSprite);
         }
       });
@@ -825,20 +894,35 @@ export default function ThreeDimensionMatrixView({
     gridHelper.position.set(0, 0.02, 0);
     group.add(gridHelper);
 
-    // Labels
+    // Row Labels (Camps / Departments)
     chartData.forEach((row, r) => {
       const x = (r - (numRows - 1) / 2) * spacingX;
-      const z = ((numSeries - 1) / 2) * spacingZ + 2.2;
-      const sprite = createTextSprite(row.name, "#1e293b", 22);
-      sprite.position.set(x, 0.35, z);
+      const z = ((numSeries - 1) / 2) * spacingZ + 2.8;
+      const sprite = createTextSprite(
+        row.name,
+        "#0f172a",
+        30,
+        "#ffffff",
+        "#94a3b8",
+        { scale: [4.0, 1.0], shadow: true, borderWidth: 3 }
+      );
+      sprite.position.set(x, 0.45, z);
       group.add(sprite);
     });
 
+    // Column Labels (Series)
     chartSeriesKeys.forEach((colKey, s) => {
       const z = (s - (numSeries - 1) / 2) * spacingZ;
-      const x = -((numRows - 1) / 2) * spacingX - 2.5;
-      const sprite = createTextSprite(colKey, "#0369a1", 22);
-      sprite.position.set(x, 0.35, z);
+      const x = -((numRows - 1) / 2) * spacingX - 2.8;
+      const sprite = createTextSprite(
+        colKey,
+        "#0369a1",
+        30,
+        "#f0f9ff",
+        "#38bdf8",
+        { scale: [4.0, 1.0], shadow: true, borderWidth: 3 }
+      );
+      sprite.position.set(x, 0.45, z);
       group.add(sprite);
     });
 
@@ -866,11 +950,12 @@ export default function ThreeDimensionMatrixView({
       const ceilingSprite = createTextSprite(
         `${datasetContext.limitName.toUpperCase()}: ${thresholdValue.toLocaleString()} ${datasetContext.unit}`,
         "#ffffff",
-        20,
-        "#ef4444"
+        28,
+        "#dc2626",
+        "#ffffff",
+        { scale: [4.8, 1.05], shadow: true, borderWidth: 3.5 }
       );
-      ceilingSprite.position.set(-((numRows - 1) / 2) * spacingX - 3.2, thresholdY + 0.3, 0);
-      ceilingSprite.scale.set(4.2, 0.9, 1);
+      ceilingSprite.position.set(-((numRows - 1) / 2) * spacingX - 3.4, thresholdY + 0.35, 0);
       group.add(ceilingSprite);
     }
 
@@ -935,13 +1020,16 @@ export default function ThreeDimensionMatrixView({
         // Optional 3D Floating Value Data Label
         if (showDataLabels && val > 0) {
           const labelSprite = createTextSprite(
-            isExceeding ? `⚠️ ${val.toLocaleString()}` : val > 9999 ? `${(val / 1000).toFixed(1)}k` : val.toString(),
+            isExceeding
+              ? `⚠️ ${val.toLocaleString()} ${datasetContext.unit}`
+              : `${val.toLocaleString()} ${datasetContext.unit}`,
             isExceeding ? "#ffffff" : "#0f172a",
-            24,
-            isExceeding ? "#ef4444" : "rgba(255, 255, 255, 0.85)"
+            28,
+            isExceeding ? "#dc2626" : "#ffffff",
+            isExceeding ? "#991b1b" : "#475569",
+            { scale: [3.6, 0.9], shadow: true, borderWidth: 3 }
           );
-          labelSprite.position.set(x, y + 0.9, z);
-          labelSprite.scale.set(2.4, 0.65, 1);
+          labelSprite.position.set(x, y + 1.1, z);
           group.add(labelSprite);
         }
       });
@@ -1050,16 +1138,19 @@ export default function ThreeDimensionMatrixView({
       allMeshesRef.current.push(mesh);
       group.add(mesh);
 
-      // Label Billboard
-      const labelDist = outerRadius + 2.8;
+      // Label Billboard with crisp white badge
+      const labelDist = outerRadius + 3.2;
       const lx = Math.cos(midAngle) * labelDist;
       const lz = -Math.sin(midAngle) * labelDist;
       const labelSprite = createTextSprite(
-        `${item.name} (${(slicePct * 100).toFixed(0)}%)`,
-        "#1e293b",
-        20
+        `${item.name}: ${(slicePct * 100).toFixed(0)}%`,
+        "#0f172a",
+        28,
+        "#ffffff",
+        "#94a3b8",
+        { scale: [4.2, 1.05], shadow: true, borderWidth: 3 }
       );
-      labelSprite.position.set(lx, extrudeDepth * 0.7, lz);
+      labelSprite.position.set(lx, extrudeDepth * 0.75, lz);
       group.add(labelSprite);
     });
 
@@ -1074,12 +1165,26 @@ export default function ThreeDimensionMatrixView({
     centerPillar.position.set(0, extrudeDepth * 0.2, 0);
     group.add(centerPillar);
 
-    const centerLabel = createTextSprite("TOTAL", "#64748b", 20);
+    const centerLabel = createTextSprite(
+      "TOTAL",
+      "#475569",
+      26,
+      "transparent",
+      "transparent",
+      { scale: [3.0, 0.75] }
+    );
     centerLabel.position.set(0, extrudeDepth * 0.55, 0);
     group.add(centerLabel);
 
-    const centerTotalSprite = createTextSprite(total.toLocaleString(), "#0f172a", 26);
-    centerTotalSprite.position.set(0, extrudeDepth * 0.55 + 0.9, 0);
+    const centerTotalSprite = createTextSprite(
+      `${total.toLocaleString()} ${datasetContext.unit}`,
+      "#0f172a",
+      34,
+      "#ffffff",
+      "#cbd5e1",
+      { scale: [4.4, 1.1], shadow: true, borderWidth: 3 }
+    );
+    centerTotalSprite.position.set(0, extrudeDepth * 0.55 + 1.1, 0);
     group.add(centerTotalSprite);
   }
 
@@ -1128,11 +1233,12 @@ export default function ThreeDimensionMatrixView({
     const deltaSprite = createTextSprite(
       deltaText,
       "#ffffff",
-      24,
-      diff >= 0 ? "#10b981" : "#ef4444"
+      30,
+      diff >= 0 ? "#059669" : "#dc2626",
+      "#ffffff",
+      { scale: [4.6, 1.05], shadow: true, borderWidth: 3.5 }
     );
-    deltaSprite.position.set(midPoint.x, midPoint.y + 0.8, midPoint.z);
-    deltaSprite.scale.set(4.0, 0.9, 1);
+    deltaSprite.position.set(midPoint.x, midPoint.y + 0.9, midPoint.z);
     group.add(deltaSprite);
 
     // Vertical dashed drop-lines to each pillar
@@ -1227,7 +1333,7 @@ export default function ThreeDimensionMatrixView({
             size="sm"
             variant="outline"
             onClick={() => onChartTypeChange && onChartTypeChange("bar")}
-            className="h-7 px-2.5 text-xs font-bold gap-1.5 text-blue-700 bg-blue-50/90 hover:bg-blue-100 border-blue-200 shadow-2xs"
+            className="h-7 px-3 text-xs font-bold gap-1.5 text-blue-700 bg-blue-50/95 hover:bg-blue-100 border-blue-300 shadow-xs"
             title="Return to standard 2D Bar/Line/Donut charts"
           >
             <ArrowLeft size={13} className="text-blue-600" />
@@ -1235,75 +1341,75 @@ export default function ThreeDimensionMatrixView({
           </Button>
 
           {/* 2D Quick Switchers */}
-          <div className="flex items-center gap-0.5 bg-white p-0.5 rounded-lg border border-slate-200 shadow-2xs">
-            <span className="text-[10px] font-bold text-slate-400 px-1.5 uppercase">2D:</span>
+          <div className="flex items-center gap-0.5 bg-white p-0.5 rounded-lg border border-slate-300 shadow-2xs">
+            <span className="text-xs font-bold text-slate-500 px-1.5 uppercase">2D:</span>
             <Button
               size="sm"
               variant="ghost"
               onClick={() => onChartTypeChange && onChartTypeChange("bar")}
-              className="h-6 px-2 text-[11px] text-slate-600 hover:text-slate-900"
+              className="h-7 px-2 text-xs font-semibold text-slate-700 hover:text-slate-950 hover:bg-slate-100"
               title="2D Grouped Bar Chart"
             >
-              <BarChart3 size={11} className="mr-1 text-slate-500" /> Bar
+              <BarChart3 size={12} className="mr-1 text-slate-600" /> Bar
             </Button>
             <Button
               size="sm"
               variant="ghost"
               onClick={() => onChartTypeChange && onChartTypeChange("stacked_bar")}
-              className="h-6 px-2 text-[11px] text-slate-600 hover:text-slate-900"
+              className="h-7 px-2 text-xs font-semibold text-slate-700 hover:text-slate-950 hover:bg-slate-100"
               title="2D Stacked Bar Chart"
             >
-              <Layers size={11} className="mr-1 text-slate-500" /> Stacked
+              <Layers size={12} className="mr-1 text-slate-600" /> Stacked
             </Button>
             <Button
               size="sm"
               variant="ghost"
               onClick={() => onChartTypeChange && onChartTypeChange("line")}
-              className="h-6 px-2 text-[11px] text-slate-600 hover:text-slate-900"
+              className="h-7 px-2 text-xs font-semibold text-slate-700 hover:text-slate-950 hover:bg-slate-100"
               title="2D Line Chart"
             >
-              <LineIcon size={11} className="mr-1 text-slate-500" /> Line
+              <LineIcon size={12} className="mr-1 text-slate-600" /> Line
             </Button>
             <Button
               size="sm"
               variant="ghost"
               onClick={() => onChartTypeChange && onChartTypeChange("donut")}
-              className="h-6 px-2 text-[11px] text-slate-600 hover:text-slate-900"
+              className="h-7 px-2 text-xs font-semibold text-slate-700 hover:text-slate-950 hover:bg-slate-100"
               title="2D Donut Chart"
             >
-              <PieIcon size={11} className="mr-1 text-slate-500" /> Donut
+              <PieIcon size={12} className="mr-1 text-slate-600" /> Donut
             </Button>
           </div>
 
           {/* 3D Mode Selector: Bar / Line / Donut */}
-          <div className="flex items-center gap-0.5 bg-sky-50/70 p-0.5 rounded-lg border border-sky-200 shadow-2xs">
-            <span className="text-[10px] font-bold text-sky-700 px-1.5 uppercase">3D:</span>
+          <div className="flex items-center gap-0.5 bg-sky-50 p-0.5 rounded-lg border border-sky-300 shadow-2xs">
+            <span className="text-xs font-bold text-sky-800 px-1.5 uppercase">3D:</span>
             <Button
               size="sm"
               variant={activeMode === "3d_bar" ? "default" : "ghost"}
               onClick={() => onChartTypeChange && onChartTypeChange("3d_bar")}
-              className="h-6 px-2 text-[11px] gap-1 font-semibold"
+              className="h-7 px-2.5 text-xs gap-1 font-bold"
               title="3D Isometric Bar Grid"
             >
-              <BarChart3 size={11} /> 3D Bar
+              <BarChart3 size={12} /> 3D Bar
             </Button>
             <Button
               size="sm"
               variant={activeMode === "3d_line" ? "default" : "ghost"}
               onClick={() => onChartTypeChange && onChartTypeChange("3d_line")}
-              className="h-6 px-2 text-[11px] gap-1 font-semibold"
+              className="h-7 px-2.5 text-xs gap-1 font-bold"
               title="3D Flowing Line Ribbon"
             >
-              <TrendingUp size={11} /> 3D Line
+              <TrendingUp size={12} /> 3D Line
             </Button>
             <Button
               size="sm"
               variant={activeMode === "3d_donut" ? "default" : "ghost"}
               onClick={() => onChartTypeChange && onChartTypeChange("3d_donut")}
-              className="h-6 px-2 text-[11px] gap-1 font-semibold"
+              className="h-7 px-2.5 text-xs gap-1 font-bold"
               title="3D Extruded Beveled Donut"
             >
-              <PieIcon size={11} /> 3D Donut
+              <PieIcon size={12} /> 3D Donut
             </Button>
           </div>
         </div>
@@ -1320,14 +1426,14 @@ export default function ThreeDimensionMatrixView({
                 setShowThresholdPlane(nextState);
                 toast.info(nextState ? `${datasetContext.limitName} Alert enabled: Move slider to adjust limit` : `${datasetContext.limitName} Alert disabled`);
               }}
-              className={`h-6 px-2 text-[10px] font-semibold gap-1 ${
+              className={`h-7 px-2.5 text-xs font-bold gap-1 shadow-2xs ${
                 showThresholdPlane
-                  ? "bg-red-600 hover:bg-red-700 text-white font-bold shadow-xs"
-                  : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100"
+                  ? "bg-red-600 hover:bg-red-700 text-white font-bold"
+                  : "bg-white text-slate-800 border-slate-300 hover:bg-slate-100"
               }`}
               title={`Toggle ${datasetContext.limitName} Alert Plane`}
             >
-              <Target size={11} className={showThresholdPlane ? "text-white" : "text-red-500"} />
+              <Target size={12} className={showThresholdPlane ? "text-white" : "text-red-500"} />
               <span>Limit Alert</span>
             </Button>
           )}
@@ -1348,14 +1454,14 @@ export default function ThreeDimensionMatrixView({
                 toast.info("Compare Mode: Click any 2 bars to see difference");
               }
             }}
-            className={`h-6 px-2 text-[10px] font-semibold gap-1 ${
+            className={`h-7 px-2.5 text-xs font-bold gap-1 shadow-2xs ${
               isCompareMode
-                ? "bg-purple-600 hover:bg-purple-700 text-white font-bold shadow-xs"
-                : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100"
+                ? "bg-purple-600 hover:bg-purple-700 text-white font-bold"
+                : "bg-white text-slate-800 border-slate-300 hover:bg-slate-100"
             }`}
             title="Compare 2 items side-by-side"
           >
-            <GitCompare size={11} className={isCompareMode ? "text-white" : "text-purple-600"} />
+            <GitCompare size={12} className={isCompareMode ? "text-white" : "text-purple-600"} />
             <span>Compare</span>
           </Button>
 
@@ -1364,12 +1470,12 @@ export default function ThreeDimensionMatrixView({
             size="sm"
             variant={showDataLabels ? "secondary" : "outline"}
             onClick={() => setShowDataLabels(!showDataLabels)}
-            className={`h-6 px-2 text-[10px] font-medium border-slate-200 ${
-              showDataLabels ? "bg-blue-100 text-blue-900 font-bold border-blue-300" : "bg-white text-slate-700"
+            className={`h-7 px-2.5 text-xs font-bold border-slate-300 shadow-2xs ${
+              showDataLabels ? "bg-blue-100 text-blue-950 font-bold border-blue-400" : "bg-white text-slate-800 hover:bg-slate-100"
             }`}
             title="Show or hide numbers above each bar"
           >
-            <Hash size={11} className="mr-0.5 text-blue-600" />
+            <Hash size={12} className="mr-0.5 text-blue-600" />
             Show Numbers
           </Button>
 
@@ -1384,23 +1490,23 @@ export default function ThreeDimensionMatrixView({
                 setSortOrder(nextSort);
                 toast.info(`Sorted by value: ${nextSort === "none" ? "Original Order" : nextSort === "desc" ? "Highest First" : "Lowest First"}`);
               }}
-              className={`h-6 px-2 text-[10px] font-medium border-slate-200 ${
-                sortOrder !== "none" ? "bg-amber-100 text-amber-900 font-bold border-amber-300" : "bg-white text-slate-700"
+              className={`h-7 px-2.5 text-xs font-bold border-slate-300 shadow-2xs ${
+                sortOrder !== "none" ? "bg-amber-100 text-amber-950 font-bold border-amber-400" : "bg-white text-slate-800 hover:bg-slate-100"
               }`}
               title="Sort bars: Highest first or Lowest first"
             >
-              <ArrowUpDown size={11} className="mr-1 text-amber-600" />
+              <ArrowUpDown size={12} className="mr-1 text-amber-600" />
               {sortOrder === "none" ? "Sort" : sortOrder === "desc" ? "High➔Low" : "Low➔High"}
             </Button>
           )}
 
           {/* Camera Angles */}
-          <div className="flex items-center bg-white rounded-md p-0.5 border border-slate-200 shadow-2xs">
+          <div className="flex items-center bg-white rounded-md p-0.5 border border-slate-300 shadow-2xs">
             <Button
               size="sm"
               variant="ghost"
               onClick={() => setCameraAngle("iso")}
-              className="h-6 px-1.5 text-[10px] text-slate-600 hover:text-slate-900"
+              className="h-7 px-2 text-xs font-semibold text-slate-700 hover:text-slate-950 hover:bg-slate-100"
               title="3D View"
             >
               3D
@@ -1409,7 +1515,7 @@ export default function ThreeDimensionMatrixView({
               size="sm"
               variant="ghost"
               onClick={() => setCameraAngle("top")}
-              className="h-6 px-1.5 text-[10px] text-slate-600 hover:text-slate-900"
+              className="h-7 px-2 text-xs font-semibold text-slate-700 hover:text-slate-950 hover:bg-slate-100"
               title="Top Down View"
             >
               Top
@@ -1418,7 +1524,7 @@ export default function ThreeDimensionMatrixView({
               size="sm"
               variant="ghost"
               onClick={() => setCameraAngle("front")}
-              className="h-6 px-1.5 text-[10px] text-slate-600 hover:text-slate-900"
+              className="h-7 px-2 text-xs font-semibold text-slate-700 hover:text-slate-950 hover:bg-slate-100"
               title="Front View"
             >
               Front
@@ -1427,7 +1533,7 @@ export default function ThreeDimensionMatrixView({
               size="sm"
               variant="ghost"
               onClick={() => setCameraAngle("side")}
-              className="h-6 px-1.5 text-[10px] text-slate-600 hover:text-slate-900"
+              className="h-7 px-2 text-xs font-semibold text-slate-700 hover:text-slate-950 hover:bg-slate-100"
               title="Side View"
             >
               Side
@@ -1436,33 +1542,33 @@ export default function ThreeDimensionMatrixView({
 
           {/* Tower Shapes (only in 3D Bar mode) */}
           {activeMode === "3d_bar" && (
-            <div className="flex items-center bg-white rounded-md p-0.5 border border-slate-200 shadow-2xs">
+            <div className="flex items-center bg-white rounded-md p-0.5 border border-slate-300 shadow-2xs">
               <Button
                 size="sm"
                 variant={towerShape === "box" ? "secondary" : "ghost"}
                 onClick={() => setTowerShape("box")}
-                className="h-6 w-6 p-0"
+                className="h-7 w-7 p-0"
                 title="Box Shape"
               >
-                <Square size={12} />
+                <Square size={13} />
               </Button>
               <Button
                 size="sm"
                 variant={towerShape === "cylinder" ? "secondary" : "ghost"}
                 onClick={() => setTowerShape("cylinder")}
-                className="h-6 w-6 p-0"
+                className="h-7 w-7 p-0"
                 title="Round Shape"
               >
-                <Circle size={12} />
+                <Circle size={13} />
               </Button>
               <Button
                 size="sm"
                 variant={towerShape === "hexagon" ? "secondary" : "ghost"}
                 onClick={() => setTowerShape("hexagon")}
-                className="h-6 w-6 p-0"
+                className="h-7 w-7 p-0"
                 title="Hexagon Shape"
               >
-                <Hexagon size={12} />
+                <Hexagon size={13} />
               </Button>
             </div>
           )}
@@ -1472,14 +1578,14 @@ export default function ThreeDimensionMatrixView({
             size="sm"
             variant={autoRotate ? "default" : "outline"}
             onClick={() => setAutoRotate(!autoRotate)}
-            className={`h-6 px-2 text-[10px] gap-1 font-medium ${
+            className={`h-7 px-2.5 text-xs gap-1 font-bold shadow-2xs ${
               autoRotate
                 ? "bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold"
-                : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100"
+                : "bg-white text-slate-800 border-slate-300 hover:bg-slate-100"
             }`}
             title="Start or pause 360° automatic rotation"
           >
-            {autoRotate ? <Pause size={10} /> : <Play size={10} />}
+            {autoRotate ? <Pause size={11} /> : <Play size={11} />}
             Auto-Spin
           </Button>
 
@@ -1488,10 +1594,10 @@ export default function ThreeDimensionMatrixView({
             size="sm"
             variant="ghost"
             onClick={handleSnapshot}
-            className="h-6 w-6 p-0 text-slate-600 hover:text-slate-900 hover:bg-slate-200"
+            className="h-7 w-7 p-0 text-slate-700 hover:text-slate-950 hover:bg-slate-200"
             title="Save Picture as PNG"
           >
-            <Download size={13} />
+            <Download size={14} />
           </Button>
 
           {/* Fullscreen Toggle */}
@@ -1499,10 +1605,10 @@ export default function ThreeDimensionMatrixView({
             size="sm"
             variant="ghost"
             onClick={() => setIsFullscreen(!isFullscreen)}
-            className="h-6 w-6 p-0 text-slate-600 hover:text-slate-900 hover:bg-slate-200"
+            className="h-7 w-7 p-0 text-slate-700 hover:text-slate-950 hover:bg-slate-200"
             title={isFullscreen ? "Exit Full Screen" : "Full Screen"}
           >
-            {isFullscreen ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
+            {isFullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
           </Button>
 
           {/* Hide Visualizer */}
@@ -1510,10 +1616,10 @@ export default function ThreeDimensionMatrixView({
             size="sm"
             variant="ghost"
             onClick={() => onChartTypeChange && onChartTypeChange("none")}
-            className="h-6 w-6 p-0 text-slate-400 hover:text-slate-800 hover:bg-slate-200"
+            className="h-7 w-7 p-0 text-slate-400 hover:text-slate-900 hover:bg-slate-200"
             title="Hide Visualizer"
           >
-            <EyeOff size={13} />
+            <EyeOff size={14} />
           </Button>
         </div>
       </div>
@@ -1528,37 +1634,37 @@ export default function ThreeDimensionMatrixView({
 
       {/* FEATURE 2 OVERLAY: Interactive Threshold Plane Slider */}
       {showThresholdPlane && activeMode !== "3d_donut" && (
-        <div className="absolute top-14 left-4 bg-white/95 backdrop-blur-md border border-red-200 shadow-lg px-3 py-2 rounded-xl flex flex-wrap items-center gap-3 z-10 text-xs">
-          <div className="flex items-center gap-1.5 text-red-700 font-bold">
-            <Target size={14} className="text-red-600" />
+        <div className="absolute top-14 left-4 bg-white/98 backdrop-blur-md border-2 border-red-300 shadow-xl px-4 py-2.5 rounded-xl flex flex-wrap items-center gap-3.5 z-10 text-xs">
+          <div className="flex items-center gap-2 text-red-900 font-bold text-xs sm:text-sm">
+            <Target size={16} className="text-red-600" />
             <span>{datasetContext.limitName}:</span>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2.5">
             <Slider
               value={[thresholdValue]}
               min={Math.round(maxVal * 0.1)}
               max={Math.round(maxVal * 1.2)}
               step={Math.max(1, Math.round(maxVal / 50))}
               onValueChange={([val]) => setThresholdValue(val)}
-              className="w-32"
+              className="w-36"
             />
-            <span className="font-mono font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded border border-red-200">
+            <span className="font-mono font-bold text-sm text-red-700 bg-red-100/90 px-2.5 py-1 rounded-md border border-red-300 shadow-2xs">
               {thresholdValue.toLocaleString()} {datasetContext.unit}
             </span>
           </div>
 
           <Badge
             variant="outline"
-            className={`text-[10px] font-semibold ${
+            className={`text-xs font-bold px-3 py-1 shadow-2xs ${
               thresholdTelemetry.count > 0
                 ? "bg-red-50 text-red-700 border-red-300"
-                : "bg-emerald-50 text-emerald-700 border-emerald-300"
+                : "bg-emerald-50 text-emerald-800 border-emerald-300"
             }`}
           >
             {thresholdTelemetry.count > 0 ? (
-              <span className="flex items-center gap-1">
-                <AlertTriangle size={11} /> {thresholdTelemetry.count} {thresholdTelemetry.count === 1 ? "Location" : "Locations"} Over Limit (+{thresholdTelemetry.totalExcess.toLocaleString()} {datasetContext.unit})
+              <span className="flex items-center gap-1.5">
+                <AlertTriangle size={13} /> {thresholdTelemetry.count} {thresholdTelemetry.count === 1 ? "Location" : "Locations"} Over Limit (+{thresholdTelemetry.totalExcess.toLocaleString()} {datasetContext.unit})
               </span>
             ) : (
               datasetContext.allWithin
@@ -1569,10 +1675,10 @@ export default function ThreeDimensionMatrixView({
 
       {/* FEATURE 3 OVERLAY: Multi-Pillar 3D Comparison HUD Card */}
       {isCompareMode && (
-        <div className="absolute top-14 right-4 z-20 w-80 bg-white/95 backdrop-blur-md border-2 border-purple-400 rounded-xl shadow-2xl p-3.5 space-y-2 text-slate-800 animate-in fade-in zoom-in-95 duration-150">
-          <div className="flex items-center justify-between border-b border-purple-100 pb-1.5">
-            <div className="flex items-center gap-1.5 font-bold text-xs text-purple-900">
-              <GitCompare size={14} className="text-purple-600" />
+        <div className="absolute top-14 right-4 z-20 w-84 bg-white/98 backdrop-blur-md border-2 border-purple-500 rounded-xl shadow-2xl p-4 space-y-3 text-slate-900 animate-in fade-in zoom-in-95 duration-150">
+          <div className="flex items-center justify-between border-b border-purple-200 pb-2">
+            <div className="flex items-center gap-2 font-bold text-sm text-purple-950">
+              <GitCompare size={16} className="text-purple-600" />
               <span>Side-by-Side Comparison</span>
             </div>
             <button
@@ -1581,54 +1687,54 @@ export default function ThreeDimensionMatrixView({
                 setCompareItemA(null);
                 setCompareItemB(null);
               }}
-              className="text-slate-400 hover:text-slate-700 text-[10px] px-1.5 py-0.5 rounded hover:bg-slate-100"
+              className="text-slate-500 hover:text-slate-900 text-xs font-semibold px-2 py-0.5 rounded hover:bg-slate-100"
             >
               Clear
             </button>
           </div>
 
-          <div className="grid grid-cols-2 gap-2 text-xs">
+          <div className="grid grid-cols-2 gap-2.5 text-xs">
             {/* Item A */}
-            <div className="p-2 rounded-lg bg-blue-50 border border-blue-200">
-              <span className="text-[10px] font-bold text-blue-800 uppercase block">1st Item</span>
+            <div className="p-2.5 rounded-lg bg-blue-50/90 border-2 border-blue-200 shadow-2xs">
+              <span className="text-xs font-bold text-blue-900 uppercase tracking-wide block">1st Item</span>
               {compareItemA ? (
-                <div className="mt-0.5">
-                  <div className="font-bold text-slate-900 truncate" title={compareItemA.rowName}>{compareItemA.rowName}</div>
-                  <div className="text-[10px] text-slate-500 truncate" title={compareItemA.colName}>{compareItemA.colName}</div>
-                  <div className="font-mono font-bold text-blue-700 mt-1">{compareItemA.formatted} {datasetContext.unit}</div>
+                <div className="mt-1">
+                  <div className="font-bold text-sm text-slate-950 truncate" title={compareItemA.rowName}>{compareItemA.rowName}</div>
+                  <div className="text-xs font-medium text-slate-600 truncate mt-0.5" title={compareItemA.colName}>{compareItemA.colName}</div>
+                  <div className="font-mono font-bold text-base text-blue-800 mt-1">{compareItemA.formatted} {datasetContext.unit}</div>
                 </div>
               ) : (
-                <div className="text-[10px] text-slate-400 italic mt-1">Click any bar...</div>
+                <div className="text-xs text-slate-500 italic mt-1.5">Click any bar...</div>
               )}
             </div>
 
             {/* Item B */}
-            <div className="p-2 rounded-lg bg-amber-50 border border-amber-200">
-              <span className="text-[10px] font-bold text-amber-800 uppercase block">2nd Item</span>
+            <div className="p-2.5 rounded-lg bg-amber-50/90 border-2 border-amber-200 shadow-2xs">
+              <span className="text-xs font-bold text-amber-900 uppercase tracking-wide block">2nd Item</span>
               {compareItemB ? (
-                <div className="mt-0.5">
-                  <div className="font-bold text-slate-900 truncate" title={compareItemB.rowName}>{compareItemB.rowName}</div>
-                  <div className="text-[10px] text-slate-500 truncate" title={compareItemB.colName}>{compareItemB.colName}</div>
-                  <div className="font-mono font-bold text-amber-700 mt-1">{compareItemB.formatted} {datasetContext.unit}</div>
+                <div className="mt-1">
+                  <div className="font-bold text-sm text-slate-950 truncate" title={compareItemB.rowName}>{compareItemB.rowName}</div>
+                  <div className="text-xs font-medium text-slate-600 truncate mt-0.5" title={compareItemB.colName}>{compareItemB.colName}</div>
+                  <div className="font-mono font-bold text-base text-amber-800 mt-1">{compareItemB.formatted} {datasetContext.unit}</div>
                 </div>
               ) : (
-                <div className="text-[10px] text-slate-400 italic mt-1">Click another bar...</div>
+                <div className="text-xs text-slate-500 italic mt-1.5">Click another bar...</div>
               )}
             </div>
           </div>
 
-          {/* Delta Variance Comparison Calculation */}
+          {/* Difference Comparison Calculation */}
           {compareItemA && compareItemB && (
-            <div className="pt-1 border-t border-purple-100 text-xs">
+            <div className="pt-1.5 border-t border-purple-200 text-xs">
               {(() => {
                 const diff = compareItemB.value - compareItemA.value;
                 const pct = compareItemA.value > 0 ? (diff / compareItemA.value) * 100 : 0;
                 const isPositive = diff >= 0;
                 return (
-                  <div className="flex items-center justify-between bg-purple-50/80 p-2 rounded-lg border border-purple-200">
-                    <span className="text-slate-600 font-semibold text-[11px]">Difference:</span>
+                  <div className="flex items-center justify-between bg-purple-50 p-2.5 rounded-lg border border-purple-300">
+                    <span className="text-slate-800 font-bold text-xs">Difference:</span>
                     <span
-                      className={`font-mono font-bold text-xs ${
+                      className={`font-mono font-bold text-sm ${
                         isPositive ? "text-emerald-700" : "text-red-600"
                       }`}
                     >
@@ -1646,13 +1752,13 @@ export default function ThreeDimensionMatrixView({
 
       {/* Interactive Series Legend Bar at Bottom */}
       {chartSeriesKeys.length > 1 && activeMode !== "3d_donut" && (
-        <div className="px-4 py-2 bg-slate-50/90 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2 text-xs">
-          <div className="flex items-center gap-1.5 text-slate-500 font-semibold text-[11px]">
-            <Filter size={12} className="text-primary" />
+        <div className="px-4 py-2.5 bg-slate-100/95 border-t border-slate-300 flex flex-wrap items-center justify-between gap-2.5 text-xs">
+          <div className="flex items-center gap-1.5 text-slate-700 font-bold text-xs">
+            <Filter size={13} className="text-primary" />
             <span>Click a category below to isolate:</span>
           </div>
 
-          <div className="flex flex-wrap items-center gap-1.5">
+          <div className="flex flex-wrap items-center gap-2">
             {chartSeriesKeys.map((key, i) => {
               const isSelected = activeSeriesFilter === key;
               return (
@@ -1665,20 +1771,20 @@ export default function ThreeDimensionMatrixView({
                       isSelected ? "Showing all categories" : `Showing only: ${key}`
                     );
                   }}
-                  className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-medium transition-all ${
+                  className={`inline-flex items-center gap-2 px-3 py-1 rounded-lg text-xs font-bold transition-all shadow-2xs ${
                     isSelected
-                      ? "bg-slate-900 text-white shadow-xs scale-105"
+                      ? "bg-slate-950 text-white shadow-xs scale-105 ring-2 ring-slate-900"
                       : activeSeriesFilter
-                      ? "opacity-40 hover:opacity-100 bg-white border border-slate-200 text-slate-600"
-                      : "bg-white border border-slate-200 text-slate-700 hover:border-slate-300"
+                      ? "opacity-40 hover:opacity-100 bg-white border border-slate-300 text-slate-700"
+                      : "bg-white border border-slate-300 text-slate-800 hover:border-slate-400 hover:bg-slate-50"
                   }`}
                 >
                   <span
-                    className="w-2.5 h-2.5 rounded-full inline-block shrink-0"
+                    className="w-3 h-3 rounded-full inline-block shrink-0 shadow-2xs"
                     style={{ backgroundColor: CSS_PALETTE[i % CSS_PALETTE.length] }}
                   />
                   <span>{key}</span>
-                  {isSelected && <Check size={11} className="text-emerald-400" />}
+                  {isSelected && <Check size={12} className="text-emerald-400" />}
                 </button>
               );
             })}
@@ -1688,7 +1794,7 @@ export default function ThreeDimensionMatrixView({
                 size="sm"
                 variant="ghost"
                 onClick={() => setActiveSeriesFilter(null)}
-                className="h-5 px-1.5 text-[10px] text-muted-foreground hover:text-foreground"
+                className="h-6 px-2 text-xs font-semibold text-muted-foreground hover:text-foreground"
               >
                 Reset
               </Button>
@@ -1699,9 +1805,9 @@ export default function ThreeDimensionMatrixView({
 
       {/* Height Scale Elevation Slider Overlay */}
       {activeMode !== "3d_donut" && (
-        <div className="absolute bottom-12 left-4 bg-white/95 backdrop-blur-md border border-slate-200 px-3 py-1.5 rounded-lg flex items-center gap-2 text-slate-700 shadow-md z-10">
-          <Sliders size={12} className="text-primary" />
-          <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+        <div className="absolute bottom-12 left-4 bg-white/98 backdrop-blur-md border border-slate-300 px-3.5 py-2 rounded-lg flex items-center gap-2.5 text-slate-800 shadow-md z-10">
+          <Sliders size={13} className="text-primary" />
+          <span className="text-xs font-bold uppercase tracking-wider text-slate-700">
             Bar Height:
           </span>
           <Slider
@@ -1710,14 +1816,14 @@ export default function ThreeDimensionMatrixView({
             max={2.5}
             step={0.1}
             onValueChange={([val]) => setHeightScale(val)}
-            className="w-20"
+            className="w-24"
           />
-          <span className="text-[10px] font-mono font-bold text-primary">{heightScale.toFixed(1)}x</span>
+          <span className="text-xs font-mono font-bold text-primary">{heightScale.toFixed(1)}x</span>
         </div>
       )}
 
       {/* Gesture Guide Hint Overlay */}
-      <div className="absolute bottom-12 right-4 hidden sm:flex items-center gap-2 bg-white/85 backdrop-blur-xs border border-slate-200 px-2.5 py-1 rounded-md text-[10px] text-slate-500 shadow-2xs pointer-events-none z-10">
+      <div className="absolute bottom-12 right-4 hidden sm:flex items-center gap-2 bg-white/95 backdrop-blur-md border border-slate-300 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-700 shadow-md pointer-events-none z-10">
         <span>Click: Details</span>
         <span>•</span>
         <span>Left-Click: Rotate</span>
@@ -1727,13 +1833,13 @@ export default function ThreeDimensionMatrixView({
 
       {/* FEATURE 1: Selection Drilldown Inspector HUD Card */}
       {selectedItem && !isCompareMode && (
-        <div className="absolute top-14 right-4 z-20 w-72 bg-white/95 backdrop-blur-md border-2 border-primary/40 rounded-xl shadow-2xl p-3.5 space-y-2.5 text-slate-800 animate-in fade-in zoom-in-95 duration-150">
-          <div className="flex items-start justify-between gap-2 border-b border-slate-100 pb-2">
+        <div className="absolute top-14 right-4 z-20 w-80 bg-white/98 backdrop-blur-md border-2 border-blue-500 rounded-xl shadow-2xl p-4 space-y-3 text-slate-900 animate-in fade-in zoom-in-95 duration-150">
+          <div className="flex items-start justify-between gap-2 border-b border-slate-200 pb-2">
             <div>
-              <span className="text-[10px] font-bold uppercase tracking-wider text-primary block">
+              <span className="text-xs font-bold uppercase tracking-wider text-blue-700 block">
                 Selected Details
               </span>
-              <h4 className="font-bold text-sm text-slate-900 leading-tight">
+              <h4 className="font-bold text-base text-slate-950 leading-tight mt-0.5">
                 {selectedItem.rowName}
               </h4>
             </div>
@@ -1743,39 +1849,39 @@ export default function ThreeDimensionMatrixView({
               className="text-slate-400 hover:text-slate-700 p-1 rounded-md hover:bg-slate-100"
               title="Close details"
             >
-              <X size={14} />
+              <X size={16} />
             </button>
           </div>
 
-          <div className="space-y-1.5 text-xs">
-            <div className="flex justify-between py-1 border-b border-slate-100">
-              <span className="text-slate-500">Category:</span>
-              <span className="font-semibold text-slate-800">{selectedItem.colName}</span>
+          <div className="space-y-2 text-xs">
+            <div className="flex justify-between items-center py-1 border-b border-slate-100">
+              <span className="text-slate-600 font-medium">Category:</span>
+              <span className="font-bold text-slate-900 text-xs">{selectedItem.colName}</span>
             </div>
-            <div className="flex justify-between py-1 border-b border-slate-100">
-              <span className="text-slate-500">Total {datasetContext.unit}:</span>
-              <span className="font-mono font-bold text-base text-primary">
+            <div className="flex justify-between items-center py-1 border-b border-slate-100">
+              <span className="text-slate-600 font-medium">Total {datasetContext.unit}:</span>
+              <span className="font-mono font-bold text-lg text-blue-700">
                 {selectedItem.formatted}
               </span>
             </div>
-            <div className="flex justify-between py-1">
-              <span className="text-slate-500">Share of Total:</span>
-              <Badge variant="secondary" className="font-mono text-xs font-bold bg-amber-100 text-amber-900">
+            <div className="flex justify-between items-center py-1">
+              <span className="text-slate-600 font-medium">Share of Total:</span>
+              <Badge variant="secondary" className="font-mono text-xs font-bold bg-amber-100 text-amber-950 border border-amber-300">
                 {selectedItem.percentage.toFixed(1)}%
               </Badge>
             </div>
           </div>
 
           {/* Interactive Actions (Feature 1 Drill-Down Button included!) */}
-          <div className="pt-2 flex flex-col gap-1.5 border-t border-slate-100">
+          <div className="pt-2 flex flex-col gap-2 border-t border-slate-200">
             {/* FEATURE 1: View Underlying Records */}
             <Button
               size="sm"
               onClick={() => setDrilldownModalOpen(true)}
-              className="h-7 text-xs font-semibold gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white w-full shadow-xs"
+              className="h-8 text-xs font-bold gap-2 bg-emerald-600 hover:bg-emerald-700 text-white w-full shadow-xs"
               title={`Inspect individual ${datasetContext.recordsPlural.toLowerCase()} for this selection`}
             >
-              <Users size={12} />
+              <Users size={14} />
               <span>
                 View {datasetContext.recordsPlural} ({matchingDrilldownRecords.length})
               </span>
@@ -1785,9 +1891,9 @@ export default function ThreeDimensionMatrixView({
               size="sm"
               onClick={handleFilterBySelectedItem}
               variant="outline"
-              className="h-7 text-xs font-semibold gap-1.5 border-slate-300 text-slate-700 hover:bg-slate-100 w-full"
+              className="h-8 text-xs font-bold gap-2 border-slate-300 text-slate-800 hover:bg-slate-100 w-full"
             >
-              <Filter size={12} className="text-primary" />
+              <Filter size={13} className="text-primary" />
               <span>Filter Report to this Item</span>
             </Button>
 
@@ -1795,7 +1901,7 @@ export default function ThreeDimensionMatrixView({
               size="sm"
               variant="ghost"
               onClick={handleResetFocus}
-              className="h-6 text-[11px] text-slate-500 hover:text-slate-800 w-full"
+              className="h-7 text-xs font-semibold text-slate-600 hover:text-slate-950 hover:bg-slate-100 w-full"
             >
               Clear Selection
             </Button>
@@ -1806,35 +1912,35 @@ export default function ThreeDimensionMatrixView({
       {/* Floating Raycaster Tooltip on Hover */}
       {hoveredInfo && !selectedItem && !isCompareMode && (
         <div
-          className="fixed pointer-events-none z-50 p-2.5 rounded-lg bg-slate-950/95 backdrop-blur-md border border-sky-400/60 shadow-2xl text-white text-xs max-w-xs space-y-1 transform -translate-x-1/2 -translate-y-full mb-3"
+          className="fixed pointer-events-none z-50 p-3 rounded-xl bg-slate-950/98 backdrop-blur-md border-2 border-sky-400 shadow-2xl text-white text-xs max-w-sm space-y-1.5 transform -translate-x-1/2 -translate-y-full mb-3"
           style={{
             left: `${hoveredInfo.x}px`,
             top: `${hoveredInfo.y}px`,
           }}
         >
-          <div className="flex items-center justify-between gap-2 border-b border-slate-800 pb-1">
-            <span className="font-bold text-sky-400 truncate max-w-[140px]">
+          <div className="flex items-center justify-between gap-3 border-b border-slate-800 pb-1.5">
+            <span className="font-bold text-sm text-sky-300 truncate max-w-[160px]">
               {hoveredInfo.rowName}
             </span>
-            <span className="text-[10px] px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-400 font-mono font-bold">
+            <span className="text-xs px-2 py-0.5 rounded bg-amber-400/25 text-amber-300 font-mono font-bold border border-amber-400/40">
               {hoveredInfo.percentage.toFixed(1)}% Total
             </span>
           </div>
 
-          <div className="flex justify-between items-center text-[11px] pt-0.5">
-            <span className="text-slate-400 truncate pr-2">{hoveredInfo.colName}:</span>
-            <span className="font-mono font-bold text-amber-300 text-sm">
+          <div className="flex justify-between items-center text-xs pt-0.5">
+            <span className="text-slate-300 truncate pr-2 font-medium">{hoveredInfo.colName}:</span>
+            <span className="font-mono font-bold text-amber-300 text-base">
               {hoveredInfo.formatted} {datasetContext.unit}
             </span>
           </div>
 
           {showThresholdPlane && hoveredInfo.value > thresholdValue && (
-            <div className="text-[10px] text-red-400 font-bold flex items-center gap-1 pt-0.5">
-              <AlertTriangle size={11} /> Over {datasetContext.limitName.toLowerCase()} by +{(hoveredInfo.value - thresholdValue).toLocaleString()} {datasetContext.unit}
+            <div className="text-xs text-red-300 font-bold flex items-center gap-1.5 pt-0.5 bg-red-950/60 p-1.5 rounded border border-red-500/50">
+              <AlertTriangle size={13} className="text-red-400" /> Over {datasetContext.limitName.toLowerCase()} by +{(hoveredInfo.value - thresholdValue).toLocaleString()} {datasetContext.unit}
             </div>
           )}
 
-          <div className="text-[9px] text-slate-400 italic pt-0.5">
+          <div className="text-[11px] text-slate-300 italic pt-1">
             Click to view {datasetContext.recordsPlural.toLowerCase()}
           </div>
         </div>
