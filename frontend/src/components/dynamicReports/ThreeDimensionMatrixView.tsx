@@ -105,9 +105,9 @@ function getVibrantHeatmapColor(t: number): THREE.Color {
 function createTextSprite(
   text: string,
   color = "#0f172a",
-  fontSize = 32,
+  fontSize = 38,
   bgColor = "#ffffff",
-  borderColor = "#cbd5e1",
+  borderColor = "#94a3b8",
   options?: {
     scale?: [number, number];
     shadow?: boolean;
@@ -116,28 +116,28 @@ function createTextSprite(
     maxChars?: number;
   }
 ): THREE.Sprite {
-  // Use a crisp 512x128 high-DPI canvas for razor-sharp legibility
+  // Use a crisp 640x160 high-DPI canvas for big, razor-sharp legibility
   const canvas = document.createElement("canvas");
-  canvas.width = 512;
-  canvas.height = 128;
+  canvas.width = 640;
+  canvas.height = 160;
   const ctx = canvas.getContext("2d");
   if (!ctx) return new THREE.Sprite();
 
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  const paddingX = options?.badgePadding ?? 20;
-  const paddingY = 14;
+  const paddingX = options?.badgePadding ?? 22;
+  const paddingY = 16;
   const cardWidth = canvas.width - paddingX * 2;
   const cardHeight = canvas.height - paddingY * 2;
-  const radius = 24;
+  const radius = 32;
 
   // Draw background pill card
   if (bgColor && bgColor !== "transparent") {
     if (options?.shadow) {
-      ctx.shadowColor = "rgba(15, 23, 42, 0.22)";
-      ctx.shadowBlur = 18;
+      ctx.shadowColor = "rgba(15, 23, 42, 0.28)";
+      ctx.shadowBlur = 22;
       ctx.shadowOffsetX = 0;
-      ctx.shadowOffsetY = 8;
+      ctx.shadowOffsetY = 10;
     }
     ctx.fillStyle = bgColor;
     ctx.beginPath();
@@ -148,7 +148,7 @@ function createTextSprite(
   // Draw crisp border outline
   if (borderColor && borderColor !== "transparent") {
     ctx.shadowColor = "transparent";
-    ctx.lineWidth = options?.borderWidth ?? 3.5;
+    ctx.lineWidth = options?.borderWidth ?? 4;
     ctx.strokeStyle = borderColor;
     ctx.beginPath();
     ctx.roundRect(paddingX, paddingY, cardWidth, cardHeight, radius);
@@ -166,7 +166,7 @@ function createTextSprite(
 
   const maxLen = options?.maxChars ?? 24;
   const display = text.length > maxLen ? text.slice(0, maxLen - 1) + "…" : text;
-  ctx.fillText(display, canvas.width / 2, canvas.height / 2 + 1);
+  ctx.fillText(display, canvas.width / 2, canvas.height / 2 + 2);
 
   const texture = new THREE.CanvasTexture(canvas);
   texture.minFilter = THREE.LinearFilter;
@@ -180,7 +180,7 @@ function createTextSprite(
   });
 
   const sprite = new THREE.Sprite(spriteMat);
-  const [sx, sy] = options?.scale || [3.8, 0.95];
+  const [sx, sy] = options?.scale || [5.2, 1.3];
   sprite.scale.set(sx, sy, 1);
   return sprite;
 }
@@ -713,32 +713,32 @@ export default function ThreeDimensionMatrixView({
     // Row Labels (Camps / Departments)
     chartData.forEach((row, r) => {
       const x = (r - (numRows - 1) / 2) * spacingX;
-      const z = ((numCols - 1) / 2) * spacingZ + 2.8;
+      const z = ((numCols - 1) / 2) * spacingZ + 3.2;
       const sprite = createTextSprite(
         row.name,
         "#0f172a", // Dark navy / slate-950
-        30,
+        38,
         "#ffffff", // Crisp white pill
         "#94a3b8", // Crisp border
-        { scale: [4.0, 1.0], shadow: true, borderWidth: 3 }
+        { scale: [5.2, 1.3], shadow: true, borderWidth: 3.5, maxChars: 22 }
       );
-      sprite.position.set(x, 0.45, z);
+      sprite.position.set(x, 0.55, z);
       group.add(sprite);
     });
 
     // Column Labels (Breakdown Series)
     chartSeriesKeys.forEach((colKey, c) => {
       const z = (c - (numCols - 1) / 2) * spacingZ;
-      const x = -((numRows - 1) / 2) * spacingX - 2.8;
+      const x = -((numRows - 1) / 2) * spacingX - 3.2;
       const sprite = createTextSprite(
         colKey,
         "#0369a1", // Deep sky-700
-        30,
+        38,
         "#f0f9ff", // Crisp sky-50 pill
         "#38bdf8", // Sky-400 border
-        { scale: [4.0, 1.0], shadow: true, borderWidth: 3 }
+        { scale: [5.2, 1.3], shadow: true, borderWidth: 3.5, maxChars: 22 }
       );
-      sprite.position.set(x, 0.45, z);
+      sprite.position.set(x, 0.55, z);
       group.add(sprite);
     });
 
@@ -769,12 +769,12 @@ export default function ThreeDimensionMatrixView({
       const ceilingSprite = createTextSprite(
         `${datasetContext.limitName.toUpperCase()}: ${thresholdValue.toLocaleString()} ${datasetContext.unit}`,
         "#ffffff",
-        28,
+        34,
         "#dc2626",
         "#ffffff",
-        { scale: [4.8, 1.05], shadow: true, borderWidth: 3.5 }
+        { scale: [6.0, 1.5], shadow: true, borderWidth: 4 }
       );
-      ceilingSprite.position.set(-((numRows - 1) / 2) * spacingX - 3.4, thresholdY + 0.35, 0);
+      ceilingSprite.position.set(-((numRows - 1) / 2) * spacingX - 3.8, thresholdY + 0.45, 0);
       group.add(ceilingSprite);
     }
 
@@ -845,12 +845,12 @@ export default function ThreeDimensionMatrixView({
               ? `⚠️ ${val.toLocaleString()} ${datasetContext.unit}`
               : `${val.toLocaleString()} ${datasetContext.unit}`,
             isExceeding ? "#ffffff" : "#0f172a",
-            28,
+            34,
             isExceeding ? "#dc2626" : "#ffffff",
             isExceeding ? "#991b1b" : "#475569",
-            { scale: [3.6, 0.9], shadow: true, borderWidth: 3 }
+            { scale: [4.6, 1.2], shadow: true, borderWidth: 3.5 }
           );
-          labelSprite.position.set(x, h + 1.1, z);
+          labelSprite.position.set(x, h + 1.25, z);
           group.add(labelSprite);
         }
       });
@@ -897,32 +897,32 @@ export default function ThreeDimensionMatrixView({
     // Row Labels (Camps / Departments)
     chartData.forEach((row, r) => {
       const x = (r - (numRows - 1) / 2) * spacingX;
-      const z = ((numSeries - 1) / 2) * spacingZ + 2.8;
+      const z = ((numSeries - 1) / 2) * spacingZ + 3.2;
       const sprite = createTextSprite(
         row.name,
         "#0f172a",
-        30,
+        38,
         "#ffffff",
         "#94a3b8",
-        { scale: [4.0, 1.0], shadow: true, borderWidth: 3 }
+        { scale: [5.2, 1.3], shadow: true, borderWidth: 3.5, maxChars: 22 }
       );
-      sprite.position.set(x, 0.45, z);
+      sprite.position.set(x, 0.55, z);
       group.add(sprite);
     });
 
     // Column Labels (Series)
     chartSeriesKeys.forEach((colKey, s) => {
       const z = (s - (numSeries - 1) / 2) * spacingZ;
-      const x = -((numRows - 1) / 2) * spacingX - 2.8;
+      const x = -((numRows - 1) / 2) * spacingX - 3.2;
       const sprite = createTextSprite(
         colKey,
         "#0369a1",
-        30,
+        38,
         "#f0f9ff",
         "#38bdf8",
-        { scale: [4.0, 1.0], shadow: true, borderWidth: 3 }
+        { scale: [5.2, 1.3], shadow: true, borderWidth: 3.5, maxChars: 22 }
       );
-      sprite.position.set(x, 0.45, z);
+      sprite.position.set(x, 0.55, z);
       group.add(sprite);
     });
 
@@ -950,12 +950,12 @@ export default function ThreeDimensionMatrixView({
       const ceilingSprite = createTextSprite(
         `${datasetContext.limitName.toUpperCase()}: ${thresholdValue.toLocaleString()} ${datasetContext.unit}`,
         "#ffffff",
-        28,
+        34,
         "#dc2626",
         "#ffffff",
-        { scale: [4.8, 1.05], shadow: true, borderWidth: 3.5 }
+        { scale: [6.0, 1.5], shadow: true, borderWidth: 4 }
       );
-      ceilingSprite.position.set(-((numRows - 1) / 2) * spacingX - 3.4, thresholdY + 0.35, 0);
+      ceilingSprite.position.set(-((numRows - 1) / 2) * spacingX - 3.8, thresholdY + 0.45, 0);
       group.add(ceilingSprite);
     }
 
@@ -1024,12 +1024,12 @@ export default function ThreeDimensionMatrixView({
               ? `⚠️ ${val.toLocaleString()} ${datasetContext.unit}`
               : `${val.toLocaleString()} ${datasetContext.unit}`,
             isExceeding ? "#ffffff" : "#0f172a",
-            28,
+            34,
             isExceeding ? "#dc2626" : "#ffffff",
             isExceeding ? "#991b1b" : "#475569",
-            { scale: [3.6, 0.9], shadow: true, borderWidth: 3 }
+            { scale: [4.6, 1.2], shadow: true, borderWidth: 3.5 }
           );
-          labelSprite.position.set(x, y + 1.1, z);
+          labelSprite.position.set(x, y + 1.25, z);
           group.add(labelSprite);
         }
       });
@@ -1139,16 +1139,16 @@ export default function ThreeDimensionMatrixView({
       group.add(mesh);
 
       // Label Billboard with crisp white badge
-      const labelDist = outerRadius + 3.2;
+      const labelDist = outerRadius + 3.4;
       const lx = Math.cos(midAngle) * labelDist;
       const lz = -Math.sin(midAngle) * labelDist;
       const labelSprite = createTextSprite(
         `${item.name}: ${(slicePct * 100).toFixed(0)}%`,
         "#0f172a",
-        28,
+        36,
         "#ffffff",
         "#94a3b8",
-        { scale: [4.2, 1.05], shadow: true, borderWidth: 3 }
+        { scale: [5.2, 1.3], shadow: true, borderWidth: 3.5 }
       );
       labelSprite.position.set(lx, extrudeDepth * 0.75, lz);
       group.add(labelSprite);
@@ -1168,10 +1168,10 @@ export default function ThreeDimensionMatrixView({
     const centerLabel = createTextSprite(
       "TOTAL",
       "#475569",
-      26,
+      30,
       "transparent",
       "transparent",
-      { scale: [3.0, 0.75] }
+      { scale: [3.4, 0.85] }
     );
     centerLabel.position.set(0, extrudeDepth * 0.55, 0);
     group.add(centerLabel);
@@ -1179,12 +1179,12 @@ export default function ThreeDimensionMatrixView({
     const centerTotalSprite = createTextSprite(
       `${total.toLocaleString()} ${datasetContext.unit}`,
       "#0f172a",
-      34,
+      42,
       "#ffffff",
       "#cbd5e1",
-      { scale: [4.4, 1.1], shadow: true, borderWidth: 3 }
+      { scale: [5.6, 1.45], shadow: true, borderWidth: 3.5 }
     );
-    centerTotalSprite.position.set(0, extrudeDepth * 0.55 + 1.1, 0);
+    centerTotalSprite.position.set(0, extrudeDepth * 0.55 + 1.2, 0);
     group.add(centerTotalSprite);
   }
 
@@ -1233,12 +1233,12 @@ export default function ThreeDimensionMatrixView({
     const deltaSprite = createTextSprite(
       deltaText,
       "#ffffff",
-      30,
+      36,
       diff >= 0 ? "#059669" : "#dc2626",
       "#ffffff",
-      { scale: [4.6, 1.05], shadow: true, borderWidth: 3.5 }
+      { scale: [5.8, 1.4], shadow: true, borderWidth: 4 }
     );
-    deltaSprite.position.set(midPoint.x, midPoint.y + 0.9, midPoint.z);
+    deltaSprite.position.set(midPoint.x, midPoint.y + 1.0, midPoint.z);
     group.add(deltaSprite);
 
     // Vertical dashed drop-lines to each pillar
@@ -1634,29 +1634,29 @@ export default function ThreeDimensionMatrixView({
 
       {/* FEATURE 2 OVERLAY: Interactive Threshold Plane Slider */}
       {showThresholdPlane && activeMode !== "3d_donut" && (
-        <div className="absolute top-14 left-4 bg-white/98 backdrop-blur-md border-2 border-red-300 shadow-xl px-4 py-2.5 rounded-xl flex flex-wrap items-center gap-3.5 z-10 text-xs">
-          <div className="flex items-center gap-2 text-red-900 font-bold text-xs sm:text-sm">
-            <Target size={16} className="text-red-600" />
+        <div className="absolute top-14 left-4 bg-white/98 backdrop-blur-md border-2 border-red-300 shadow-xl px-4 py-3 rounded-xl flex flex-wrap items-center gap-4 z-10 text-sm">
+          <div className="flex items-center gap-2 text-red-950 font-bold text-sm sm:text-base">
+            <Target size={18} className="text-red-600" />
             <span>{datasetContext.limitName}:</span>
           </div>
 
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-3">
             <Slider
               value={[thresholdValue]}
               min={Math.round(maxVal * 0.1)}
               max={Math.round(maxVal * 1.2)}
               step={Math.max(1, Math.round(maxVal / 50))}
               onValueChange={([val]) => setThresholdValue(val)}
-              className="w-36"
+              className="w-40"
             />
-            <span className="font-mono font-bold text-sm text-red-700 bg-red-100/90 px-2.5 py-1 rounded-md border border-red-300 shadow-2xs">
+            <span className="font-mono font-bold text-sm text-red-700 bg-red-100 px-3 py-1 rounded-md border border-red-300 shadow-2xs">
               {thresholdValue.toLocaleString()} {datasetContext.unit}
             </span>
           </div>
 
           <Badge
             variant="outline"
-            className={`text-xs font-bold px-3 py-1 shadow-2xs ${
+            className={`text-xs sm:text-sm font-bold px-3.5 py-1.5 shadow-2xs ${
               thresholdTelemetry.count > 0
                 ? "bg-red-50 text-red-700 border-red-300"
                 : "bg-emerald-50 text-emerald-800 border-emerald-300"
@@ -1664,7 +1664,7 @@ export default function ThreeDimensionMatrixView({
           >
             {thresholdTelemetry.count > 0 ? (
               <span className="flex items-center gap-1.5">
-                <AlertTriangle size={13} /> {thresholdTelemetry.count} {thresholdTelemetry.count === 1 ? "Location" : "Locations"} Over Limit (+{thresholdTelemetry.totalExcess.toLocaleString()} {datasetContext.unit})
+                <AlertTriangle size={15} /> {thresholdTelemetry.count} {thresholdTelemetry.count === 1 ? "Location" : "Locations"} Over Limit (+{thresholdTelemetry.totalExcess.toLocaleString()} {datasetContext.unit})
               </span>
             ) : (
               datasetContext.allWithin
@@ -1675,10 +1675,10 @@ export default function ThreeDimensionMatrixView({
 
       {/* FEATURE 3 OVERLAY: Multi-Pillar 3D Comparison HUD Card */}
       {isCompareMode && (
-        <div className="absolute top-14 right-4 z-20 w-84 bg-white/98 backdrop-blur-md border-2 border-purple-500 rounded-xl shadow-2xl p-4 space-y-3 text-slate-900 animate-in fade-in zoom-in-95 duration-150">
+        <div className="absolute top-14 right-4 z-20 w-96 bg-white/98 backdrop-blur-md border-2 border-purple-500 rounded-xl shadow-2xl p-4 space-y-3.5 text-slate-900 animate-in fade-in zoom-in-95 duration-150">
           <div className="flex items-center justify-between border-b border-purple-200 pb-2">
-            <div className="flex items-center gap-2 font-bold text-sm text-purple-950">
-              <GitCompare size={16} className="text-purple-600" />
+            <div className="flex items-center gap-2 font-bold text-base text-purple-950">
+              <GitCompare size={18} className="text-purple-600" />
               <span>Side-by-Side Comparison</span>
             </div>
             <button
@@ -1687,54 +1687,54 @@ export default function ThreeDimensionMatrixView({
                 setCompareItemA(null);
                 setCompareItemB(null);
               }}
-              className="text-slate-500 hover:text-slate-900 text-xs font-semibold px-2 py-0.5 rounded hover:bg-slate-100"
+              className="text-slate-500 hover:text-slate-900 text-xs font-bold px-2 py-1 rounded hover:bg-slate-100"
             >
               Clear
             </button>
           </div>
 
-          <div className="grid grid-cols-2 gap-2.5 text-xs">
+          <div className="grid grid-cols-2 gap-3 text-xs">
             {/* Item A */}
-            <div className="p-2.5 rounded-lg bg-blue-50/90 border-2 border-blue-200 shadow-2xs">
+            <div className="p-3 rounded-lg bg-blue-50/90 border-2 border-blue-200 shadow-2xs">
               <span className="text-xs font-bold text-blue-900 uppercase tracking-wide block">1st Item</span>
               {compareItemA ? (
                 <div className="mt-1">
-                  <div className="font-bold text-sm text-slate-950 truncate" title={compareItemA.rowName}>{compareItemA.rowName}</div>
+                  <div className="font-bold text-base text-slate-950 truncate" title={compareItemA.rowName}>{compareItemA.rowName}</div>
                   <div className="text-xs font-medium text-slate-600 truncate mt-0.5" title={compareItemA.colName}>{compareItemA.colName}</div>
-                  <div className="font-mono font-bold text-base text-blue-800 mt-1">{compareItemA.formatted} {datasetContext.unit}</div>
+                  <div className="font-mono font-bold text-lg text-blue-800 mt-1">{compareItemA.formatted} {datasetContext.unit}</div>
                 </div>
               ) : (
-                <div className="text-xs text-slate-500 italic mt-1.5">Click any bar...</div>
+                <div className="text-xs text-slate-500 italic mt-2">Click any bar...</div>
               )}
             </div>
 
             {/* Item B */}
-            <div className="p-2.5 rounded-lg bg-amber-50/90 border-2 border-amber-200 shadow-2xs">
+            <div className="p-3 rounded-lg bg-amber-50/90 border-2 border-amber-200 shadow-2xs">
               <span className="text-xs font-bold text-amber-900 uppercase tracking-wide block">2nd Item</span>
               {compareItemB ? (
                 <div className="mt-1">
-                  <div className="font-bold text-sm text-slate-950 truncate" title={compareItemB.rowName}>{compareItemB.rowName}</div>
+                  <div className="font-bold text-base text-slate-950 truncate" title={compareItemB.rowName}>{compareItemB.rowName}</div>
                   <div className="text-xs font-medium text-slate-600 truncate mt-0.5" title={compareItemB.colName}>{compareItemB.colName}</div>
-                  <div className="font-mono font-bold text-base text-amber-800 mt-1">{compareItemB.formatted} {datasetContext.unit}</div>
+                  <div className="font-mono font-bold text-lg text-amber-800 mt-1">{compareItemB.formatted} {datasetContext.unit}</div>
                 </div>
               ) : (
-                <div className="text-xs text-slate-500 italic mt-1.5">Click another bar...</div>
+                <div className="text-xs text-slate-500 italic mt-2">Click another bar...</div>
               )}
             </div>
           </div>
 
           {/* Difference Comparison Calculation */}
           {compareItemA && compareItemB && (
-            <div className="pt-1.5 border-t border-purple-200 text-xs">
+            <div className="pt-2 border-t border-purple-200">
               {(() => {
                 const diff = compareItemB.value - compareItemA.value;
                 const pct = compareItemA.value > 0 ? (diff / compareItemA.value) * 100 : 0;
                 const isPositive = diff >= 0;
                 return (
-                  <div className="flex items-center justify-between bg-purple-50 p-2.5 rounded-lg border border-purple-300">
-                    <span className="text-slate-800 font-bold text-xs">Difference:</span>
+                  <div className="flex items-center justify-between bg-purple-50 p-3 rounded-lg border border-purple-300">
+                    <span className="text-slate-800 font-bold text-xs sm:text-sm">Difference:</span>
                     <span
-                      className={`font-mono font-bold text-sm ${
+                      className={`font-mono font-bold text-sm sm:text-base ${
                         isPositive ? "text-emerald-700" : "text-red-600"
                       }`}
                     >
@@ -1752,13 +1752,13 @@ export default function ThreeDimensionMatrixView({
 
       {/* Interactive Series Legend Bar at Bottom */}
       {chartSeriesKeys.length > 1 && activeMode !== "3d_donut" && (
-        <div className="px-4 py-2.5 bg-slate-100/95 border-t border-slate-300 flex flex-wrap items-center justify-between gap-2.5 text-xs">
-          <div className="flex items-center gap-1.5 text-slate-700 font-bold text-xs">
-            <Filter size={13} className="text-primary" />
+        <div className="px-4 py-3 bg-slate-100/95 border-t border-slate-300 flex flex-wrap items-center justify-between gap-3 text-sm">
+          <div className="flex items-center gap-2 text-slate-800 font-bold text-xs sm:text-sm">
+            <Filter size={15} className="text-primary" />
             <span>Click a category below to isolate:</span>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2.5">
             {chartSeriesKeys.map((key, i) => {
               const isSelected = activeSeriesFilter === key;
               return (
@@ -1771,7 +1771,7 @@ export default function ThreeDimensionMatrixView({
                       isSelected ? "Showing all categories" : `Showing only: ${key}`
                     );
                   }}
-                  className={`inline-flex items-center gap-2 px-3 py-1 rounded-lg text-xs font-bold transition-all shadow-2xs ${
+                  className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all shadow-2xs ${
                     isSelected
                       ? "bg-slate-950 text-white shadow-xs scale-105 ring-2 ring-slate-900"
                       : activeSeriesFilter
@@ -1780,11 +1780,11 @@ export default function ThreeDimensionMatrixView({
                   }`}
                 >
                   <span
-                    className="w-3 h-3 rounded-full inline-block shrink-0 shadow-2xs"
+                    className="w-3.5 h-3.5 rounded-full inline-block shrink-0 shadow-2xs"
                     style={{ backgroundColor: CSS_PALETTE[i % CSS_PALETTE.length] }}
                   />
                   <span>{key}</span>
-                  {isSelected && <Check size={12} className="text-emerald-400" />}
+                  {isSelected && <Check size={14} className="text-emerald-400" />}
                 </button>
               );
             })}
@@ -1794,7 +1794,7 @@ export default function ThreeDimensionMatrixView({
                 size="sm"
                 variant="ghost"
                 onClick={() => setActiveSeriesFilter(null)}
-                className="h-6 px-2 text-xs font-semibold text-muted-foreground hover:text-foreground"
+                className="h-7 px-2.5 text-xs font-bold text-muted-foreground hover:text-foreground"
               >
                 Reset
               </Button>
@@ -1805,9 +1805,9 @@ export default function ThreeDimensionMatrixView({
 
       {/* Height Scale Elevation Slider Overlay */}
       {activeMode !== "3d_donut" && (
-        <div className="absolute bottom-12 left-4 bg-white/98 backdrop-blur-md border border-slate-300 px-3.5 py-2 rounded-lg flex items-center gap-2.5 text-slate-800 shadow-md z-10">
-          <Sliders size={13} className="text-primary" />
-          <span className="text-xs font-bold uppercase tracking-wider text-slate-700">
+        <div className="absolute bottom-12 left-4 bg-white/98 backdrop-blur-md border border-slate-300 px-4 py-2.5 rounded-lg flex items-center gap-3 text-slate-800 shadow-md z-10 text-xs sm:text-sm">
+          <Sliders size={15} className="text-primary" />
+          <span className="text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-700">
             Bar Height:
           </span>
           <Slider
@@ -1816,14 +1816,14 @@ export default function ThreeDimensionMatrixView({
             max={2.5}
             step={0.1}
             onValueChange={([val]) => setHeightScale(val)}
-            className="w-24"
+            className="w-28"
           />
-          <span className="text-xs font-mono font-bold text-primary">{heightScale.toFixed(1)}x</span>
+          <span className="text-xs sm:text-sm font-mono font-bold text-primary">{heightScale.toFixed(1)}x</span>
         </div>
       )}
 
       {/* Gesture Guide Hint Overlay */}
-      <div className="absolute bottom-12 right-4 hidden sm:flex items-center gap-2 bg-white/95 backdrop-blur-md border border-slate-300 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-700 shadow-md pointer-events-none z-10">
+      <div className="absolute bottom-12 right-4 hidden sm:flex items-center gap-2.5 bg-white/95 backdrop-blur-md border border-slate-300 px-3.5 py-2 rounded-lg text-xs sm:text-sm font-bold text-slate-700 shadow-md pointer-events-none z-10">
         <span>Click: Details</span>
         <span>•</span>
         <span>Left-Click: Rotate</span>
@@ -1833,13 +1833,13 @@ export default function ThreeDimensionMatrixView({
 
       {/* FEATURE 1: Selection Drilldown Inspector HUD Card */}
       {selectedItem && !isCompareMode && (
-        <div className="absolute top-14 right-4 z-20 w-80 bg-white/98 backdrop-blur-md border-2 border-blue-500 rounded-xl shadow-2xl p-4 space-y-3 text-slate-900 animate-in fade-in zoom-in-95 duration-150">
-          <div className="flex items-start justify-between gap-2 border-b border-slate-200 pb-2">
+        <div className="absolute top-14 right-4 z-20 w-84 bg-white/98 backdrop-blur-md border-2 border-blue-500 rounded-xl shadow-2xl p-4 space-y-3.5 text-slate-900 animate-in fade-in zoom-in-95 duration-150">
+          <div className="flex items-start justify-between gap-2 border-b border-slate-200 pb-2.5">
             <div>
               <span className="text-xs font-bold uppercase tracking-wider text-blue-700 block">
                 Selected Details
               </span>
-              <h4 className="font-bold text-base text-slate-950 leading-tight mt-0.5">
+              <h4 className="font-bold text-lg text-slate-950 leading-tight mt-0.5">
                 {selectedItem.rowName}
               </h4>
             </div>
@@ -1849,24 +1849,24 @@ export default function ThreeDimensionMatrixView({
               className="text-slate-400 hover:text-slate-700 p-1 rounded-md hover:bg-slate-100"
               title="Close details"
             >
-              <X size={16} />
+              <X size={18} />
             </button>
           </div>
 
-          <div className="space-y-2 text-xs">
+          <div className="space-y-2.5 text-sm">
             <div className="flex justify-between items-center py-1 border-b border-slate-100">
               <span className="text-slate-600 font-medium">Category:</span>
-              <span className="font-bold text-slate-900 text-xs">{selectedItem.colName}</span>
+              <span className="font-bold text-slate-900 text-sm">{selectedItem.colName}</span>
             </div>
             <div className="flex justify-between items-center py-1 border-b border-slate-100">
               <span className="text-slate-600 font-medium">Total {datasetContext.unit}:</span>
-              <span className="font-mono font-bold text-lg text-blue-700">
+              <span className="font-mono font-bold text-xl text-blue-700">
                 {selectedItem.formatted}
               </span>
             </div>
             <div className="flex justify-between items-center py-1">
               <span className="text-slate-600 font-medium">Share of Total:</span>
-              <Badge variant="secondary" className="font-mono text-xs font-bold bg-amber-100 text-amber-950 border border-amber-300">
+              <Badge variant="secondary" className="font-mono text-xs font-bold bg-amber-100 text-amber-950 border border-amber-300 px-2 py-0.5">
                 {selectedItem.percentage.toFixed(1)}%
               </Badge>
             </div>
@@ -1878,10 +1878,10 @@ export default function ThreeDimensionMatrixView({
             <Button
               size="sm"
               onClick={() => setDrilldownModalOpen(true)}
-              className="h-8 text-xs font-bold gap-2 bg-emerald-600 hover:bg-emerald-700 text-white w-full shadow-xs"
+              className="h-9 text-xs sm:text-sm font-bold gap-2 bg-emerald-600 hover:bg-emerald-700 text-white w-full shadow-xs"
               title={`Inspect individual ${datasetContext.recordsPlural.toLowerCase()} for this selection`}
             >
-              <Users size={14} />
+              <Users size={15} />
               <span>
                 View {datasetContext.recordsPlural} ({matchingDrilldownRecords.length})
               </span>
@@ -1891,9 +1891,9 @@ export default function ThreeDimensionMatrixView({
               size="sm"
               onClick={handleFilterBySelectedItem}
               variant="outline"
-              className="h-8 text-xs font-bold gap-2 border-slate-300 text-slate-800 hover:bg-slate-100 w-full"
+              className="h-8 text-xs sm:text-sm font-bold gap-2 border-slate-300 text-slate-800 hover:bg-slate-100 w-full"
             >
-              <Filter size={13} className="text-primary" />
+              <Filter size={14} className="text-primary" />
               <span>Filter Report to this Item</span>
             </Button>
 
@@ -1901,7 +1901,7 @@ export default function ThreeDimensionMatrixView({
               size="sm"
               variant="ghost"
               onClick={handleResetFocus}
-              className="h-7 text-xs font-semibold text-slate-600 hover:text-slate-950 hover:bg-slate-100 w-full"
+              className="h-7 text-xs font-bold text-slate-600 hover:text-slate-950 hover:bg-slate-100 w-full"
             >
               Clear Selection
             </Button>
@@ -1912,35 +1912,35 @@ export default function ThreeDimensionMatrixView({
       {/* Floating Raycaster Tooltip on Hover */}
       {hoveredInfo && !selectedItem && !isCompareMode && (
         <div
-          className="fixed pointer-events-none z-50 p-3 rounded-xl bg-slate-950/98 backdrop-blur-md border-2 border-sky-400 shadow-2xl text-white text-xs max-w-sm space-y-1.5 transform -translate-x-1/2 -translate-y-full mb-3"
+          className="fixed pointer-events-none z-50 p-3.5 rounded-xl bg-slate-950/98 backdrop-blur-md border-2 border-sky-400 shadow-2xl text-white text-xs max-w-sm space-y-2 transform -translate-x-1/2 -translate-y-full mb-3"
           style={{
             left: `${hoveredInfo.x}px`,
             top: `${hoveredInfo.y}px`,
           }}
         >
           <div className="flex items-center justify-between gap-3 border-b border-slate-800 pb-1.5">
-            <span className="font-bold text-sm text-sky-300 truncate max-w-[160px]">
+            <span className="font-bold text-base text-sky-300 truncate max-w-[170px]">
               {hoveredInfo.rowName}
             </span>
-            <span className="text-xs px-2 py-0.5 rounded bg-amber-400/25 text-amber-300 font-mono font-bold border border-amber-400/40">
+            <span className="text-xs px-2.5 py-0.5 rounded bg-amber-400/25 text-amber-300 font-mono font-bold border border-amber-400/40">
               {hoveredInfo.percentage.toFixed(1)}% Total
             </span>
           </div>
 
-          <div className="flex justify-between items-center text-xs pt-0.5">
+          <div className="flex justify-between items-center text-sm pt-0.5">
             <span className="text-slate-300 truncate pr-2 font-medium">{hoveredInfo.colName}:</span>
-            <span className="font-mono font-bold text-amber-300 text-base">
+            <span className="font-mono font-bold text-amber-300 text-lg">
               {hoveredInfo.formatted} {datasetContext.unit}
             </span>
           </div>
 
           {showThresholdPlane && hoveredInfo.value > thresholdValue && (
-            <div className="text-xs text-red-300 font-bold flex items-center gap-1.5 pt-0.5 bg-red-950/60 p-1.5 rounded border border-red-500/50">
-              <AlertTriangle size={13} className="text-red-400" /> Over {datasetContext.limitName.toLowerCase()} by +{(hoveredInfo.value - thresholdValue).toLocaleString()} {datasetContext.unit}
+            <div className="text-xs sm:text-sm text-red-200 font-bold flex items-center gap-1.5 pt-0.5 bg-red-950/70 p-2 rounded-lg border border-red-500/50">
+              <AlertTriangle size={15} className="text-red-400 shrink-0" /> Over {datasetContext.limitName.toLowerCase()} by +{(hoveredInfo.value - thresholdValue).toLocaleString()} {datasetContext.unit}
             </div>
           )}
 
-          <div className="text-[11px] text-slate-300 italic pt-1">
+          <div className="text-xs text-slate-300 italic pt-1">
             Click to view {datasetContext.recordsPlural.toLowerCase()}
           </div>
         </div>
