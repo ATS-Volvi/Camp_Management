@@ -23,6 +23,7 @@ interface PivotChartPreviewProps {
   matrix: PivotMatrixResult;
   config: ReportConfig;
   onChartTypeChange: (type: ChartType) => void;
+  onConfigChange?: (config: ReportConfig) => void;
 }
 
 const PALETTE = [
@@ -40,6 +41,7 @@ export default function PivotChartPreview({
   matrix,
   config,
   onChartTypeChange,
+  onConfigChange,
 }: PivotChartPreviewProps) {
   const { chartData, chartSeriesKeys } = matrix;
 
@@ -62,6 +64,7 @@ export default function PivotChartPreview({
         matrix={matrix}
         config={config}
         onChartTypeChange={onChartTypeChange}
+        onConfigChange={onConfigChange}
       />
     );
   }

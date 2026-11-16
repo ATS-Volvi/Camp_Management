@@ -8,8 +8,9 @@ import {
   PieChart as PieIcon,
   LineChart as LineIcon,
   ArrowLeft,
+  ArrowUpDown,
   EyeOff,
-  Compass,
+  Filter,
   Download,
   Maximize2,
   Minimize2,
@@ -23,32 +24,38 @@ import {
   Circle,
   Square,
   RotateCcw,
+  Hash,
+  X,
+  Check,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Badge } from "@/components/ui/badge";
+import { toast } from "sonner";
 
 interface ThreeDimensionMatrixViewProps {
   matrix: PivotMatrixResult;
   config: ReportConfig;
   onChartTypeChange?: (type: ChartType) => void;
+  onConfigChange?: (config: ReportConfig) => void;
   className?: string;
 }
 
 type TowerShape = "box" | "cylinder" | "hexagon";
 type ViewAngle = "iso" | "top" | "front" | "side";
+type SortOrder = "none" | "desc" | "asc";
 
-interface HoveredPillarInfo {
+interface ActiveItemData {
   rowName: string;
   colName: string;
   value: number;
   formatted: string;
   percentage: number;
-  x: number;
-  y: number;
+  rowDimId?: string;
+  x?: number;
+  y?: number;
 }
 
-// Vibrant 2D-matched executive palette
 const VIBRANT_PALETTE = [
   0x2563eb, // Cobalt Blue
   0xf97316, // Orange
@@ -60,7 +67,17 @@ const VIBRANT_PALETTE = [
   0x64748b, // Slate
 ];
 
-// Vibrant heatmap interpolation (electric blue -> cyan -> vivid orange -> deep coral)
+const CSS_PALETTE = [
+  "#2563eb",
+  "#f97316",
+  "#10b981",
+  "#8b5cf6",
+  "#ec4899",
+  "#06b6d4",
+  "#eab308",
+  "#64748b",
+];
+
 function getVibrantHeatmapColor(t: number): THREE.Color {
   const clamped = Math.max(0, Math.min(1, t));
   const color = new THREE.Color();
@@ -77,7 +94,7 @@ function getVibrantHeatmapColor(t: number): THREE.Color {
   return color;
 }
 
-function createTextSprite(text: string, color = "#1e293b", fontSize = 24): THREE.Sprite {
+function createTextSprite(text: string, color = "#1e293b", fontSize = 24, bgColor?: string): THREE.Sprite {
   const canvas = document.createElement("canvas");
   canvas.width = 256;
   canvas.height = 64;
@@ -85,7 +102,15 @@ function createTextSprite(text: string, color = "#1e293b", fontSize = 24): THREE
   if (!ctx) return new THREE.Sprite();
 
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.font = `600 ${fontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+
+  if (bgColor) {
+    ctx.fillStyle = bgColor;
+    ctx.beginPath();
+    ctx.roundRect(16, 8, 224, 48, 8);
+    ctx.fill();
+  }
+
+  ctx.font = `bold ${fontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
   ctx.fillStyle = color;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
@@ -105,6 +130,7 @@ export default function ThreeDimensionMatrixView({
   matrix,
   config,
   onChartTypeChange,
+  onConfigChange,
   className = "",
 }: ThreeDimensionMatrixViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -116,11 +142,12 @@ export default function ThreeDimensionMatrixView({
 
   // Mesh group for raycasting
   const objectsGroupRef = useRef<THREE.Group | null>(null);
+  const allMeshesRef = useRef<THREE.Mesh[]>([]);
   const hoveredMeshRef = useRef<THREE.Mesh | null>(null);
   const originalColorRef = useRef<THREE.Color>(new THREE.Color(0, 0, 0));
-  const originalScaleRef = useRef<THREE.Vector3>(new THREE.Vector3(1, 1, 1));
+  const originalPosRef = useRef<THREE.Vector3>(new THREE.Vector3());
 
-  // Determine active 3D mode from config or internal state
+  // Mode
   const activeMode: "3d_bar" | "3d_line" | "3d_donut" =
     config.chartType === "3d_donut"
       ? "3d_donut"
@@ -133,11 +160,35 @@ export default function ThreeDimensionMatrixView({
   const [useHeatmap, setUseHeatmap] = useState<boolean>(false);
   const [heightScale, setHeightScale] = useState<number>(1.2);
   const [autoRotate, setAutoRotate] = useState<boolean>(false);
+  const [showDataLabels, setShowDataLabels] = useState<boolean>(false);
+  const [sortOrder, setSortOrder] = useState<SortOrder>("none");
+  const [activeSeriesFilter, setActiveSeriesFilter] = useState<string | null>(null);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
-  const [hoveredInfo, setHoveredInfo] = useState<HoveredPillarInfo | null>(null);
 
-  const { chartData, chartSeriesKeys } = matrix;
+  // Interactive Hover & Click Selection States
+  const [hoveredInfo, setHoveredInfo] = useState<ActiveItemData | null>(null);
+  const [selectedItem, setSelectedItem] = useState<ActiveItemData | null>(null);
+
+  const { chartData: rawChartData, chartSeriesKeys } = matrix;
   const grandTotalRaw = matrix.grandTotal?.raw || 1;
+
+  // Process & Sort Chart Data
+  const chartData = useMemo(() => {
+    if (!rawChartData || rawChartData.length === 0) return [];
+    if (sortOrder === "none") return rawChartData;
+
+    const copy = [...rawChartData];
+    copy.sort((a, b) => {
+      let sumA = 0;
+      let sumB = 0;
+      for (const k of chartSeriesKeys) {
+        sumA += Number(a[k]) || 0;
+        sumB += Number(b[k]) || 0;
+      }
+      return sortOrder === "desc" ? sumB - sumA : sumA - sumB;
+    });
+    return copy;
+  }, [rawChartData, chartSeriesKeys, sortOrder]);
 
   // Max value calculation for normalization
   const maxVal = useMemo(() => {
@@ -160,7 +211,7 @@ export default function ThreeDimensionMatrixView({
     // 1. Setup Scene with Crisp White / Studio Background
     const scene = new THREE.Scene();
     sceneRef.current = scene;
-    scene.background = new THREE.Color(0xf8fafc); // Clean executive white-slate
+    scene.background = new THREE.Color(0xf8fafc);
     scene.fog = new THREE.FogExp2(0xf8fafc, 0.012);
 
     // 2. Setup Camera
@@ -197,13 +248,13 @@ export default function ThreeDimensionMatrixView({
     controlsRef.current = controls;
     controls.enableDamping = true;
     controls.dampingFactor = 0.06;
-    controls.maxPolarAngle = Math.PI / 2 - 0.02; // stay above studio floor
+    controls.maxPolarAngle = Math.PI / 2 - 0.02;
     controls.minDistance = 5;
     controls.maxDistance = 100;
     controls.autoRotate = autoRotate;
     controls.autoRotateSpeed = 1.2;
 
-    // 5. Studio Lighting (Soft White Studio with crisp highlights)
+    // 5. Studio Lighting
     const ambientLight = new THREE.AmbientLight(0xffffff, 1.1);
     scene.add(ambientLight);
 
@@ -226,6 +277,7 @@ export default function ThreeDimensionMatrixView({
     // 6. Build Active 3D Geometry
     const objectsGroup = new THREE.Group();
     objectsGroupRef.current = objectsGroup;
+    allMeshesRef.current = [];
     scene.add(objectsGroup);
 
     if (activeMode === "3d_bar") {
@@ -236,7 +288,7 @@ export default function ThreeDimensionMatrixView({
       build3DDonutChart(objectsGroup);
     }
 
-    // 7. Raycasting for Mouse Interaction
+    // 7. Raycasting & Interactive Listeners (Hover + Click)
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
 
@@ -252,25 +304,28 @@ export default function ThreeDimensionMatrixView({
       if (hit) {
         const mesh = hit.object as THREE.Mesh;
         if (hoveredMeshRef.current !== mesh) {
-          // Reset previous
+          // Restore previous hovered mesh
           if (hoveredMeshRef.current && (hoveredMeshRef.current.material as THREE.MeshStandardMaterial)) {
             const prevMat = hoveredMeshRef.current.material as THREE.MeshStandardMaterial;
             prevMat.color.copy(originalColorRef.current);
-            if (activeMode === "3d_donut") {
-              hoveredMeshRef.current.scale.copy(originalScaleRef.current);
+            if (activeMode === "3d_donut" && hoveredMeshRef.current !== selectedMeshRef.current) {
+              hoveredMeshRef.current.position.copy(originalPosRef.current);
             }
           }
-          // Highlight current
+
+          // Highlight current mesh
           hoveredMeshRef.current = mesh;
           const mat = mesh.material as THREE.MeshStandardMaterial;
           originalColorRef.current.copy(mat.color);
-          originalScaleRef.current.copy(mesh.scale);
+          originalPosRef.current.copy(mesh.position);
 
           // Subtle bright pulse highlight
-          mat.color.offsetHSL(0, 0.1, 0.15);
+          mat.color.offsetHSL(0, 0.12, 0.18);
 
-          if (activeMode === "3d_donut") {
-            mesh.scale.set(1.06, 1.06, 1.1);
+          // In 3D donut, gently pop outward
+          if (activeMode === "3d_donut" && mesh.userData.radialDir) {
+            const dir = mesh.userData.radialDir as THREE.Vector3;
+            mesh.position.addScaledVector(dir, 1.2);
           }
         }
 
@@ -281,6 +336,7 @@ export default function ThreeDimensionMatrixView({
           value: data.value,
           formatted: data.formatted,
           percentage: data.percentage,
+          rowDimId: config.rows[0],
           x: event.clientX,
           y: event.clientY,
         });
@@ -288,12 +344,61 @@ export default function ThreeDimensionMatrixView({
         if (hoveredMeshRef.current && (hoveredMeshRef.current.material as THREE.MeshStandardMaterial)) {
           const prevMat = hoveredMeshRef.current.material as THREE.MeshStandardMaterial;
           prevMat.color.copy(originalColorRef.current);
-          if (activeMode === "3d_donut") {
-            hoveredMeshRef.current.scale.copy(originalScaleRef.current);
+          if (activeMode === "3d_donut" && hoveredMeshRef.current !== selectedMeshRef.current) {
+            hoveredMeshRef.current.position.copy(originalPosRef.current);
           }
           hoveredMeshRef.current = null;
         }
         setHoveredInfo(null);
+      }
+    };
+
+    // Click handler for 3D item selection & inspection
+    const selectedMeshRef = { current: null as THREE.Mesh | null };
+
+    const handleClick = (event: MouseEvent) => {
+      const rect = renderer.domElement.getBoundingClientRect();
+      mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+      raycaster.setFromCamera(mouse, camera);
+      const intersects = raycaster.intersectObjects(objectsGroup.children, true);
+
+      const hit = intersects.find((i) => i.object.userData && i.object.userData.isInteractable);
+      if (hit) {
+        const mesh = hit.object as THREE.Mesh;
+        const data = mesh.userData;
+
+        // Dim other meshes (Focus Mode)
+        allMeshesRef.current.forEach((m) => {
+          const mat = m.material as THREE.MeshStandardMaterial;
+          if (m === mesh) {
+            mat.opacity = 1.0;
+            mat.transparent = false;
+          } else {
+            mat.opacity = 0.25;
+            mat.transparent = true;
+          }
+        });
+
+        selectedMeshRef.current = mesh;
+        setSelectedItem({
+          rowName: data.rowName,
+          colName: data.colName,
+          value: data.value,
+          formatted: data.formatted,
+          percentage: data.percentage,
+          rowDimId: config.rows[0],
+        });
+      } else {
+        // Clicked background: reset focus
+        allMeshesRef.current.forEach((m) => {
+          const mat = m.material as THREE.MeshStandardMaterial;
+          mat.opacity = 1.0;
+          mat.transparent = false;
+        });
+        selectedMeshRef.current = null;
+        setSelectedItem(null);
       }
     };
 
@@ -302,7 +407,7 @@ export default function ThreeDimensionMatrixView({
         const prevMat = hoveredMeshRef.current.material as THREE.MeshStandardMaterial;
         prevMat.color.copy(originalColorRef.current);
         if (activeMode === "3d_donut") {
-          hoveredMeshRef.current.scale.copy(originalScaleRef.current);
+          hoveredMeshRef.current.position.copy(originalPosRef.current);
         }
         hoveredMeshRef.current = null;
       }
@@ -310,6 +415,7 @@ export default function ThreeDimensionMatrixView({
     };
 
     renderer.domElement.addEventListener("mousemove", handlePointerMove);
+    renderer.domElement.addEventListener("click", handleClick);
     renderer.domElement.addEventListener("mouseleave", handlePointerLeave);
 
     // 8. Resize Observer
@@ -339,14 +445,26 @@ export default function ThreeDimensionMatrixView({
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
       resizeObserver.disconnect();
       renderer.domElement.removeEventListener("mousemove", handlePointerMove);
+      renderer.domElement.removeEventListener("click", handleClick);
       renderer.domElement.removeEventListener("mouseleave", handlePointerLeave);
       renderer.dispose();
       controls.dispose();
       scene.clear();
     };
-  }, [chartData, chartSeriesKeys, activeMode, towerShape, useHeatmap, heightScale, maxVal]);
+  }, [
+    chartData,
+    chartSeriesKeys,
+    activeMode,
+    towerShape,
+    useHeatmap,
+    heightScale,
+    maxVal,
+    showDataLabels,
+    sortOrder,
+    activeSeriesFilter,
+  ]);
 
-  // Sync autoRotate state with OrbitControls
+  // Sync autoRotate state
   useEffect(() => {
     if (controlsRef.current) {
       controlsRef.current.autoRotate = autoRotate;
@@ -354,7 +472,7 @@ export default function ThreeDimensionMatrixView({
   }, [autoRotate]);
 
   // -------------------------------------------------------------
-  // BUILDER 1: 3D Bar Chart (Towers on White Studio Floor)
+  // BUILDER 1: 3D Bar Chart (Interactive Towers)
   // -------------------------------------------------------------
   function build3DBarChart(group: THREE.Group) {
     if (!chartData || chartData.length === 0 || chartSeriesKeys.length === 0) return;
@@ -369,7 +487,7 @@ export default function ThreeDimensionMatrixView({
     const totalWidthX = numRows * spacingX;
     const totalDepthZ = numCols * spacingZ;
 
-    // Crisp White Studio Floor Pedestal
+    // Floor Pedestal
     const slabGeo = new THREE.BoxGeometry(totalWidthX + 5, 0.4, totalDepthZ + 5);
     const slabMat = new THREE.MeshStandardMaterial({
       color: 0xffffff,
@@ -381,7 +499,7 @@ export default function ThreeDimensionMatrixView({
     slab.receiveShadow = true;
     group.add(slab);
 
-    // Subtle Light Grid
+    // Grid
     const gridHelper = new THREE.GridHelper(
       Math.max(totalWidthX, totalDepthZ) + 5,
       Math.max(numRows, numCols) + 2,
@@ -391,7 +509,7 @@ export default function ThreeDimensionMatrixView({
     gridHelper.position.set(0, 0.02, 0);
     group.add(gridHelper);
 
-    // Row Axis Labels (X-axis)
+    // Row Labels
     chartData.forEach((row, r) => {
       const x = (r - (numRows - 1) / 2) * spacingX;
       const z = ((numCols - 1) / 2) * spacingZ + 2.4;
@@ -400,7 +518,7 @@ export default function ThreeDimensionMatrixView({
       group.add(sprite);
     });
 
-    // Column Axis Labels (Z-axis)
+    // Column Labels
     chartSeriesKeys.forEach((colKey, c) => {
       const z = (c - (numCols - 1) / 2) * spacingZ;
       const x = -((numRows - 1) / 2) * spacingX - 2.4;
@@ -415,12 +533,12 @@ export default function ThreeDimensionMatrixView({
       const x = (r - (numRows - 1) / 2) * spacingX;
 
       chartSeriesKeys.forEach((colKey, c) => {
+        const isDimmedBySeries = activeSeriesFilter && activeSeriesFilter !== colKey;
         const z = (c - (numCols - 1) / 2) * spacingZ;
         const val = Number(row[colKey]) || 0;
         const normalized = val / maxVal;
         const h = Math.max(0.18, normalized * maxPillarHeight);
 
-        // Geometry based on shape
         let geo: THREE.BufferGeometry;
         if (towerShape === "cylinder") {
           geo = new THREE.CylinderGeometry(pillarWidth * 0.46, pillarWidth * 0.48, h, 28);
@@ -430,7 +548,6 @@ export default function ThreeDimensionMatrixView({
           geo = new THREE.BoxGeometry(pillarWidth, h, pillarWidth);
         }
 
-        // Color computation
         let pillarColor: THREE.Color;
         if (useHeatmap) {
           pillarColor = getVibrantHeatmapColor(normalized);
@@ -442,6 +559,8 @@ export default function ThreeDimensionMatrixView({
           color: pillarColor,
           roughness: 0.25,
           metalness: 0.15,
+          transparent: Boolean(isDimmedBySeries),
+          opacity: isDimmedBySeries ? 0.2 : 1.0,
         });
 
         const mesh = new THREE.Mesh(geo, mat);
@@ -459,26 +578,27 @@ export default function ThreeDimensionMatrixView({
           percentage,
         };
 
+        allMeshesRef.current.push(mesh);
         group.add(mesh);
 
-        // Subtle beveled top cap
-        if (val > 0) {
-          const capGeo = new THREE.CylinderGeometry(pillarWidth * 0.52, pillarWidth * 0.52, 0.08, 16);
-          const capMat = new THREE.MeshStandardMaterial({
-            color: pillarColor,
-            roughness: 0.1,
-            metalness: 0.3,
-          });
-          const cap = new THREE.Mesh(capGeo, capMat);
-          cap.position.set(x, h + 0.04, z);
-          group.add(cap);
+        // Optional 3D Floating Value Data Label
+        if (showDataLabels && val > 0) {
+          const labelSprite = createTextSprite(
+            val > 9999 ? `${(val / 1000).toFixed(1)}k` : val.toString(),
+            "#0f172a",
+            24,
+            "rgba(255, 255, 255, 0.85)"
+          );
+          labelSprite.position.set(x, h + 0.8, z);
+          labelSprite.scale.set(2.2, 0.6, 1);
+          group.add(labelSprite);
         }
       });
     });
   }
 
   // -------------------------------------------------------------
-  // BUILDER 2: 3D Line Chart (Tubular Ribbons in White Studio)
+  // BUILDER 2: 3D Line Chart (Interactive Tubes)
   // -------------------------------------------------------------
   function build3DLineChart(group: THREE.Group) {
     if (!chartData || chartData.length === 0 || chartSeriesKeys.length === 0) return;
@@ -504,7 +624,7 @@ export default function ThreeDimensionMatrixView({
     slab.receiveShadow = true;
     group.add(slab);
 
-    // Floor Grid
+    // Grid
     const gridHelper = new THREE.GridHelper(
       Math.max(totalWidthX, totalDepthZ) + 6,
       Math.max(numRows, numSeries) + 2,
@@ -514,7 +634,7 @@ export default function ThreeDimensionMatrixView({
     gridHelper.position.set(0, 0.02, 0);
     group.add(gridHelper);
 
-    // Row Axis Labels (X-axis)
+    // Row Labels
     chartData.forEach((row, r) => {
       const x = (r - (numRows - 1) / 2) * spacingX;
       const z = ((numSeries - 1) / 2) * spacingZ + 2.2;
@@ -523,7 +643,7 @@ export default function ThreeDimensionMatrixView({
       group.add(sprite);
     });
 
-    // Series Labels (Z-axis)
+    // Series Labels
     chartSeriesKeys.forEach((colKey, s) => {
       const z = (s - (numSeries - 1) / 2) * spacingZ;
       const x = -((numRows - 1) / 2) * spacingX - 2.5;
@@ -532,8 +652,9 @@ export default function ThreeDimensionMatrixView({
       group.add(sprite);
     });
 
-    // Build 3D Tubes for each series
+    // Build 3D Tubes
     chartSeriesKeys.forEach((colKey, sIndex) => {
+      const isDimmed = activeSeriesFilter && activeSeriesFilter !== colKey;
       const z = (sIndex - (numSeries - 1) / 2) * spacingZ;
       const seriesColor = new THREE.Color(VIBRANT_PALETTE[sIndex % VIBRANT_PALETTE.length]);
 
@@ -547,12 +668,14 @@ export default function ThreeDimensionMatrixView({
         const pt = new THREE.Vector3(x, y, z);
         points.push(pt);
 
-        // Data point sphere (joint)
-        const sphereGeo = new THREE.SphereGeometry(0.38, 20, 20);
+        // Data point sphere
+        const sphereGeo = new THREE.SphereGeometry(0.42, 20, 20);
         const sphereMat = new THREE.MeshStandardMaterial({
           color: seriesColor,
           roughness: 0.2,
           metalness: 0.2,
+          transparent: Boolean(isDimmed),
+          opacity: isDimmed ? 0.25 : 1.0,
         });
         const sphere = new THREE.Mesh(sphereGeo, sphereMat);
         sphere.position.copy(pt);
@@ -567,9 +690,11 @@ export default function ThreeDimensionMatrixView({
           formatted: val.toLocaleString(),
           percentage,
         };
+
+        allMeshesRef.current.push(sphere);
         group.add(sphere);
 
-        // Vertical drop pillar line to floor
+        // Drop line to floor
         const lineGeo = new THREE.BufferGeometry().setFromPoints([
           new THREE.Vector3(x, 0.05, z),
           new THREE.Vector3(x, y, z),
@@ -577,23 +702,23 @@ export default function ThreeDimensionMatrixView({
         const lineMat = new THREE.LineBasicMaterial({
           color: seriesColor,
           transparent: true,
-          opacity: 0.3,
+          opacity: isDimmed ? 0.08 : 0.35,
         });
         const dropLine = new THREE.Line(lineGeo, lineMat);
         group.add(dropLine);
 
-        // Base ring on floor
-        const ringGeo = new THREE.RingGeometry(0.2, 0.28, 16);
-        const ringMat = new THREE.MeshBasicMaterial({
-          color: seriesColor,
-          side: THREE.DoubleSide,
-          transparent: true,
-          opacity: 0.4,
-        });
-        const ring = new THREE.Mesh(ringGeo, ringMat);
-        ring.rotation.x = Math.PI / 2;
-        ring.position.set(x, 0.03, z);
-        group.add(ring);
+        // Optional 3D Floating Value Data Label
+        if (showDataLabels && val > 0) {
+          const labelSprite = createTextSprite(
+            val > 9999 ? `${(val / 1000).toFixed(1)}k` : val.toString(),
+            "#0f172a",
+            24,
+            "rgba(255, 255, 255, 0.85)"
+          );
+          labelSprite.position.set(x, y + 0.9, z);
+          labelSprite.scale.set(2.2, 0.6, 1);
+          group.add(labelSprite);
+        }
       });
 
       // Construct Smooth 3D Spline Tube
@@ -604,6 +729,8 @@ export default function ThreeDimensionMatrixView({
           color: seriesColor,
           roughness: 0.2,
           metalness: 0.25,
+          transparent: Boolean(isDimmed),
+          opacity: isDimmed ? 0.2 : 1.0,
         });
         const tubeMesh = new THREE.Mesh(tubeGeo, tubeMat);
         tubeMesh.castShadow = true;
@@ -613,12 +740,11 @@ export default function ThreeDimensionMatrixView({
   }
 
   // -------------------------------------------------------------
-  // BUILDER 3: 3D Donut Chart (Extruded Ring with 360° Slices)
+  // BUILDER 3: 3D Donut Chart (Interactive Exploding Ring)
   // -------------------------------------------------------------
   function build3DDonutChart(group: THREE.Group) {
     if (!chartData || chartData.length === 0) return;
 
-    // Use primary row sums or first series
     const firstSeries = chartSeriesKeys[0];
     const items = chartData.map((d) => ({
       name: d.name,
@@ -627,7 +753,7 @@ export default function ThreeDimensionMatrixView({
 
     const total = items.reduce((acc, curr) => acc + curr.value, 0) || 1;
 
-    // Circular Studio Pedestal
+    // Pedestal
     const baseCylinderGeo = new THREE.CylinderGeometry(14, 14.5, 0.4, 48);
     const baseCylinderMat = new THREE.MeshStandardMaterial({
       color: 0xffffff,
@@ -638,17 +764,6 @@ export default function ThreeDimensionMatrixView({
     basePedestal.position.set(0, -0.2, 0);
     basePedestal.receiveShadow = true;
     group.add(basePedestal);
-
-    // Subtle Concentric Rings on Base
-    const ringGuideGeo = new THREE.RingGeometry(3.5, 12.5, 48);
-    const ringGuideMat = new THREE.MeshBasicMaterial({
-      color: 0xe2e8f0,
-      side: THREE.DoubleSide,
-    });
-    const ringGuide = new THREE.Mesh(ringGuideGeo, ringGuideMat);
-    ringGuide.rotation.x = -Math.PI / 2;
-    ringGuide.position.set(0, 0.02, 0);
-    group.add(ringGuide);
 
     const innerRadius = 4.2;
     const outerRadius = 8.5;
@@ -661,11 +776,11 @@ export default function ThreeDimensionMatrixView({
       const sliceAngle = slicePct * Math.PI * 2;
       const startAngle = currentAngle;
       const endAngle = currentAngle + sliceAngle;
+      const midAngle = (startAngle + endAngle) / 2;
       currentAngle = endAngle;
 
       if (sliceAngle <= 0.01) return;
 
-      // Create Extruded Arc Shape
       const shape = new THREE.Shape();
       shape.absarc(0, 0, outerRadius, startAngle, endAngle, false);
       shape.absarc(0, 0, innerRadius, endAngle, startAngle, true);
@@ -681,7 +796,7 @@ export default function ThreeDimensionMatrixView({
       };
 
       const geo = new THREE.ExtrudeGeometry(shape, extrudeSettings);
-      geo.rotateX(-Math.PI / 2); // rest flat horizontally
+      geo.rotateX(-Math.PI / 2);
 
       const sliceColor = new THREE.Color(VIBRANT_PALETTE[index % VIBRANT_PALETTE.length]);
       const mat = new THREE.MeshStandardMaterial({
@@ -695,6 +810,9 @@ export default function ThreeDimensionMatrixView({
       mesh.castShadow = true;
       mesh.receiveShadow = true;
 
+      // Radial direction vector for hover explode
+      const radialDir = new THREE.Vector3(Math.cos(midAngle), 0, -Math.sin(midAngle));
+
       mesh.userData = {
         isInteractable: true,
         rowName: item.name,
@@ -702,12 +820,13 @@ export default function ThreeDimensionMatrixView({
         value: item.value,
         formatted: item.value.toLocaleString(),
         percentage: slicePct * 100,
+        radialDir,
       };
 
+      allMeshesRef.current.push(mesh);
       group.add(mesh);
 
       // Label Billboard near perimeter
-      const midAngle = (startAngle + endAngle) / 2;
       const labelDist = outerRadius + 2.8;
       const lx = Math.cos(midAngle) * labelDist;
       const lz = -Math.sin(midAngle) * labelDist;
@@ -761,6 +880,35 @@ export default function ThreeDimensionMatrixView({
     controls.update();
   };
 
+  // Filter matrix by the clicked 3D item
+  const handleFilterBySelectedItem = () => {
+    if (!selectedItem || !onConfigChange) return;
+    const rowDim = config.rows[0];
+    if (!rowDim) {
+      toast.error("No active row dimension to filter by");
+      return;
+    }
+
+    onConfigChange({
+      ...config,
+      filters: {
+        ...config.filters,
+        [rowDim]: [selectedItem.rowName],
+      },
+    });
+    toast.success(`Filtered dynamic report to ${selectedItem.rowName}`);
+  };
+
+  // Reset focus selection
+  const handleResetFocus = () => {
+    allMeshesRef.current.forEach((m) => {
+      const mat = m.material as THREE.MeshStandardMaterial;
+      mat.opacity = 1.0;
+      mat.transparent = false;
+    });
+    setSelectedItem(null);
+  };
+
   // Snapshot PNG Export
   const handleSnapshot = () => {
     if (!rendererRef.current) return;
@@ -769,6 +917,7 @@ export default function ThreeDimensionMatrixView({
     link.download = `3d-${activeMode}-${config.dataset}-${Date.now()}.png`;
     link.href = dataUrl;
     link.click();
+    toast.success("3D Snapshot downloaded as PNG");
   };
 
   return (
@@ -778,7 +927,7 @@ export default function ThreeDimensionMatrixView({
       } ${className}`}
     >
       {/* 3D Top Header & Controls Ribbon */}
-      <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 bg-slate-50/90 backdrop-blur-md border-b border-slate-200 text-slate-700 z-10">
+      <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 bg-slate-50/95 backdrop-blur-md border-b border-slate-200 text-slate-700 z-10">
         {/* Left: Back to 2D + 2D/3D Unified Mode Selectors */}
         <div className="flex flex-wrap items-center gap-2">
           {/* Prominent Back to 2D Navigation Button */}
@@ -786,7 +935,7 @@ export default function ThreeDimensionMatrixView({
             size="sm"
             variant="outline"
             onClick={() => onChartTypeChange && onChartTypeChange("bar")}
-            className="h-7 px-2.5 text-xs font-bold gap-1.5 text-blue-700 bg-blue-50/80 hover:bg-blue-100 border-blue-200 shadow-2xs"
+            className="h-7 px-2.5 text-xs font-bold gap-1.5 text-blue-700 bg-blue-50/90 hover:bg-blue-100 border-blue-200 shadow-2xs"
             title="Return to standard 2D Bar/Line/Donut charts"
           >
             <ArrowLeft size={13} className="text-blue-600" />
@@ -867,7 +1016,7 @@ export default function ThreeDimensionMatrixView({
           </div>
         </div>
 
-        {/* Right: Camera Angles, Tower Options & Utilities */}
+        {/* Right: Camera Angles, 3D Labels, Sort & Utilities */}
         <div className="flex flex-wrap items-center gap-1.5">
           {/* Camera Angles */}
           <div className="flex items-center bg-white rounded-md p-0.5 border border-slate-200 shadow-2xs">
@@ -876,7 +1025,7 @@ export default function ThreeDimensionMatrixView({
               variant="ghost"
               onClick={() => setCameraAngle("iso")}
               className="h-6 px-1.5 text-[10px] text-slate-600 hover:text-slate-900"
-              title="Isometric 3D"
+              title="Isometric 3D View"
             >
               Iso
             </Button>
@@ -908,6 +1057,41 @@ export default function ThreeDimensionMatrixView({
               Side
             </Button>
           </div>
+
+          {/* 3D Floating Value Labels Toggle */}
+          <Button
+            size="sm"
+            variant={showDataLabels ? "secondary" : "outline"}
+            onClick={() => setShowDataLabels(!showDataLabels)}
+            className={`h-6 px-2 text-[10px] font-medium border-slate-200 ${
+              showDataLabels ? "bg-blue-100 text-blue-900 font-bold border-blue-300" : "bg-white text-slate-700"
+            }`}
+            title="Toggle Floating 3D Value Data Labels"
+          >
+            <Hash size={11} className="mr-0.5 text-blue-600" />
+            Labels
+          </Button>
+
+          {/* Interactive 3D Sort */}
+          {activeMode !== "3d_donut" && (
+            <Button
+              size="sm"
+              variant={sortOrder !== "none" ? "secondary" : "outline"}
+              onClick={() => {
+                const nextSort: SortOrder =
+                  sortOrder === "none" ? "desc" : sortOrder === "desc" ? "asc" : "none";
+                setSortOrder(nextSort);
+                toast.info(`3D Bars sorted: ${nextSort === "none" ? "Original" : nextSort === "desc" ? "Highest First" : "Lowest First"}`);
+              }}
+              className={`h-6 px-2 text-[10px] font-medium border-slate-200 ${
+                sortOrder !== "none" ? "bg-amber-100 text-amber-900 font-bold border-amber-300" : "bg-white text-slate-700"
+              }`}
+              title="Sort 3D Bars by Value"
+            >
+              <ArrowUpDown size={11} className="mr-1 text-amber-600" />
+              {sortOrder === "none" ? "Sort" : sortOrder === "desc" ? "High➔Low" : "Low➔High"}
+            </Button>
+          )}
 
           {/* Tower Shapes (only in 3D Bar mode) */}
           {activeMode === "3d_bar" && (
@@ -942,21 +1126,7 @@ export default function ThreeDimensionMatrixView({
             </div>
           )}
 
-          {/* Color Mode Switcher (only in 3D Bar) */}
-          {activeMode === "3d_bar" && (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setUseHeatmap(!useHeatmap)}
-              className="h-6 px-2 text-[10px] font-medium bg-white text-slate-700 border-slate-200 hover:bg-slate-100"
-              title="Toggle Heatmap vs Vibrant Palette"
-            >
-              <Palette size={11} className="mr-1 text-primary" />
-              {useHeatmap ? "Heatmap" : "Vibrant"}
-            </Button>
-          )}
-
-          {/* Auto Rotate Toggle */}
+          {/* Auto Rotate Presentation */}
           <Button
             size="sm"
             variant={autoRotate ? "default" : "outline"}
@@ -1007,17 +1177,70 @@ export default function ThreeDimensionMatrixView({
         </div>
       </div>
 
-      {/* 3D WebGL Canvas Container with Crisp Light Studio Background */}
+      {/* 3D WebGL Canvas Container */}
       <div
         ref={containerRef}
         className={`w-full relative cursor-grab active:cursor-grabbing bg-[#f8fafc] ${
-          isFullscreen ? "flex-1 min-h-[500px]" : "h-[420px]"
+          isFullscreen ? "flex-1 min-h-[500px]" : "h-[440px]"
         }`}
       />
 
+      {/* Interactive Series Legend Bar at Bottom */}
+      {chartSeriesKeys.length > 1 && activeMode !== "3d_donut" && (
+        <div className="px-4 py-2 bg-slate-50/90 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2 text-xs">
+          <div className="flex items-center gap-1.5 text-slate-500 font-semibold text-[11px]">
+            <Filter size={12} className="text-primary" />
+            <span>Interactive Series (Click to isolate):</span>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-1.5">
+            {chartSeriesKeys.map((key, i) => {
+              const isSelected = activeSeriesFilter === key;
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => {
+                    setActiveSeriesFilter(isSelected ? null : key);
+                    toast.info(
+                      isSelected ? "Showing all series" : `Isolated 3D series: ${key}`
+                    );
+                  }}
+                  className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-medium transition-all ${
+                    isSelected
+                      ? "bg-slate-900 text-white shadow-xs scale-105"
+                      : activeSeriesFilter
+                      ? "opacity-40 hover:opacity-100 bg-white border border-slate-200 text-slate-600"
+                      : "bg-white border border-slate-200 text-slate-700 hover:border-slate-300"
+                  }`}
+                >
+                  <span
+                    className="w-2.5 h-2.5 rounded-full inline-block shrink-0"
+                    style={{ backgroundColor: CSS_PALETTE[i % CSS_PALETTE.length] }}
+                  />
+                  <span>{key}</span>
+                  {isSelected && <Check size={11} className="text-emerald-400" />}
+                </button>
+              );
+            })}
+
+            {activeSeriesFilter && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setActiveSeriesFilter(null)}
+                className="h-5 px-1.5 text-[10px] text-muted-foreground hover:text-foreground"
+              >
+                Reset
+              </Button>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Height Scale Elevation Slider Overlay */}
       {activeMode !== "3d_donut" && (
-        <div className="absolute bottom-3 left-4 bg-white/90 backdrop-blur-md border border-slate-200 px-3 py-1.5 rounded-lg flex items-center gap-2 text-slate-700 shadow-sm z-10">
+        <div className="absolute bottom-12 left-4 bg-white/95 backdrop-blur-md border border-slate-200 px-3 py-1.5 rounded-lg flex items-center gap-2 text-slate-700 shadow-md z-10">
           <Sliders size={12} className="text-primary" />
           <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
             Elevation:
@@ -1035,16 +1258,78 @@ export default function ThreeDimensionMatrixView({
       )}
 
       {/* Gesture Guide Hint Overlay */}
-      <div className="absolute bottom-3 right-4 hidden sm:flex items-center gap-2 bg-white/85 backdrop-blur-xs border border-slate-200 px-2.5 py-1 rounded-md text-[10px] text-slate-500 shadow-2xs pointer-events-none z-10">
-        <span>Left-click: Orbit</span>
+      <div className="absolute bottom-12 right-4 hidden sm:flex items-center gap-2 bg-white/85 backdrop-blur-xs border border-slate-200 px-2.5 py-1 rounded-md text-[10px] text-slate-500 shadow-2xs pointer-events-none z-10">
+        <span>Click: Inspect</span>
         <span>•</span>
-        <span>Right-click: Pan</span>
+        <span>Left-drag: Orbit</span>
         <span>•</span>
-        <span>Wheel: Zoom</span>
+        <span>Right-drag: Pan</span>
       </div>
 
-      {/* Floating Raycaster Glass HUD Tooltip with crisp contrast */}
-      {hoveredInfo && (
+      {/* Interactive Selection Drilldown Inspector HUD Card */}
+      {selectedItem && (
+        <div className="absolute top-16 right-4 z-20 w-72 bg-white/95 backdrop-blur-md border-2 border-primary/40 rounded-xl shadow-2xl p-3.5 space-y-2 text-slate-800 animate-in fade-in zoom-in-95 duration-150">
+          <div className="flex items-start justify-between gap-2 border-b border-slate-100 pb-2">
+            <div>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-primary block">
+                Selected 3D Item
+              </span>
+              <h4 className="font-bold text-sm text-slate-900 leading-tight">
+                {selectedItem.rowName}
+              </h4>
+            </div>
+            <button
+              type="button"
+              onClick={handleResetFocus}
+              className="text-slate-400 hover:text-slate-700 p-1 rounded-md hover:bg-slate-100"
+            >
+              <X size={14} />
+            </button>
+          </div>
+
+          <div className="space-y-1.5 text-xs">
+            <div className="flex justify-between py-1 border-b border-slate-100">
+              <span className="text-slate-500">Series:</span>
+              <span className="font-semibold text-slate-800">{selectedItem.colName}</span>
+            </div>
+            <div className="flex justify-between py-1 border-b border-slate-100">
+              <span className="text-slate-500">Metric Value:</span>
+              <span className="font-mono font-bold text-base text-primary">
+                {selectedItem.formatted}
+              </span>
+            </div>
+            <div className="flex justify-between py-1">
+              <span className="text-slate-500">Share of Total:</span>
+              <Badge variant="secondary" className="font-mono text-xs font-bold bg-amber-100 text-amber-900">
+                {selectedItem.percentage.toFixed(1)}%
+              </Badge>
+            </div>
+          </div>
+
+          {/* Interactive Actions */}
+          <div className="pt-2 flex flex-col gap-1.5 border-t border-slate-100">
+            <Button
+              size="sm"
+              onClick={handleFilterBySelectedItem}
+              className="h-7 text-xs font-semibold gap-1.5 bg-primary hover:bg-primary/90 text-white w-full"
+            >
+              <Filter size={12} />
+              <span>Filter Report to this Item</span>
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={handleResetFocus}
+              className="h-6 text-[11px] text-slate-500 hover:text-slate-800 w-full"
+            >
+              Reset Focus
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Floating Raycaster Tooltip on Hover */}
+      {hoveredInfo && !selectedItem && (
         <div
           className="fixed pointer-events-none z-50 p-2.5 rounded-lg bg-slate-950/95 backdrop-blur-md border border-sky-400/60 shadow-2xl text-white text-xs max-w-xs space-y-1 transform -translate-x-1/2 -translate-y-full mb-3"
           style={{
@@ -1066,6 +1351,9 @@ export default function ThreeDimensionMatrixView({
             <span className="font-mono font-bold text-amber-300 text-sm">
               {hoveredInfo.formatted}
             </span>
+          </div>
+          <div className="text-[9px] text-slate-400 italic pt-0.5">
+            Click to inspect and filter report
           </div>
         </div>
       )}
