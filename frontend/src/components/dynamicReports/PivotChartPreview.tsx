@@ -1,5 +1,5 @@
 import React from "react";
-import { PivotMatrixResult, ReportConfig } from "@/lib/dynamicReports/types";
+import { PivotMatrixResult, ReportConfig, ChartType } from "@/lib/dynamicReports/types";
 import {
   ResponsiveContainer,
   BarChart,
@@ -15,13 +15,14 @@ import {
   Tooltip,
   Legend,
 } from "recharts";
-import { BarChart3, LineChart as LineIcon, PieChart as PieIcon, Layers, EyeOff } from "lucide-react";
+import { BarChart3, LineChart as LineIcon, PieChart as PieIcon, Layers, EyeOff, Box, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import ThreeDimensionMatrixView from "./ThreeDimensionMatrixView";
 
 interface PivotChartPreviewProps {
   matrix: PivotMatrixResult;
   config: ReportConfig;
-  onChartTypeChange: (type: ReportConfig["chartType"]) => void;
+  onChartTypeChange: (type: ChartType) => void;
 }
 
 const PALETTE = [
@@ -48,6 +49,17 @@ export default function PivotChartPreview({
     return null;
   }
 
+  // Render 3D WebGL Studio directly if 3D mode is active
+  if (config.chartType === "3d_matrix" || config.chartType === "3d_network") {
+    return (
+      <ThreeDimensionMatrixView
+        matrix={matrix}
+        config={config}
+        onChartTypeChange={onChartTypeChange}
+      />
+    );
+  }
+
   // Format donut data
   const donutData =
     config.chartType === "donut"
@@ -68,7 +80,7 @@ export default function PivotChartPreview({
         </div>
 
         {/* Chart Switcher Buttons */}
-        <div className="flex items-center gap-1 bg-muted p-0.5 rounded-lg border border-border">
+        <div className="flex flex-wrap items-center gap-1 bg-muted p-0.5 rounded-lg border border-border">
           <Button
             size="sm"
             variant={config.chartType === "bar" ? "default" : "ghost"}
@@ -105,6 +117,27 @@ export default function PivotChartPreview({
           >
             <PieIcon size={12} className="mr-1" /> Donut
           </Button>
+
+          {/* 3D Mode Switchers */}
+          <Button
+            size="sm"
+            variant={config.chartType === "3d_matrix" ? "default" : "ghost"}
+            onClick={() => onChartTypeChange("3d_matrix")}
+            className="h-6 px-2 text-[11px] text-sky-600 dark:text-sky-400 font-semibold"
+            title="Interactive 3D Isometric Bar Grid (WebGL)"
+          >
+            <Box size={12} className="mr-1 text-sky-500" /> 3D Towers
+          </Button>
+          <Button
+            size="sm"
+            variant={config.chartType === "3d_network" ? "default" : "ghost"}
+            onClick={() => onChartTypeChange("3d_network")}
+            className="h-6 px-2 text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold"
+            title="Interactive 3D Force-Directed Constellation Graph"
+          >
+            <Share2 size={12} className="mr-1 text-emerald-500" /> 3D Network
+          </Button>
+
           <Button
             size="sm"
             variant="ghost"

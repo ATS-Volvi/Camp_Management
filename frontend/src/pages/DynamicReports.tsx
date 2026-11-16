@@ -36,6 +36,8 @@ import {
   Building2,
   Receipt,
   Layers,
+  Box,
+  Share2,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
@@ -259,6 +261,40 @@ export default function DynamicReports() {
           >
             <BookmarkPlus size={13} />
             <span>Save Report</span>
+          </Button>
+
+          {/* 3D Interactive Studio Toggle */}
+          <Button
+            size="sm"
+            onClick={() =>
+              setConfig({
+                ...config,
+                chartType:
+                  config.chartType === "3d_matrix" || config.chartType === "3d_network"
+                    ? "bar"
+                    : "3d_matrix",
+              })
+            }
+            className={`h-8 text-xs font-semibold gap-1.5 transition-all shadow-xs ${
+              config.chartType === "3d_matrix" || config.chartType === "3d_network"
+                ? "bg-sky-400 hover:bg-sky-300 text-slate-950 font-bold border border-sky-300 ring-2 ring-sky-400/30"
+                : "bg-white/10 hover:bg-white/20 text-white border border-white/20"
+            }`}
+            title="Toggle 3D Interactive WebGL Studio (360° Orbit & Holographic Mesh)"
+          >
+            <Box
+              size={13}
+              className={
+                config.chartType === "3d_matrix" || config.chartType === "3d_network"
+                  ? "text-slate-950"
+                  : "text-sky-400"
+              }
+            />
+            <span>
+              {config.chartType === "3d_matrix" || config.chartType === "3d_network"
+                ? "3D Active (Close)"
+                : "3D View"}
+            </span>
           </Button>
 
           {/* Excel Export */}

@@ -28,6 +28,8 @@ export interface DatasetDefinition {
   fields: FieldDefinition[];
 }
 
+export type ChartType = "bar" | "stacked_bar" | "line" | "donut" | "3d_matrix" | "3d_network" | "none";
+
 export interface ReportConfig {
   dataset: DatasetId;
   rows: string[];
@@ -36,7 +38,7 @@ export interface ReportConfig {
   filters: Record<string, string[]>;
   showSubtotals: boolean;
   showGrandTotals: boolean;
-  chartType: "bar" | "stacked_bar" | "line" | "donut" | "none";
+  chartType: ChartType;
 }
 
 export interface PresetTemplate {
