@@ -266,32 +266,39 @@ export default function DynamicReports() {
           {/* 3D Interactive Studio Toggle */}
           <Button
             size="sm"
-            onClick={() =>
+            onClick={() => {
+              const is3D =
+                config.chartType === "3d_bar" ||
+                config.chartType === "3d_line" ||
+                config.chartType === "3d_donut";
               setConfig({
                 ...config,
-                chartType:
-                  config.chartType === "3d_matrix" || config.chartType === "3d_network"
-                    ? "bar"
-                    : "3d_matrix",
-              })
-            }
+                chartType: is3D ? "bar" : "3d_bar",
+              });
+            }}
             className={`h-8 text-xs font-semibold gap-1.5 transition-all shadow-xs ${
-              config.chartType === "3d_matrix" || config.chartType === "3d_network"
+              config.chartType === "3d_bar" ||
+              config.chartType === "3d_line" ||
+              config.chartType === "3d_donut"
                 ? "bg-sky-400 hover:bg-sky-300 text-slate-950 font-bold border border-sky-300 ring-2 ring-sky-400/30"
                 : "bg-white/10 hover:bg-white/20 text-white border border-white/20"
             }`}
-            title="Toggle 3D Interactive WebGL Studio (360° Orbit & Holographic Mesh)"
+            title="Toggle 3D Interactive WebGL Studio (3D Bar, 3D Line, 3D Donut)"
           >
             <Box
               size={13}
               className={
-                config.chartType === "3d_matrix" || config.chartType === "3d_network"
+                config.chartType === "3d_bar" ||
+                config.chartType === "3d_line" ||
+                config.chartType === "3d_donut"
                   ? "text-slate-950"
                   : "text-sky-400"
               }
             />
             <span>
-              {config.chartType === "3d_matrix" || config.chartType === "3d_network"
+              {config.chartType === "3d_bar" ||
+              config.chartType === "3d_line" ||
+              config.chartType === "3d_donut"
                 ? "3D Active (Close)"
                 : "3D View"}
             </span>

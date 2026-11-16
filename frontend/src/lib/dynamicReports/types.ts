@@ -28,7 +28,15 @@ export interface DatasetDefinition {
   fields: FieldDefinition[];
 }
 
-export type ChartType = "bar" | "stacked_bar" | "line" | "donut" | "3d_matrix" | "3d_network" | "none";
+export type ChartType =
+  | "bar"
+  | "stacked_bar"
+  | "line"
+  | "donut"
+  | "3d_bar"
+  | "3d_line"
+  | "3d_donut"
+  | "none";
 
 export interface ReportConfig {
   dataset: DatasetId;

@@ -15,7 +15,7 @@ import {
   Tooltip,
   Legend,
 } from "recharts";
-import { BarChart3, LineChart as LineIcon, PieChart as PieIcon, Layers, EyeOff, Box, Share2 } from "lucide-react";
+import { BarChart3, LineChart as LineIcon, PieChart as PieIcon, Layers, EyeOff, Box, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ThreeDimensionMatrixView from "./ThreeDimensionMatrixView";
 
@@ -49,8 +49,14 @@ export default function PivotChartPreview({
     return null;
   }
 
-  // Render 3D WebGL Studio directly if 3D mode is active
-  if (config.chartType === "3d_matrix" || config.chartType === "3d_network") {
+  // Render 3D WebGL Studio directly if any 3D mode is active
+  if (
+    config.chartType === "3d_bar" ||
+    config.chartType === "3d_line" ||
+    config.chartType === "3d_donut" ||
+    (config.chartType as string) === "3d_matrix" ||
+    (config.chartType as string) === "3d_network"
+  ) {
     return (
       <ThreeDimensionMatrixView
         matrix={matrix}
@@ -121,21 +127,30 @@ export default function PivotChartPreview({
           {/* 3D Mode Switchers */}
           <Button
             size="sm"
-            variant={config.chartType === "3d_matrix" ? "default" : "ghost"}
-            onClick={() => onChartTypeChange("3d_matrix")}
-            className="h-6 px-2 text-[11px] text-sky-600 dark:text-sky-400 font-semibold"
-            title="Interactive 3D Isometric Bar Grid (WebGL)"
+            variant={config.chartType === "3d_bar" ? "default" : "ghost"}
+            onClick={() => onChartTypeChange("3d_bar")}
+            className="h-6 px-2 text-[11px] text-blue-600 dark:text-blue-400 font-semibold"
+            title="Interactive 3D Isometric Bar Grid"
           >
-            <Box size={12} className="mr-1 text-sky-500" /> 3D Towers
+            <Box size={12} className="mr-1 text-blue-500" /> 3D Bar
           </Button>
           <Button
             size="sm"
-            variant={config.chartType === "3d_network" ? "default" : "ghost"}
-            onClick={() => onChartTypeChange("3d_network")}
+            variant={config.chartType === "3d_line" ? "default" : "ghost"}
+            onClick={() => onChartTypeChange("3d_line")}
             className="h-6 px-2 text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold"
-            title="Interactive 3D Force-Directed Constellation Graph"
+            title="Interactive 3D Flowing Line Ribbon"
           >
-            <Share2 size={12} className="mr-1 text-emerald-500" /> 3D Network
+            <TrendingUp size={12} className="mr-1 text-emerald-500" /> 3D Line
+          </Button>
+          <Button
+            size="sm"
+            variant={config.chartType === "3d_donut" ? "default" : "ghost"}
+            onClick={() => onChartTypeChange("3d_donut")}
+            className="h-6 px-2 text-[11px] text-amber-600 dark:text-amber-400 font-semibold"
+            title="Interactive 3D Extruded Donut"
+          >
+            <PieIcon size={12} className="mr-1 text-amber-500" /> 3D Donut
           </Button>
 
           <Button

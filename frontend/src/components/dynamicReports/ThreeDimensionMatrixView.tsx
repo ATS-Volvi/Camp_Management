@@ -3,23 +3,23 @@ import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { PivotMatrixResult, ReportConfig, ChartType } from "@/lib/dynamicReports/types";
 import {
-  Box,
+  BarChart3,
+  TrendingUp,
+  PieChart as PieIcon,
   Compass,
   Download,
-  Eye,
   Maximize2,
   Minimize2,
   Play,
   Pause,
-  RotateCcw,
   Sliders,
   Sparkles,
-  Share2,
   Layers,
   Palette,
   Hexagon,
   Circle,
   Square,
+  RotateCcw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
@@ -33,7 +33,6 @@ interface ThreeDimensionMatrixViewProps {
 }
 
 type TowerShape = "box" | "cylinder" | "hexagon";
-type ColorMode = "heatmap" | "series";
 type ViewAngle = "iso" | "top" | "front" | "side";
 
 interface HoveredPillarInfo {
@@ -46,38 +45,36 @@ interface HoveredPillarInfo {
   y: number;
 }
 
-const SERIES_COLORS = [
-  0x2563eb, // blue
-  0xf97316, // orange
-  0x10b981, // emerald
-  0x8b5cf6, // violet
-  0xec4899, // pink
-  0x06b6d4, // cyan
-  0xeab308, // amber
-  0x64748b, // slate
+// Vibrant 2D-matched executive palette
+const VIBRANT_PALETTE = [
+  0x2563eb, // Cobalt Blue
+  0xf97316, // Orange
+  0x10b981, // Emerald Green
+  0x8b5cf6, // Electric Violet
+  0xec4899, // Hot Pink
+  0x06b6d4, // Cyan
+  0xeab308, // Amber Gold
+  0x64748b, // Slate
 ];
 
-// Color interpolation for heatmap (cool cobalt -> teal -> amber -> coral red)
-function getHeatmapColor(t: number): THREE.Color {
+// Vibrant heatmap interpolation (electric blue -> cyan -> vivid orange -> deep coral)
+function getVibrantHeatmapColor(t: number): THREE.Color {
   const clamped = Math.max(0, Math.min(1, t));
   const color = new THREE.Color();
-  if (clamped < 0.33) {
-    // 0x2563eb (blue) to 0x06b6d4 (cyan)
-    const ratio = clamped / 0.33;
+  if (clamped < 0.35) {
+    const ratio = clamped / 0.35;
     color.lerpColors(new THREE.Color(0x2563eb), new THREE.Color(0x06b6d4), ratio);
-  } else if (clamped < 0.66) {
-    // 0x06b6d4 (cyan) to 0xf59e0b (amber)
-    const ratio = (clamped - 0.33) / 0.33;
-    color.lerpColors(new THREE.Color(0x06b6d4), new THREE.Color(0xf59e0b), ratio);
+  } else if (clamped < 0.7) {
+    const ratio = (clamped - 0.35) / 0.35;
+    color.lerpColors(new THREE.Color(0x06b6d4), new THREE.Color(0xf97316), ratio);
   } else {
-    // 0xf59e0b (amber) to 0xef4444 (coral red)
-    const ratio = (clamped - 0.66) / 0.34;
-    color.lerpColors(new THREE.Color(0xf59e0b), new THREE.Color(0xef4444), ratio);
+    const ratio = (clamped - 0.7) / 0.3;
+    color.lerpColors(new THREE.Color(0xf97316), new THREE.Color(0xef4444), ratio);
   }
   return color;
 }
 
-function createTextSprite(text: string, color = "#94a3b8", fontSize = 24): THREE.Sprite {
+function createTextSprite(text: string, color = "#1e293b", fontSize = 24): THREE.Sprite {
   const canvas = document.createElement("canvas");
   canvas.width = 256;
   canvas.height = 64;
@@ -85,19 +82,19 @@ function createTextSprite(text: string, color = "#94a3b8", fontSize = 24): THREE
   if (!ctx) return new THREE.Sprite();
 
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.font = `bold ${fontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+  ctx.font = `600 ${fontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
   ctx.fillStyle = color;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
 
-  const display = text.length > 16 ? text.slice(0, 14) + "…" : text;
+  const display = text.length > 15 ? text.slice(0, 13) + "…" : text;
   ctx.fillText(display, 128, 32);
 
   const texture = new THREE.CanvasTexture(canvas);
   texture.minFilter = THREE.LinearFilter;
   const spriteMat = new THREE.SpriteMaterial({ map: texture, transparent: true, depthWrite: false });
   const sprite = new THREE.Sprite(spriteMat);
-  sprite.scale.set(3.2, 0.8, 1);
+  sprite.scale.set(3.4, 0.85, 1);
   return sprite;
 }
 
@@ -114,21 +111,27 @@ export default function ThreeDimensionMatrixView({
   const controlsRef = useRef<OrbitControls | null>(null);
   const animFrameRef = useRef<number | null>(null);
 
-  // Pillar meshes registry for raycasting
-  const pillarsGroupRef = useRef<THREE.Group | null>(null);
+  // Mesh group for raycasting
+  const objectsGroupRef = useRef<THREE.Group | null>(null);
   const hoveredMeshRef = useRef<THREE.Mesh | null>(null);
-  const originalEmissiveRef = useRef<THREE.Color>(new THREE.Color(0, 0, 0));
+  const originalColorRef = useRef<THREE.Color>(new THREE.Color(0, 0, 0));
+  const originalScaleRef = useRef<THREE.Vector3>(new THREE.Vector3(1, 1, 1));
+
+  // Determine active 3D mode from config or internal state
+  const activeMode: "3d_bar" | "3d_line" | "3d_donut" =
+    config.chartType === "3d_donut"
+      ? "3d_donut"
+      : config.chartType === "3d_line"
+      ? "3d_line"
+      : "3d_bar";
 
   // Visual Controls
   const [towerShape, setTowerShape] = useState<TowerShape>("box");
-  const [colorMode, setColorMode] = useState<ColorMode>("heatmap");
+  const [useHeatmap, setUseHeatmap] = useState<boolean>(false);
   const [heightScale, setHeightScale] = useState<number>(1.2);
   const [autoRotate, setAutoRotate] = useState<boolean>(false);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
-  const [hoveredPillar, setHoveredPillar] = useState<HoveredPillarInfo | null>(null);
-  const [graphMode, setGraphMode] = useState<"towers" | "network">(
-    config.chartType === "3d_network" ? "network" : "towers"
-  );
+  const [hoveredInfo, setHoveredInfo] = useState<HoveredPillarInfo | null>(null);
 
   const { chartData, chartSeriesKeys } = matrix;
   const grandTotalRaw = matrix.grandTotal?.raw || 1;
@@ -151,18 +154,25 @@ export default function ThreeDimensionMatrixView({
     const container = containerRef.current;
     if (!container) return;
 
-    // 1. Setup Scene
+    // 1. Setup Scene with Crisp White / Studio Background
     const scene = new THREE.Scene();
     sceneRef.current = scene;
-    scene.background = new THREE.Color(0x090d16); // High-tech deep slate navy
-    scene.fog = new THREE.FogExp2(0x090d16, 0.015);
+    scene.background = new THREE.Color(0xf8fafc); // Clean executive white-slate
+    scene.fog = new THREE.FogExp2(0xf8fafc, 0.012);
 
     // 2. Setup Camera
     const width = container.clientWidth || 800;
-    const height = container.clientHeight || 480;
-    const camera = new THREE.PerspectiveCamera(42, width / height, 0.1, 1000);
+    const height = container.clientHeight || 460;
+    const camera = new THREE.PerspectiveCamera(40, width / height, 0.1, 1000);
     cameraRef.current = camera;
-    camera.position.set(22, 18, 26);
+
+    if (activeMode === "3d_donut") {
+      camera.position.set(0, 24, 20);
+    } else if (activeMode === "3d_line") {
+      camera.position.set(22, 16, 24);
+    } else {
+      camera.position.set(20, 18, 24);
+    }
 
     // 3. Setup WebGL Renderer
     const renderer = new THREE.WebGLRenderer({
@@ -176,7 +186,6 @@ export default function ThreeDimensionMatrixView({
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
-    // Clear old canvases
     container.innerHTML = "";
     container.appendChild(renderer.domElement);
 
@@ -184,41 +193,44 @@ export default function ThreeDimensionMatrixView({
     const controls = new OrbitControls(camera, renderer.domElement);
     controlsRef.current = controls;
     controls.enableDamping = true;
-    controls.dampingFactor = 0.05;
-    controls.maxPolarAngle = Math.PI / 2 - 0.02; // prevent going below floor
-    controls.minDistance = 6;
-    controls.maxDistance = 120;
+    controls.dampingFactor = 0.06;
+    controls.maxPolarAngle = Math.PI / 2 - 0.02; // stay above studio floor
+    controls.minDistance = 5;
+    controls.maxDistance = 100;
     controls.autoRotate = autoRotate;
     controls.autoRotateSpeed = 1.2;
 
-    // 5. Lighting
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+    // 5. Studio Lighting (Soft White Studio with crisp highlights)
+    const ambientLight = new THREE.AmbientLight(0xffffff, 1.1);
     scene.add(ambientLight);
 
-    const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
-    dirLight.position.set(25, 40, 20);
-    dirLight.castShadow = true;
-    dirLight.shadow.mapSize.width = 1024;
-    dirLight.shadow.mapSize.height = 1024;
-    scene.add(dirLight);
+    const mainLight = new THREE.DirectionalLight(0xffffff, 1.4);
+    mainLight.position.set(25, 45, 25);
+    mainLight.castShadow = true;
+    mainLight.shadow.mapSize.width = 1024;
+    mainLight.shadow.mapSize.height = 1024;
+    mainLight.shadow.bias = -0.0005;
+    scene.add(mainLight);
 
-    const pointLight = new THREE.PointLight(0x38bdf8, 1.5, 60);
-    pointLight.position.set(-15, 20, -15);
-    scene.add(pointLight);
+    const rimLight = new THREE.DirectionalLight(0x93c5fd, 0.8);
+    rimLight.position.set(-25, 25, -20);
+    scene.add(rimLight);
 
-    const amberFillLight = new THREE.PointLight(0xf59e0b, 1.0, 50);
-    amberFillLight.position.set(15, 12, 15);
-    scene.add(amberFillLight);
+    const frontFillLight = new THREE.DirectionalLight(0xfef08a, 0.5);
+    frontFillLight.position.set(0, 15, 30);
+    scene.add(frontFillLight);
 
-    // 6. Build 3D Objects (Towers or Network)
-    const pillarsGroup = new THREE.Group();
-    pillarsGroupRef.current = pillarsGroup;
-    scene.add(pillarsGroup);
+    // 6. Build Active 3D Geometry
+    const objectsGroup = new THREE.Group();
+    objectsGroupRef.current = objectsGroup;
+    scene.add(objectsGroup);
 
-    if (graphMode === "towers") {
-      buildTowersGraph(pillarsGroup);
-    } else {
-      buildNetworkGraph(pillarsGroup);
+    if (activeMode === "3d_bar") {
+      build3DBarChart(objectsGroup);
+    } else if (activeMode === "3d_line") {
+      build3DLineChart(objectsGroup);
+    } else if (activeMode === "3d_donut") {
+      build3DDonutChart(objectsGroup);
     }
 
     // 7. Raycasting for Mouse Interaction
@@ -231,27 +243,36 @@ export default function ThreeDimensionMatrixView({
       mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
 
       raycaster.setFromCamera(mouse, camera);
-      const intersects = raycaster.intersectObjects(pillarsGroup.children, true);
+      const intersects = raycaster.intersectObjects(objectsGroup.children, true);
 
       const hit = intersects.find((i) => i.object.userData && i.object.userData.isInteractable);
       if (hit) {
         const mesh = hit.object as THREE.Mesh;
         if (hoveredMeshRef.current !== mesh) {
-          // Restore previous
+          // Reset previous
           if (hoveredMeshRef.current && (hoveredMeshRef.current.material as THREE.MeshStandardMaterial)) {
-            (hoveredMeshRef.current.material as THREE.MeshStandardMaterial).emissive.copy(
-              originalEmissiveRef.current
-            );
+            const prevMat = hoveredMeshRef.current.material as THREE.MeshStandardMaterial;
+            prevMat.color.copy(originalColorRef.current);
+            if (activeMode === "3d_donut") {
+              hoveredMeshRef.current.scale.copy(originalScaleRef.current);
+            }
           }
           // Highlight current
           hoveredMeshRef.current = mesh;
           const mat = mesh.material as THREE.MeshStandardMaterial;
-          originalEmissiveRef.current.copy(mat.emissive);
-          mat.emissive.setHex(0x38bdf8);
+          originalColorRef.current.copy(mat.color);
+          originalScaleRef.current.copy(mesh.scale);
+
+          // Subtle bright pulse highlight
+          mat.color.offsetHSL(0, 0.1, 0.15);
+
+          if (activeMode === "3d_donut") {
+            mesh.scale.set(1.06, 1.06, 1.1);
+          }
         }
 
         const data = mesh.userData;
-        setHoveredPillar({
+        setHoveredInfo({
           rowName: data.rowName,
           colName: data.colName,
           value: data.value,
@@ -262,33 +283,37 @@ export default function ThreeDimensionMatrixView({
         });
       } else {
         if (hoveredMeshRef.current && (hoveredMeshRef.current.material as THREE.MeshStandardMaterial)) {
-          (hoveredMeshRef.current.material as THREE.MeshStandardMaterial).emissive.copy(
-            originalEmissiveRef.current
-          );
+          const prevMat = hoveredMeshRef.current.material as THREE.MeshStandardMaterial;
+          prevMat.color.copy(originalColorRef.current);
+          if (activeMode === "3d_donut") {
+            hoveredMeshRef.current.scale.copy(originalScaleRef.current);
+          }
           hoveredMeshRef.current = null;
         }
-        setHoveredPillar(null);
+        setHoveredInfo(null);
       }
     };
 
     const handlePointerLeave = () => {
       if (hoveredMeshRef.current && (hoveredMeshRef.current.material as THREE.MeshStandardMaterial)) {
-        (hoveredMeshRef.current.material as THREE.MeshStandardMaterial).emissive.copy(
-          originalEmissiveRef.current
-        );
+        const prevMat = hoveredMeshRef.current.material as THREE.MeshStandardMaterial;
+        prevMat.color.copy(originalColorRef.current);
+        if (activeMode === "3d_donut") {
+          hoveredMeshRef.current.scale.copy(originalScaleRef.current);
+        }
         hoveredMeshRef.current = null;
       }
-      setHoveredPillar(null);
+      setHoveredInfo(null);
     };
 
     renderer.domElement.addEventListener("mousemove", handlePointerMove);
     renderer.domElement.addEventListener("mouseleave", handlePointerLeave);
 
-    // 8. Responsive Resize Observer
+    // 8. Resize Observer
     const resizeObserver = new ResizeObserver(() => {
       if (!container || !renderer || !camera) return;
       const w = container.clientWidth || 800;
-      const h = container.clientHeight || 480;
+      const h = container.clientHeight || 460;
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
       renderer.setSize(w, h);
@@ -316,7 +341,7 @@ export default function ThreeDimensionMatrixView({
       controls.dispose();
       scene.clear();
     };
-  }, [chartData, chartSeriesKeys, towerShape, colorMode, heightScale, maxVal, graphMode]);
+  }, [chartData, chartSeriesKeys, activeMode, towerShape, useHeatmap, heightScale, maxVal]);
 
   // Sync autoRotate state with OrbitControls
   useEffect(() => {
@@ -325,38 +350,40 @@ export default function ThreeDimensionMatrixView({
     }
   }, [autoRotate]);
 
-  // Function to build 3D Towers Grid
-  function buildTowersGraph(group: THREE.Group) {
+  // -------------------------------------------------------------
+  // BUILDER 1: 3D Bar Chart (Towers on White Studio Floor)
+  // -------------------------------------------------------------
+  function build3DBarChart(group: THREE.Group) {
     if (!chartData || chartData.length === 0 || chartSeriesKeys.length === 0) return;
 
     const numRows = chartData.length;
     const numCols = chartSeriesKeys.length;
     const spacingX = 2.4;
     const spacingZ = 2.4;
-    const maxPillarHeight = 12 * heightScale;
-    const pillarWidth = 1.6;
+    const maxPillarHeight = 11 * heightScale;
+    const pillarWidth = 1.5;
 
     const totalWidthX = numRows * spacingX;
     const totalDepthZ = numCols * spacingZ;
 
-    // Floor Base Slab
-    const slabGeo = new THREE.BoxGeometry(totalWidthX + 4, 0.4, totalDepthZ + 4);
+    // Crisp White Studio Floor Pedestal
+    const slabGeo = new THREE.BoxGeometry(totalWidthX + 5, 0.4, totalDepthZ + 5);
     const slabMat = new THREE.MeshStandardMaterial({
-      color: 0x0f172a,
-      roughness: 0.8,
-      metalness: 0.2,
+      color: 0xffffff,
+      roughness: 0.4,
+      metalness: 0.05,
     });
     const slab = new THREE.Mesh(slabGeo, slabMat);
     slab.position.set(0, -0.2, 0);
     slab.receiveShadow = true;
     group.add(slab);
 
-    // Glowing Matrix Grid on floor
+    // Subtle Light Grid
     const gridHelper = new THREE.GridHelper(
-      Math.max(totalWidthX, totalDepthZ) + 4,
+      Math.max(totalWidthX, totalDepthZ) + 5,
       Math.max(numRows, numCols) + 2,
-      0x38bdf8,
-      0x1e293b
+      0x94a3b8,
+      0xe2e8f0
     );
     gridHelper.position.set(0, 0.02, 0);
     group.add(gridHelper);
@@ -364,18 +391,18 @@ export default function ThreeDimensionMatrixView({
     // Row Axis Labels (X-axis)
     chartData.forEach((row, r) => {
       const x = (r - (numRows - 1) / 2) * spacingX;
-      const z = ((numCols - 1) / 2) * spacingZ + 2.5;
-      const sprite = createTextSprite(row.name, "#93c5fd", 22);
-      sprite.position.set(x, 0.3, z);
+      const z = ((numCols - 1) / 2) * spacingZ + 2.4;
+      const sprite = createTextSprite(row.name, "#1e293b", 22);
+      sprite.position.set(x, 0.35, z);
       group.add(sprite);
     });
 
     // Column Axis Labels (Z-axis)
     chartSeriesKeys.forEach((colKey, c) => {
       const z = (c - (numCols - 1) / 2) * spacingZ;
-      const x = -((numRows - 1) / 2) * spacingX - 2.5;
-      const sprite = createTextSprite(colKey, "#fed7aa", 22);
-      sprite.position.set(x, 0.3, z);
+      const x = -((numRows - 1) / 2) * spacingX - 2.4;
+      const sprite = createTextSprite(colKey, "#0369a1", 22);
+      sprite.position.set(x, 0.35, z);
       group.add(sprite);
     });
 
@@ -388,12 +415,12 @@ export default function ThreeDimensionMatrixView({
         const z = (c - (numCols - 1) / 2) * spacingZ;
         const val = Number(row[colKey]) || 0;
         const normalized = val / maxVal;
-        const h = Math.max(0.15, normalized * maxPillarHeight);
+        const h = Math.max(0.18, normalized * maxPillarHeight);
 
-        // Geometry based on selected shape
+        // Geometry based on shape
         let geo: THREE.BufferGeometry;
         if (towerShape === "cylinder") {
-          geo = new THREE.CylinderGeometry(pillarWidth * 0.45, pillarWidth * 0.48, h, 24);
+          geo = new THREE.CylinderGeometry(pillarWidth * 0.46, pillarWidth * 0.48, h, 28);
         } else if (towerShape === "hexagon") {
           geo = new THREE.CylinderGeometry(pillarWidth * 0.5, pillarWidth * 0.5, h, 6);
         } else {
@@ -402,17 +429,16 @@ export default function ThreeDimensionMatrixView({
 
         // Color computation
         let pillarColor: THREE.Color;
-        if (colorMode === "heatmap") {
-          pillarColor = getHeatmapColor(normalized);
+        if (useHeatmap) {
+          pillarColor = getVibrantHeatmapColor(normalized);
         } else {
-          pillarColor = new THREE.Color(SERIES_COLORS[c % SERIES_COLORS.length]);
+          pillarColor = new THREE.Color(VIBRANT_PALETTE[c % VIBRANT_PALETTE.length]);
         }
 
         const mat = new THREE.MeshStandardMaterial({
           color: pillarColor,
-          roughness: 0.35,
-          metalness: 0.3,
-          emissive: normalized > 0.85 ? new THREE.Color(pillarColor).multiplyScalar(0.2) : new THREE.Color(0, 0, 0),
+          roughness: 0.25,
+          metalness: 0.15,
         });
 
         const mesh = new THREE.Mesh(geo, mat);
@@ -432,13 +458,13 @@ export default function ThreeDimensionMatrixView({
 
         group.add(mesh);
 
-        // Glowing cap or pedestal for prominent values
+        // Subtle beveled top cap
         if (val > 0) {
           const capGeo = new THREE.CylinderGeometry(pillarWidth * 0.52, pillarWidth * 0.52, 0.08, 16);
-          const capMat = new THREE.MeshBasicMaterial({
+          const capMat = new THREE.MeshStandardMaterial({
             color: pillarColor,
-            transparent: true,
-            opacity: 0.8,
+            roughness: 0.1,
+            metalness: 0.3,
           });
           const cap = new THREE.Mesh(capGeo, capMat);
           cap.position.set(x, h + 0.04, z);
@@ -448,144 +474,267 @@ export default function ThreeDimensionMatrixView({
     });
   }
 
-  // Function to build 3D Force-Directed Network Graph
-  function buildNetworkGraph(group: THREE.Group) {
+  // -------------------------------------------------------------
+  // BUILDER 2: 3D Line Chart (Tubular Ribbons in White Studio)
+  // -------------------------------------------------------------
+  function build3DLineChart(group: THREE.Group) {
     if (!chartData || chartData.length === 0 || chartSeriesKeys.length === 0) return;
 
-    // Center Node: Hub / Aggregate
-    const hubGeo = new THREE.SphereGeometry(2.2, 32, 32);
-    const hubMat = new THREE.MeshStandardMaterial({
-      color: 0x38bdf8,
-      roughness: 0.2,
-      metalness: 0.6,
-      emissive: 0x0284c7,
-    });
-    const hub = new THREE.Mesh(hubGeo, hubMat);
-    hub.position.set(0, 0, 0);
-    hub.userData = {
-      isInteractable: true,
-      rowName: "Dynamic Studio Model",
-      colName: "Central Hub",
-      value: grandTotalRaw,
-      formatted: grandTotalRaw.toLocaleString(),
-      percentage: 100,
-    };
-    group.add(hub);
-
-    const hubLabel = createTextSprite("CAMP HUB", "#38bdf8", 26);
-    hubLabel.position.set(0, 3.2, 0);
-    group.add(hubLabel);
-
-    // Primary Nodes (Row categories in an outer ring)
     const numRows = chartData.length;
-    const ringRadius = 14;
+    const numSeries = chartSeriesKeys.length;
+    const spacingX = 2.8;
+    const spacingZ = 3.2;
+    const maxHeight = 10 * heightScale;
 
-    const rowPositions: Record<string, THREE.Vector3> = {};
+    const totalWidthX = numRows * spacingX;
+    const totalDepthZ = numSeries * spacingZ;
 
-    chartData.forEach((row, i) => {
-      const angle = (i / numRows) * Math.PI * 2;
-      const x = Math.cos(angle) * ringRadius;
-      const z = Math.sin(angle) * ringRadius;
-      const y = Math.sin(angle * 2) * 2; // subtle wave
+    // Floor Pedestal
+    const slabGeo = new THREE.BoxGeometry(totalWidthX + 6, 0.4, totalDepthZ + 6);
+    const slabMat = new THREE.MeshStandardMaterial({
+      color: 0xffffff,
+      roughness: 0.3,
+      metalness: 0.05,
+    });
+    const slab = new THREE.Mesh(slabGeo, slabMat);
+    slab.position.set(0, -0.2, 0);
+    slab.receiveShadow = true;
+    group.add(slab);
 
-      const pos = new THREE.Vector3(x, y, z);
-      rowPositions[row.name] = pos;
+    // Floor Grid
+    const gridHelper = new THREE.GridHelper(
+      Math.max(totalWidthX, totalDepthZ) + 6,
+      Math.max(numRows, numSeries) + 2,
+      0x94a3b8,
+      0xe2e8f0
+    );
+    gridHelper.position.set(0, 0.02, 0);
+    group.add(gridHelper);
 
-      // Row aggregate sum
-      let rowSum = 0;
-      for (const k of chartSeriesKeys) {
-        rowSum += Number(row[k]) || 0;
-      }
-      const radius = Math.max(0.8, Math.min(2.0, (rowSum / maxVal) * 1.8));
-
-      const sphereGeo = new THREE.SphereGeometry(radius, 24, 24);
-      const sphereMat = new THREE.MeshStandardMaterial({
-        color: 0x10b981,
-        roughness: 0.3,
-        metalness: 0.4,
-        emissive: 0x065f46,
-      });
-      const node = new THREE.Mesh(sphereGeo, sphereMat);
-      node.position.copy(pos);
-      node.userData = {
-        isInteractable: true,
-        rowName: row.name,
-        colName: "Row Category",
-        value: rowSum,
-        formatted: rowSum.toLocaleString(),
-        percentage: (rowSum / grandTotalRaw) * 100,
-      };
-      group.add(node);
-
-      // Label
-      const label = createTextSprite(row.name, "#6ee7b7", 22);
-      label.position.set(x, y + radius + 1.2, z);
-      group.add(label);
-
-      // Link to central hub
-      const curve = new THREE.QuadraticBezierCurve3(
-        new THREE.Vector3(0, 0, 0),
-        new THREE.Vector3(x * 0.5, y + 2, z * 0.5),
-        pos
-      );
-      const points = curve.getPoints(20);
-      const lineGeo = new THREE.BufferGeometry().setFromPoints(points);
-      const lineMat = new THREE.LineBasicMaterial({
-        color: 0x0284c7,
-        transparent: true,
-        opacity: 0.4,
-      });
-      const line = new THREE.Line(lineGeo, lineMat);
-      group.add(line);
+    // Row Axis Labels (X-axis)
+    chartData.forEach((row, r) => {
+      const x = (r - (numRows - 1) / 2) * spacingX;
+      const z = ((numSeries - 1) / 2) * spacingZ + 2.2;
+      const sprite = createTextSprite(row.name, "#1e293b", 22);
+      sprite.position.set(x, 0.35, z);
+      group.add(sprite);
     });
 
-    // Secondary Satellite Nodes (Columns/Measures radiating from Rows)
-    chartData.forEach((row) => {
-      const parentPos = rowPositions[row.name];
-      if (!parentPos) return;
+    // Series Labels (Z-axis)
+    chartSeriesKeys.forEach((colKey, s) => {
+      const z = (s - (numSeries - 1) / 2) * spacingZ;
+      const x = -((numRows - 1) / 2) * spacingX - 2.5;
+      const sprite = createTextSprite(colKey, "#0369a1", 22);
+      sprite.position.set(x, 0.35, z);
+      group.add(sprite);
+    });
 
-      chartSeriesKeys.forEach((colKey, cIndex) => {
+    // Build 3D Tubes for each series
+    chartSeriesKeys.forEach((colKey, sIndex) => {
+      const z = (sIndex - (numSeries - 1) / 2) * spacingZ;
+      const seriesColor = new THREE.Color(VIBRANT_PALETTE[sIndex % VIBRANT_PALETTE.length]);
+
+      const points: THREE.Vector3[] = [];
+
+      chartData.forEach((row, rIndex) => {
+        const x = (rIndex - (numRows - 1) / 2) * spacingX;
         const val = Number(row[colKey]) || 0;
-        if (val <= 0) return;
+        const normalized = val / maxVal;
+        const y = Math.max(0.2, normalized * maxHeight);
+        const pt = new THREE.Vector3(x, y, z);
+        points.push(pt);
 
-        const subAngle = (cIndex / chartSeriesKeys.length) * Math.PI * 2;
-        const subDist = 4.2;
-        const childPos = new THREE.Vector3(
-          parentPos.x + Math.cos(subAngle) * subDist,
-          parentPos.y + (cIndex % 2 === 0 ? 1.8 : -1.8),
-          parentPos.z + Math.sin(subAngle) * subDist
-        );
-
-        const satRadius = Math.max(0.4, (val / maxVal) * 1.0);
-        const satGeo = new THREE.SphereGeometry(satRadius, 16, 16);
-        const satMat = new THREE.MeshStandardMaterial({
-          color: SERIES_COLORS[cIndex % SERIES_COLORS.length],
-          roughness: 0.4,
-          metalness: 0.3,
+        // Data point sphere (joint)
+        const sphereGeo = new THREE.SphereGeometry(0.38, 20, 20);
+        const sphereMat = new THREE.MeshStandardMaterial({
+          color: seriesColor,
+          roughness: 0.2,
+          metalness: 0.2,
         });
-        const satMesh = new THREE.Mesh(satGeo, satMat);
-        satMesh.position.copy(childPos);
-        satMesh.userData = {
+        const sphere = new THREE.Mesh(sphereGeo, sphereMat);
+        sphere.position.copy(pt);
+        sphere.castShadow = true;
+
+        const percentage = grandTotalRaw > 0 ? (val / grandTotalRaw) * 100 : 0;
+        sphere.userData = {
           isInteractable: true,
           rowName: row.name,
           colName: colKey,
           value: val,
           formatted: val.toLocaleString(),
-          percentage: (val / grandTotalRaw) * 100,
+          percentage,
         };
-        group.add(satMesh);
+        group.add(sphere);
 
-        // Connecting filament line
-        const filamentGeo = new THREE.BufferGeometry().setFromPoints([parentPos, childPos]);
-        const filamentMat = new THREE.LineBasicMaterial({
-          color: SERIES_COLORS[cIndex % SERIES_COLORS.length],
+        // Vertical drop pillar line to floor
+        const lineGeo = new THREE.BufferGeometry().setFromPoints([
+          new THREE.Vector3(x, 0.05, z),
+          new THREE.Vector3(x, y, z),
+        ]);
+        const lineMat = new THREE.LineBasicMaterial({
+          color: seriesColor,
           transparent: true,
-          opacity: 0.5,
+          opacity: 0.3,
         });
-        const filament = new THREE.Line(filamentGeo, filamentMat);
-        group.add(filament);
+        const dropLine = new THREE.Line(lineGeo, lineMat);
+        group.add(dropLine);
+
+        // Base ring on floor
+        const ringGeo = new THREE.RingGeometry(0.2, 0.28, 16);
+        const ringMat = new THREE.MeshBasicMaterial({
+          color: seriesColor,
+          side: THREE.DoubleSide,
+          transparent: true,
+          opacity: 0.4,
+        });
+        const ring = new THREE.Mesh(ringGeo, ringMat);
+        ring.rotation.x = Math.PI / 2;
+        ring.position.set(x, 0.03, z);
+        group.add(ring);
       });
+
+      // Construct Smooth 3D Spline Tube
+      if (points.length >= 2) {
+        const curve = new THREE.CatmullRomCurve3(points);
+        const tubeGeo = new THREE.TubeGeometry(curve, 64, 0.18, 12, false);
+        const tubeMat = new THREE.MeshStandardMaterial({
+          color: seriesColor,
+          roughness: 0.2,
+          metalness: 0.25,
+        });
+        const tubeMesh = new THREE.Mesh(tubeGeo, tubeMat);
+        tubeMesh.castShadow = true;
+        group.add(tubeMesh);
+      }
     });
+  }
+
+  // -------------------------------------------------------------
+  // BUILDER 3: 3D Donut Chart (Extruded Ring with 360° Slices)
+  // -------------------------------------------------------------
+  function build3DDonutChart(group: THREE.Group) {
+    if (!chartData || chartData.length === 0) return;
+
+    // Use primary row sums or first series
+    const firstSeries = chartSeriesKeys[0];
+    const items = chartData.map((d) => ({
+      name: d.name,
+      value: Math.max(0, Number(d[firstSeries]) || 0),
+    }));
+
+    const total = items.reduce((acc, curr) => acc + curr.value, 0) || 1;
+
+    // Circular Studio Pedestal
+    const baseCylinderGeo = new THREE.CylinderGeometry(14, 14.5, 0.4, 48);
+    const baseCylinderMat = new THREE.MeshStandardMaterial({
+      color: 0xffffff,
+      roughness: 0.3,
+      metalness: 0.05,
+    });
+    const basePedestal = new THREE.Mesh(baseCylinderGeo, baseCylinderMat);
+    basePedestal.position.set(0, -0.2, 0);
+    basePedestal.receiveShadow = true;
+    group.add(basePedestal);
+
+    // Subtle Concentric Rings on Base
+    const ringGuideGeo = new THREE.RingGeometry(3.5, 12.5, 48);
+    const ringGuideMat = new THREE.MeshBasicMaterial({
+      color: 0xe2e8f0,
+      side: THREE.DoubleSide,
+    });
+    const ringGuide = new THREE.Mesh(ringGuideGeo, ringGuideMat);
+    ringGuide.rotation.x = -Math.PI / 2;
+    ringGuide.position.set(0, 0.02, 0);
+    group.add(ringGuide);
+
+    const innerRadius = 4.2;
+    const outerRadius = 8.5;
+    const extrudeDepth = 2.4 * heightScale;
+
+    let currentAngle = 0;
+
+    items.forEach((item, index) => {
+      const slicePct = item.value / total;
+      const sliceAngle = slicePct * Math.PI * 2;
+      const startAngle = currentAngle;
+      const endAngle = currentAngle + sliceAngle;
+      currentAngle = endAngle;
+
+      if (sliceAngle <= 0.01) return;
+
+      // Create Extruded Arc Shape
+      const shape = new THREE.Shape();
+      shape.absarc(0, 0, outerRadius, startAngle, endAngle, false);
+      shape.absarc(0, 0, innerRadius, endAngle, startAngle, true);
+      shape.closePath();
+
+      const extrudeSettings: THREE.ExtrudeGeometryOptions = {
+        depth: extrudeDepth,
+        bevelEnabled: true,
+        bevelSegments: 3,
+        steps: 1,
+        bevelSize: 0.08,
+        bevelThickness: 0.08,
+      };
+
+      const geo = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+      geo.rotateX(-Math.PI / 2); // rest flat horizontally
+
+      const sliceColor = new THREE.Color(VIBRANT_PALETTE[index % VIBRANT_PALETTE.length]);
+      const mat = new THREE.MeshStandardMaterial({
+        color: sliceColor,
+        roughness: 0.25,
+        metalness: 0.15,
+      });
+
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.position.set(0, 0.05, 0);
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+
+      mesh.userData = {
+        isInteractable: true,
+        rowName: item.name,
+        colName: firstSeries || "Value",
+        value: item.value,
+        formatted: item.value.toLocaleString(),
+        percentage: slicePct * 100,
+      };
+
+      group.add(mesh);
+
+      // Label Billboard near perimeter
+      const midAngle = (startAngle + endAngle) / 2;
+      const labelDist = outerRadius + 2.8;
+      const lx = Math.cos(midAngle) * labelDist;
+      const lz = -Math.sin(midAngle) * labelDist;
+      const labelSprite = createTextSprite(
+        `${item.name} (${(slicePct * 100).toFixed(0)}%)`,
+        "#1e293b",
+        20
+      );
+      labelSprite.position.set(lx, extrudeDepth * 0.7, lz);
+      group.add(labelSprite);
+    });
+
+    // Center Hub Column with Total
+    const centerGeo = new THREE.CylinderGeometry(innerRadius - 0.5, innerRadius - 0.5, extrudeDepth * 0.4, 32);
+    const centerMat = new THREE.MeshStandardMaterial({
+      color: 0xf1f5f9,
+      roughness: 0.4,
+      metalness: 0.1,
+    });
+    const centerPillar = new THREE.Mesh(centerGeo, centerMat);
+    centerPillar.position.set(0, extrudeDepth * 0.2, 0);
+    group.add(centerPillar);
+
+    const centerLabel = createTextSprite("TOTAL", "#64748b", 20);
+    centerLabel.position.set(0, extrudeDepth * 0.55, 0);
+    group.add(centerLabel);
+
+    const centerTotalSprite = createTextSprite(total.toLocaleString(), "#0f172a", 26);
+    centerTotalSprite.position.set(0, extrudeDepth * 0.55 + 0.9, 0);
+    group.add(centerTotalSprite);
   }
 
   // Camera presets
@@ -594,14 +743,16 @@ export default function ThreeDimensionMatrixView({
     const camera = cameraRef.current;
     const controls = controlsRef.current;
 
-    if (angle === "iso") {
-      camera.position.set(22, 18, 26);
-    } else if (angle === "top") {
-      camera.position.set(0, 36, 0.01);
-    } else if (angle === "front") {
-      camera.position.set(0, 6, 32);
-    } else if (angle === "side") {
-      camera.position.set(32, 6, 0);
+    if (activeMode === "3d_donut") {
+      if (angle === "iso") camera.position.set(0, 24, 20);
+      else if (angle === "top") camera.position.set(0, 32, 0.01);
+      else if (angle === "front") camera.position.set(0, 10, 28);
+      else if (angle === "side") camera.position.set(28, 10, 0);
+    } else {
+      if (angle === "iso") camera.position.set(20, 18, 24);
+      else if (angle === "top") camera.position.set(0, 36, 0.01);
+      else if (angle === "front") camera.position.set(0, 6, 30);
+      else if (angle === "side") camera.position.set(30, 6, 0);
     }
     controls.target.set(0, 2, 0);
     controls.update();
@@ -612,57 +763,60 @@ export default function ThreeDimensionMatrixView({
     if (!rendererRef.current) return;
     const dataUrl = rendererRef.current.domElement.toDataURL("image/png");
     const link = document.createElement("a");
-    link.download = `3d-dynamic-report-${config.dataset}-${Date.now()}.png`;
+    link.download = `3d-${activeMode}-${config.dataset}-${Date.now()}.png`;
     link.href = dataUrl;
     link.click();
   };
 
   return (
     <div
-      className={`relative bg-[#090d16] border border-border/80 rounded-xl overflow-hidden shadow-lg transition-all duration-300 ${
-        isFullscreen ? "fixed inset-2 z-50 rounded-2xl flex flex-col" : "w-full"
+      className={`relative bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm transition-all duration-300 ${
+        isFullscreen ? "fixed inset-2 z-50 rounded-2xl flex flex-col shadow-2xl" : "w-full"
       } ${className}`}
     >
       {/* 3D Top Header & Controls Ribbon */}
-      <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 bg-slate-900/90 backdrop-blur-md border-b border-slate-800 text-slate-200 z-10">
-        {/* Left: Title & Mode Switcher */}
+      <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 bg-slate-50/90 backdrop-blur-md border-b border-slate-200 text-slate-700 z-10">
+        {/* Left: Title & 3D Chart Switcher */}
         <div className="flex items-center gap-2">
-          <Box size={16} className="text-[#38bdf8]" />
-          <span className="text-xs font-bold uppercase tracking-wider text-white">
-            3D Interactive Studio
+          <Sparkles size={16} className="text-primary" />
+          <span className="text-xs font-bold uppercase tracking-wider text-slate-900">
+            3D Studio (WebGL)
           </span>
           <Badge
             variant="outline"
-            className="text-[10px] font-mono px-2 py-0 border-sky-500/40 text-sky-400 bg-sky-950/40"
+            className="text-[10px] font-mono px-2 py-0 border-blue-400 text-blue-700 bg-blue-50"
           >
-            WebGL 360°
+            Vibrant Studio
           </Badge>
 
-          {/* Mode Switcher: Towers vs Network */}
-          <div className="flex items-center gap-1 bg-slate-800/80 p-0.5 rounded-lg border border-slate-700 ml-2">
+          {/* 3D Chart Mode Selector: Bar / Line / Donut */}
+          <div className="flex items-center gap-1 bg-white p-0.5 rounded-lg border border-slate-200 shadow-2xs ml-2">
             <Button
               size="sm"
-              variant={graphMode === "towers" ? "default" : "ghost"}
-              onClick={() => {
-                setGraphMode("towers");
-                if (onChartTypeChange) onChartTypeChange("3d_matrix");
-              }}
-              className="h-6 px-2 text-[11px] gap-1 bg-sky-600 hover:bg-sky-500 text-white"
-              title="3D Isometric Towers Grid"
+              variant={activeMode === "3d_bar" ? "default" : "ghost"}
+              onClick={() => onChartTypeChange && onChartTypeChange("3d_bar")}
+              className="h-6 px-2 text-[11px] gap-1 font-medium"
+              title="3D Isometric Bar Grid"
             >
-              <Box size={12} /> 3D Towers
+              <BarChart3 size={12} /> 3D Bar
             </Button>
             <Button
               size="sm"
-              variant={graphMode === "network" ? "default" : "ghost"}
-              onClick={() => {
-                setGraphMode("network");
-                if (onChartTypeChange) onChartTypeChange("3d_network");
-              }}
-              className="h-6 px-2 text-[11px] gap-1 hover:text-white"
-              title="3D Force-Directed Constellation Graph"
+              variant={activeMode === "3d_line" ? "default" : "ghost"}
+              onClick={() => onChartTypeChange && onChartTypeChange("3d_line")}
+              className="h-6 px-2 text-[11px] gap-1 font-medium"
+              title="3D Flowing Line Ribbon"
             >
-              <Share2 size={12} /> 3D Network
+              <TrendingUp size={12} /> 3D Line
+            </Button>
+            <Button
+              size="sm"
+              variant={activeMode === "3d_donut" ? "default" : "ghost"}
+              onClick={() => onChartTypeChange && onChartTypeChange("3d_donut")}
+              className="h-6 px-2 text-[11px] gap-1 font-medium"
+              title="3D Extruded Beveled Donut"
+            >
+              <PieIcon size={12} /> 3D Donut
             </Button>
           </div>
         </div>
@@ -670,12 +824,12 @@ export default function ThreeDimensionMatrixView({
         {/* Right: Camera Angles, Tower Options & Utilities */}
         <div className="flex flex-wrap items-center gap-1.5">
           {/* Camera Angles */}
-          <div className="flex items-center bg-slate-800/60 rounded-md p-0.5 border border-slate-700/60">
+          <div className="flex items-center bg-white rounded-md p-0.5 border border-slate-200 shadow-2xs">
             <Button
               size="sm"
               variant="ghost"
               onClick={() => setCameraAngle("iso")}
-              className="h-6 px-1.5 text-[10px] text-slate-300 hover:text-white"
+              className="h-6 px-1.5 text-[10px] text-slate-600 hover:text-slate-900"
               title="Isometric 3D"
             >
               Iso
@@ -684,8 +838,8 @@ export default function ThreeDimensionMatrixView({
               size="sm"
               variant="ghost"
               onClick={() => setCameraAngle("top")}
-              className="h-6 px-1.5 text-[10px] text-slate-300 hover:text-white"
-              title="Top Heatmap Plan"
+              className="h-6 px-1.5 text-[10px] text-slate-600 hover:text-slate-900"
+              title="Top Plan View"
             >
               Top
             </Button>
@@ -693,7 +847,7 @@ export default function ThreeDimensionMatrixView({
               size="sm"
               variant="ghost"
               onClick={() => setCameraAngle("front")}
-              className="h-6 px-1.5 text-[10px] text-slate-300 hover:text-white"
+              className="h-6 px-1.5 text-[10px] text-slate-600 hover:text-slate-900"
               title="Front Horizon"
             >
               Front
@@ -702,22 +856,22 @@ export default function ThreeDimensionMatrixView({
               size="sm"
               variant="ghost"
               onClick={() => setCameraAngle("side")}
-              className="h-6 px-1.5 text-[10px] text-slate-300 hover:text-white"
-              title="Side Profile"
+              className="h-6 px-1.5 text-[10px] text-slate-600 hover:text-slate-900"
+              title="Side Elevation"
             >
               Side
             </Button>
           </div>
 
-          {/* Tower Shapes (only in towers mode) */}
-          {graphMode === "towers" && (
-            <div className="flex items-center bg-slate-800/60 rounded-md p-0.5 border border-slate-700/60">
+          {/* Tower Shapes (only in 3D Bar mode) */}
+          {activeMode === "3d_bar" && (
+            <div className="flex items-center bg-white rounded-md p-0.5 border border-slate-200 shadow-2xs">
               <Button
                 size="sm"
                 variant={towerShape === "box" ? "secondary" : "ghost"}
                 onClick={() => setTowerShape("box")}
                 className="h-6 w-6 p-0"
-                title="Square Towers"
+                title="Square Cuboids"
               >
                 <Square size={12} />
               </Button>
@@ -726,7 +880,7 @@ export default function ThreeDimensionMatrixView({
                 variant={towerShape === "cylinder" ? "secondary" : "ghost"}
                 onClick={() => setTowerShape("cylinder")}
                 className="h-6 w-6 p-0"
-                title="Cylinder Pillars"
+                title="Cylinders"
               >
                 <Circle size={12} />
               </Button>
@@ -742,17 +896,17 @@ export default function ThreeDimensionMatrixView({
             </div>
           )}
 
-          {/* Color Mode Switcher */}
-          {graphMode === "towers" && (
+          {/* Color Mode Switcher (only in 3D Bar) */}
+          {activeMode === "3d_bar" && (
             <Button
               size="sm"
               variant="outline"
-              onClick={() => setColorMode(colorMode === "heatmap" ? "series" : "heatmap")}
-              className="h-6 px-2 text-[10px] font-medium bg-slate-800 text-slate-200 border-slate-700 hover:bg-slate-700"
-              title="Toggle Heatmap vs Series Colors"
+              onClick={() => setUseHeatmap(!useHeatmap)}
+              className="h-6 px-2 text-[10px] font-medium bg-white text-slate-700 border-slate-200 hover:bg-slate-100"
+              title="Toggle Heatmap vs Vibrant Palette"
             >
-              <Palette size={11} className="mr-1 text-amber-400" />
-              {colorMode === "heatmap" ? "Heatmap" : "Series"}
+              <Palette size={11} className="mr-1 text-primary" />
+              {useHeatmap ? "Heatmap" : "Vibrant"}
             </Button>
           )}
 
@@ -764,9 +918,9 @@ export default function ThreeDimensionMatrixView({
             className={`h-6 px-2 text-[10px] gap-1 font-medium ${
               autoRotate
                 ? "bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold"
-                : "bg-slate-800 text-slate-200 border-slate-700 hover:bg-slate-700"
+                : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100"
             }`}
-            title="Toggle Continuous 360° Orbit Presentation"
+            title="Toggle Smooth 360° Orbit Presentation"
           >
             {autoRotate ? <Pause size={10} /> : <Play size={10} />}
             Orbit
@@ -777,8 +931,8 @@ export default function ThreeDimensionMatrixView({
             size="sm"
             variant="ghost"
             onClick={handleSnapshot}
-            className="h-6 w-6 p-0 text-slate-300 hover:text-white hover:bg-slate-800"
-            title="Capture High-Res 3D Image"
+            className="h-6 w-6 p-0 text-slate-600 hover:text-slate-900 hover:bg-slate-200"
+            title="Download Crisp 3D Snapshot (PNG)"
           >
             <Download size={13} />
           </Button>
@@ -788,7 +942,7 @@ export default function ThreeDimensionMatrixView({
             size="sm"
             variant="ghost"
             onClick={() => setIsFullscreen(!isFullscreen)}
-            className="h-6 w-6 p-0 text-slate-300 hover:text-white hover:bg-slate-800"
+            className="h-6 w-6 p-0 text-slate-600 hover:text-slate-900 hover:bg-slate-200"
             title={isFullscreen ? "Exit Fullscreen" : "Fullscreen 3D Studio"}
           >
             {isFullscreen ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
@@ -796,19 +950,19 @@ export default function ThreeDimensionMatrixView({
         </div>
       </div>
 
-      {/* 3D WebGL Canvas Container */}
+      {/* 3D WebGL Canvas Container with Crisp Light Studio Background */}
       <div
         ref={containerRef}
-        className={`w-full relative cursor-grab active:cursor-grabbing ${
+        className={`w-full relative cursor-grab active:cursor-grabbing bg-[#f8fafc] ${
           isFullscreen ? "flex-1 min-h-[500px]" : "h-[420px]"
         }`}
       />
 
       {/* Height Scale Elevation Slider Overlay */}
-      {graphMode === "towers" && (
-        <div className="absolute bottom-3 left-4 bg-slate-900/85 backdrop-blur-md border border-slate-800 px-3 py-1.5 rounded-lg flex items-center gap-2 text-slate-300 z-10">
-          <Sliders size={12} className="text-sky-400" />
-          <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+      {activeMode !== "3d_donut" && (
+        <div className="absolute bottom-3 left-4 bg-white/90 backdrop-blur-md border border-slate-200 px-3 py-1.5 rounded-lg flex items-center gap-2 text-slate-700 shadow-sm z-10">
+          <Sliders size={12} className="text-primary" />
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
             Elevation:
           </span>
           <Slider
@@ -819,12 +973,12 @@ export default function ThreeDimensionMatrixView({
             onValueChange={([val]) => setHeightScale(val)}
             className="w-20"
           />
-          <span className="text-[10px] font-mono text-sky-300">{heightScale.toFixed(1)}x</span>
+          <span className="text-[10px] font-mono font-bold text-primary">{heightScale.toFixed(1)}x</span>
         </div>
       )}
 
       {/* Gesture Guide Hint Overlay */}
-      <div className="absolute bottom-3 right-4 hidden sm:flex items-center gap-2 bg-slate-900/70 backdrop-blur-xs border border-slate-800 px-2.5 py-1 rounded-md text-[10px] text-slate-400 pointer-events-none z-10">
+      <div className="absolute bottom-3 right-4 hidden sm:flex items-center gap-2 bg-white/85 backdrop-blur-xs border border-slate-200 px-2.5 py-1 rounded-md text-[10px] text-slate-500 shadow-2xs pointer-events-none z-10">
         <span>Left-click: Orbit</span>
         <span>•</span>
         <span>Right-click: Pan</span>
@@ -832,28 +986,28 @@ export default function ThreeDimensionMatrixView({
         <span>Wheel: Zoom</span>
       </div>
 
-      {/* Floating Raycaster Glass HUD Tooltip */}
-      {hoveredPillar && (
+      {/* Floating Raycaster Glass HUD Tooltip with crisp contrast */}
+      {hoveredInfo && (
         <div
-          className="fixed pointer-events-none z-50 p-2.5 rounded-lg bg-slate-900/95 backdrop-blur-md border border-sky-500/50 shadow-2xl text-white text-xs max-w-xs space-y-1 transform -translate-x-1/2 -translate-y-full mb-3"
+          className="fixed pointer-events-none z-50 p-2.5 rounded-lg bg-slate-950/95 backdrop-blur-md border border-sky-400/60 shadow-2xl text-white text-xs max-w-xs space-y-1 transform -translate-x-1/2 -translate-y-full mb-3"
           style={{
-            left: `${hoveredPillar.x}px`,
-            top: `${hoveredPillar.y}px`,
+            left: `${hoveredInfo.x}px`,
+            top: `${hoveredInfo.y}px`,
           }}
         >
           <div className="flex items-center justify-between gap-2 border-b border-slate-800 pb-1">
             <span className="font-bold text-sky-400 truncate max-w-[140px]">
-              {hoveredPillar.rowName}
+              {hoveredInfo.rowName}
             </span>
-            <span className="text-[10px] px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-400 font-mono">
-              {hoveredPillar.percentage.toFixed(1)}% Total
+            <span className="text-[10px] px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-400 font-mono font-bold">
+              {hoveredInfo.percentage.toFixed(1)}% Total
             </span>
           </div>
 
           <div className="flex justify-between items-center text-[11px] pt-0.5">
-            <span className="text-slate-400 truncate pr-2">{hoveredPillar.colName}:</span>
+            <span className="text-slate-400 truncate pr-2">{hoveredInfo.colName}:</span>
             <span className="font-mono font-bold text-amber-300 text-sm">
-              {hoveredPillar.formatted}
+              {hoveredInfo.formatted}
             </span>
           </div>
         </div>
