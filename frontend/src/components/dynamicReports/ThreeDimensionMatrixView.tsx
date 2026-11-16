@@ -27,17 +27,23 @@ import {
   Hash,
   X,
   Check,
+  Target,
+  GitCompare,
+  Users,
+  AlertTriangle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import DrilldownRecordsModal from "./DrilldownRecordsModal";
 
 interface ThreeDimensionMatrixViewProps {
   matrix: PivotMatrixResult;
   config: ReportConfig;
   onChartTypeChange?: (type: ChartType) => void;
   onConfigChange?: (config: ReportConfig) => void;
+  rawRecords?: Array<Record<string, any>>;
   className?: string;
 }
 
@@ -52,8 +58,10 @@ interface ActiveItemData {
   formatted: string;
   percentage: number;
   rowDimId?: string;
+  colDimId?: string;
   x?: number;
   y?: number;
+  meshPosition?: THREE.Vector3;
 }
 
 const VIBRANT_PALETTE = [
@@ -131,6 +139,7 @@ export default function ThreeDimensionMatrixView({
   config,
   onChartTypeChange,
   onConfigChange,
+  rawRecords = [],
   className = "",
 }: ThreeDimensionMatrixViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -164,6 +173,18 @@ export default function ThreeDimensionMatrixView({
   const [sortOrder, setSortOrder] = useState<SortOrder>("none");
   const [activeSeriesFilter, setActiveSeriesFilter] = useState<string | null>(null);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+
+  // FEATURE 1: Drilldown Records Drawer
+  const [drilldownModalOpen, setDrilldownModalOpen] = useState<boolean>(false);
+
+  // FEATURE 2: 3D Capacity / Budget Threshold Plane
+  const [showThresholdPlane, setShowThresholdPlane] = useState<boolean>(false);
+  const [thresholdValue, setThresholdValue] = useState<number>(100);
+
+  // FEATURE 3: Multi-Pillar Comparison Mode
+  const [isCompareMode, setIsCompareMode] = useState<boolean>(false);
+  const [compareItemA, setCompareItemA] = useState<ActiveItemData | null>(null);
+  const [compareItemB, setCompareItemB] = useState<ActiveItemData | null>(null);
 
   // Interactive Hover & Click Selection States
   const [hoveredInfo, setHoveredInfo] = useState<ActiveItemData | null>(null);
@@ -202,6 +223,43 @@ export default function ThreeDimensionMatrixView({
     }
     return m > 0 ? m : 1;
   }, [chartData, chartSeriesKeys]);
+
+  // Auto-calibrate initial threshold value
+  useEffect(() => {
+    if (maxVal > 0) {
+      setThresholdValue(Math.round(maxVal * 0.65));
+    }
+  }, [maxVal]);
+
+  // Count items exceeding threshold
+  const thresholdTelemetry = useMemo(() => {
+    if (!showThresholdPlane || !chartData || chartData.length === 0) return { count: 0, totalExcess: 0 };
+    let count = 0;
+    let totalExcess = 0;
+    for (const row of chartData) {
+      for (const key of chartSeriesKeys) {
+        const v = Number(row[key]) || 0;
+        if (v > thresholdValue) {
+          count++;
+          totalExcess += v - thresholdValue;
+        }
+      }
+    }
+    return { count, totalExcess };
+  }, [showThresholdPlane, chartData, chartSeriesKeys, thresholdValue]);
+
+  // Filter raw records contributing to the selected 3D item (Feature 1)
+  const matchingDrilldownRecords = useMemo(() => {
+    if (!selectedItem || !rawRecords || rawRecords.length === 0) return [];
+    const rowDim = config.rows[0];
+    const colDim = config.columns[0];
+
+    return rawRecords.filter((r) => {
+      const matchRow = !rowDim || !selectedItem.rowName || String(r[rowDim]) === selectedItem.rowName;
+      const matchCol = !colDim || !selectedItem.colName || String(r[colDim]) === selectedItem.colName;
+      return matchRow && matchCol;
+    });
+  }, [selectedItem, rawRecords, config.rows, config.columns]);
 
   // Main Three.js Scene Setup & Re-render
   useEffect(() => {
@@ -288,6 +346,11 @@ export default function ThreeDimensionMatrixView({
       build3DDonutChart(objectsGroup);
     }
 
+    // FEATURE 3: Draw 3D Comparison Arched Bridge
+    if (isCompareMode && compareItemA?.meshPosition && compareItemB?.meshPosition) {
+      buildComparisonArch(objectsGroup, compareItemA, compareItemB);
+    }
+
     // 7. Raycasting & Interactive Listeners (Hover + Click)
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
@@ -319,7 +382,6 @@ export default function ThreeDimensionMatrixView({
           originalColorRef.current.copy(mat.color);
           originalPosRef.current.copy(mesh.position);
 
-          // Subtle bright pulse highlight
           mat.color.offsetHSL(0, 0.12, 0.18);
 
           // In 3D donut, gently pop outward
@@ -337,8 +399,10 @@ export default function ThreeDimensionMatrixView({
           formatted: data.formatted,
           percentage: data.percentage,
           rowDimId: config.rows[0],
+          colDimId: config.columns[0],
           x: event.clientX,
           y: event.clientY,
+          meshPosition: mesh.position.clone(),
         });
       } else {
         if (hoveredMeshRef.current && (hoveredMeshRef.current.material as THREE.MeshStandardMaterial)) {
@@ -353,7 +417,7 @@ export default function ThreeDimensionMatrixView({
       }
     };
 
-    // Click handler for 3D item selection & inspection
+    // Click handler for 3D selection & Compare Mode
     const selectedMeshRef = { current: null as THREE.Mesh | null };
 
     const handleClick = (event: MouseEvent) => {
@@ -368,8 +432,33 @@ export default function ThreeDimensionMatrixView({
       if (hit) {
         const mesh = hit.object as THREE.Mesh;
         const data = mesh.userData;
+        const clickedItem: ActiveItemData = {
+          rowName: data.rowName,
+          colName: data.colName,
+          value: data.value,
+          formatted: data.formatted,
+          percentage: data.percentage,
+          rowDimId: config.rows[0],
+          colDimId: config.columns[0],
+          meshPosition: mesh.position.clone(),
+        };
 
-        // Dim other meshes (Focus Mode)
+        // FEATURE 3: Comparison Mode Multi-Select
+        if (isCompareMode) {
+          if (!compareItemA) {
+            setCompareItemA(clickedItem);
+            toast.info(`Selected Item A: ${clickedItem.rowName} (${clickedItem.colName}). Now click a second pillar for Item B.`);
+          } else if (!compareItemB) {
+            setCompareItemB(clickedItem);
+            toast.success(`Comparing ${compareItemA.rowName} vs ${clickedItem.rowName}`);
+          } else {
+            // Replace B
+            setCompareItemB(clickedItem);
+          }
+          return;
+        }
+
+        // Standard Single Selection Mode: Dim other meshes
         allMeshesRef.current.forEach((m) => {
           const mat = m.material as THREE.MeshStandardMaterial;
           if (m === mesh) {
@@ -382,23 +471,18 @@ export default function ThreeDimensionMatrixView({
         });
 
         selectedMeshRef.current = mesh;
-        setSelectedItem({
-          rowName: data.rowName,
-          colName: data.colName,
-          value: data.value,
-          formatted: data.formatted,
-          percentage: data.percentage,
-          rowDimId: config.rows[0],
-        });
+        setSelectedItem(clickedItem);
       } else {
-        // Clicked background: reset focus
-        allMeshesRef.current.forEach((m) => {
-          const mat = m.material as THREE.MeshStandardMaterial;
-          mat.opacity = 1.0;
-          mat.transparent = false;
-        });
-        selectedMeshRef.current = null;
-        setSelectedItem(null);
+        if (!isCompareMode) {
+          // Clicked background: reset focus
+          allMeshesRef.current.forEach((m) => {
+            const mat = m.material as THREE.MeshStandardMaterial;
+            mat.opacity = 1.0;
+            mat.transparent = false;
+          });
+          selectedMeshRef.current = null;
+          setSelectedItem(null);
+        }
       }
     };
 
@@ -462,6 +546,11 @@ export default function ThreeDimensionMatrixView({
     showDataLabels,
     sortOrder,
     activeSeriesFilter,
+    showThresholdPlane,
+    thresholdValue,
+    isCompareMode,
+    compareItemA,
+    compareItemB,
   ]);
 
   // Sync autoRotate state
@@ -472,7 +561,7 @@ export default function ThreeDimensionMatrixView({
   }, [autoRotate]);
 
   // -------------------------------------------------------------
-  // BUILDER 1: 3D Bar Chart (Interactive Towers)
+  // BUILDER 1: 3D Bar Chart (Interactive Towers + Threshold Plane)
   // -------------------------------------------------------------
   function build3DBarChart(group: THREE.Group) {
     if (!chartData || chartData.length === 0 || chartSeriesKeys.length === 0) return;
@@ -488,7 +577,7 @@ export default function ThreeDimensionMatrixView({
     const totalDepthZ = numCols * spacingZ;
 
     // Floor Pedestal
-    const slabGeo = new THREE.BoxGeometry(totalWidthX + 5, 0.4, totalDepthZ + 5);
+    const slabGeo = new THREE.BoxGeometry(totalWidthX + 6, 0.4, totalDepthZ + 6);
     const slabMat = new THREE.MeshStandardMaterial({
       color: 0xffffff,
       roughness: 0.4,
@@ -501,7 +590,7 @@ export default function ThreeDimensionMatrixView({
 
     // Grid
     const gridHelper = new THREE.GridHelper(
-      Math.max(totalWidthX, totalDepthZ) + 5,
+      Math.max(totalWidthX, totalDepthZ) + 6,
       Math.max(numRows, numCols) + 2,
       0x94a3b8,
       0xe2e8f0
@@ -527,6 +616,41 @@ export default function ThreeDimensionMatrixView({
       group.add(sprite);
     });
 
+    // FEATURE 2: 3D Horizontal Threshold / Capacity Plane
+    if (showThresholdPlane) {
+      const thresholdY = Math.max(0.2, (thresholdValue / maxVal) * maxPillarHeight);
+
+      const planeGeo = new THREE.PlaneGeometry(totalWidthX + 6, totalDepthZ + 6);
+      planeGeo.rotateX(-Math.PI / 2);
+      const planeMat = new THREE.MeshStandardMaterial({
+        color: 0xef4444,
+        transparent: true,
+        opacity: 0.28,
+        side: THREE.DoubleSide,
+        roughness: 0.2,
+      });
+      const planeMesh = new THREE.Mesh(planeGeo, planeMat);
+      planeMesh.position.set(0, thresholdY, 0);
+      group.add(planeMesh);
+
+      const edges = new THREE.EdgesGeometry(planeGeo);
+      const wireMat = new THREE.LineBasicMaterial({ color: 0xef4444, linewidth: 2 });
+      const wire = new THREE.LineSegments(edges, wireMat);
+      wire.position.set(0, thresholdY, 0);
+      group.add(wire);
+
+      // Ceiling label badge
+      const ceilingSprite = createTextSprite(
+        `CEILING: ${thresholdValue.toLocaleString()}`,
+        "#ffffff",
+        22,
+        "#ef4444"
+      );
+      ceilingSprite.position.set(-((numRows - 1) / 2) * spacingX - 3.2, thresholdY + 0.3, 0);
+      ceilingSprite.scale.set(3.8, 0.9, 1);
+      group.add(ceilingSprite);
+    }
+
     // Build Pillars
     chartData.forEach((row, r) => {
       const rowName = row.name;
@@ -548,8 +672,13 @@ export default function ThreeDimensionMatrixView({
           geo = new THREE.BoxGeometry(pillarWidth, h, pillarWidth);
         }
 
+        // Color computation: if threshold is active and val > thresholdValue, color warning coral red
         let pillarColor: THREE.Color;
-        if (useHeatmap) {
+        const isExceeding = showThresholdPlane && val > thresholdValue;
+
+        if (isExceeding) {
+          pillarColor = new THREE.Color(0xef4444); // Warning Red
+        } else if (useHeatmap) {
           pillarColor = getVibrantHeatmapColor(normalized);
         } else {
           pillarColor = new THREE.Color(VIBRANT_PALETTE[c % VIBRANT_PALETTE.length]);
@@ -557,10 +686,11 @@ export default function ThreeDimensionMatrixView({
 
         const mat = new THREE.MeshStandardMaterial({
           color: pillarColor,
-          roughness: 0.25,
+          roughness: isExceeding ? 0.15 : 0.25,
           metalness: 0.15,
           transparent: Boolean(isDimmedBySeries),
           opacity: isDimmedBySeries ? 0.2 : 1.0,
+          emissive: isExceeding ? new THREE.Color(0x7f1d1d) : new THREE.Color(0, 0, 0),
         });
 
         const mesh = new THREE.Mesh(geo, mat);
@@ -581,16 +711,16 @@ export default function ThreeDimensionMatrixView({
         allMeshesRef.current.push(mesh);
         group.add(mesh);
 
-        // Optional 3D Floating Value Data Label
+        // Optional 3D Floating Value Data Label or Alert Label
         if (showDataLabels && val > 0) {
           const labelSprite = createTextSprite(
-            val > 9999 ? `${(val / 1000).toFixed(1)}k` : val.toString(),
-            "#0f172a",
+            isExceeding ? `⚠️ ${val.toLocaleString()}` : val > 9999 ? `${(val / 1000).toFixed(1)}k` : val.toString(),
+            isExceeding ? "#ffffff" : "#0f172a",
             24,
-            "rgba(255, 255, 255, 0.85)"
+            isExceeding ? "#ef4444" : "rgba(255, 255, 255, 0.85)"
           );
           labelSprite.position.set(x, h + 0.8, z);
-          labelSprite.scale.set(2.2, 0.6, 1);
+          labelSprite.scale.set(2.4, 0.65, 1);
           group.add(labelSprite);
         }
       });
@@ -598,7 +728,7 @@ export default function ThreeDimensionMatrixView({
   }
 
   // -------------------------------------------------------------
-  // BUILDER 2: 3D Line Chart (Interactive Tubes)
+  // BUILDER 2: 3D Line Chart (Interactive Tubes + Threshold)
   // -------------------------------------------------------------
   function build3DLineChart(group: THREE.Group) {
     if (!chartData || chartData.length === 0 || chartSeriesKeys.length === 0) return;
@@ -634,7 +764,7 @@ export default function ThreeDimensionMatrixView({
     gridHelper.position.set(0, 0.02, 0);
     group.add(gridHelper);
 
-    // Row Labels
+    // Labels
     chartData.forEach((row, r) => {
       const x = (r - (numRows - 1) / 2) * spacingX;
       const z = ((numSeries - 1) / 2) * spacingZ + 2.2;
@@ -643,7 +773,6 @@ export default function ThreeDimensionMatrixView({
       group.add(sprite);
     });
 
-    // Series Labels
     chartSeriesKeys.forEach((colKey, s) => {
       const z = (s - (numSeries - 1) / 2) * spacingZ;
       const x = -((numRows - 1) / 2) * spacingX - 2.5;
@@ -652,7 +781,23 @@ export default function ThreeDimensionMatrixView({
       group.add(sprite);
     });
 
-    // Build 3D Tubes
+    // Threshold plane for line chart
+    if (showThresholdPlane) {
+      const thresholdY = Math.max(0.2, (thresholdValue / maxVal) * maxHeight);
+      const planeGeo = new THREE.PlaneGeometry(totalWidthX + 6, totalDepthZ + 6);
+      planeGeo.rotateX(-Math.PI / 2);
+      const planeMat = new THREE.MeshStandardMaterial({
+        color: 0xef4444,
+        transparent: true,
+        opacity: 0.25,
+        side: THREE.DoubleSide,
+      });
+      const planeMesh = new THREE.Mesh(planeGeo, planeMat);
+      planeMesh.position.set(0, thresholdY, 0);
+      group.add(planeMesh);
+    }
+
+    // Build Tubes
     chartSeriesKeys.forEach((colKey, sIndex) => {
       const isDimmed = activeSeriesFilter && activeSeriesFilter !== colKey;
       const z = (sIndex - (numSeries - 1) / 2) * spacingZ;
@@ -668,14 +813,17 @@ export default function ThreeDimensionMatrixView({
         const pt = new THREE.Vector3(x, y, z);
         points.push(pt);
 
+        const isExceeding = showThresholdPlane && val > thresholdValue;
+
         // Data point sphere
         const sphereGeo = new THREE.SphereGeometry(0.42, 20, 20);
         const sphereMat = new THREE.MeshStandardMaterial({
-          color: seriesColor,
+          color: isExceeding ? 0xef4444 : seriesColor,
           roughness: 0.2,
           metalness: 0.2,
           transparent: Boolean(isDimmed),
           opacity: isDimmed ? 0.25 : 1.0,
+          emissive: isExceeding ? new THREE.Color(0x7f1d1d) : new THREE.Color(0, 0, 0),
         });
         const sphere = new THREE.Mesh(sphereGeo, sphereMat);
         sphere.position.copy(pt);
@@ -700,7 +848,7 @@ export default function ThreeDimensionMatrixView({
           new THREE.Vector3(x, y, z),
         ]);
         const lineMat = new THREE.LineBasicMaterial({
-          color: seriesColor,
+          color: isExceeding ? 0xef4444 : seriesColor,
           transparent: true,
           opacity: isDimmed ? 0.08 : 0.35,
         });
@@ -710,18 +858,18 @@ export default function ThreeDimensionMatrixView({
         // Optional 3D Floating Value Data Label
         if (showDataLabels && val > 0) {
           const labelSprite = createTextSprite(
-            val > 9999 ? `${(val / 1000).toFixed(1)}k` : val.toString(),
-            "#0f172a",
+            isExceeding ? `⚠️ ${val.toLocaleString()}` : val > 9999 ? `${(val / 1000).toFixed(1)}k` : val.toString(),
+            isExceeding ? "#ffffff" : "#0f172a",
             24,
-            "rgba(255, 255, 255, 0.85)"
+            isExceeding ? "#ef4444" : "rgba(255, 255, 255, 0.85)"
           );
           labelSprite.position.set(x, y + 0.9, z);
-          labelSprite.scale.set(2.2, 0.6, 1);
+          labelSprite.scale.set(2.4, 0.65, 1);
           group.add(labelSprite);
         }
       });
 
-      // Construct Smooth 3D Spline Tube
+      // Spline Tube
       if (points.length >= 2) {
         const curve = new THREE.CatmullRomCurve3(points);
         const tubeGeo = new THREE.TubeGeometry(curve, 64, 0.18, 12, false);
@@ -810,7 +958,6 @@ export default function ThreeDimensionMatrixView({
       mesh.castShadow = true;
       mesh.receiveShadow = true;
 
-      // Radial direction vector for hover explode
       const radialDir = new THREE.Vector3(Math.cos(midAngle), 0, -Math.sin(midAngle));
 
       mesh.userData = {
@@ -826,7 +973,7 @@ export default function ThreeDimensionMatrixView({
       allMeshesRef.current.push(mesh);
       group.add(mesh);
 
-      // Label Billboard near perimeter
+      // Label Billboard
       const labelDist = outerRadius + 2.8;
       const lx = Math.cos(midAngle) * labelDist;
       const lz = -Math.sin(midAngle) * labelDist;
@@ -857,6 +1004,72 @@ export default function ThreeDimensionMatrixView({
     const centerTotalSprite = createTextSprite(total.toLocaleString(), "#0f172a", 26);
     centerTotalSprite.position.set(0, extrudeDepth * 0.55 + 0.9, 0);
     group.add(centerTotalSprite);
+  }
+
+  // -------------------------------------------------------------
+  // FEATURE 3 BUILDER: 3D Comparison Arched Bridge
+  // -------------------------------------------------------------
+  function buildComparisonArch(
+    group: THREE.Group,
+    itemA: ActiveItemData,
+    itemB: ActiveItemData
+  ) {
+    if (!itemA.meshPosition || !itemB.meshPosition) return;
+    const posA = itemA.meshPosition;
+    const posB = itemB.meshPosition;
+
+    // Arched curve linking the two peaks
+    const midY = Math.max(posA.y, posB.y) + 3.8;
+    const midPoint = new THREE.Vector3(
+      (posA.x + posB.x) / 2,
+      midY,
+      (posA.z + posB.z) / 2
+    );
+
+    const curve = new THREE.QuadraticBezierCurve3(
+      new THREE.Vector3(posA.x, posA.y + 0.6, posA.z),
+      midPoint,
+      new THREE.Vector3(posB.x, posB.y + 0.6, posB.z)
+    );
+
+    const points = curve.getPoints(24);
+    const curveGeo = new THREE.BufferGeometry().setFromPoints(points);
+    const curveMat = new THREE.LineBasicMaterial({
+      color: 0x2563eb,
+      linewidth: 3,
+    });
+    const curveLine = new THREE.Line(curveGeo, curveMat);
+    group.add(curveLine);
+
+    // Delta badge in mid-air
+    const diff = itemB.value - itemA.value;
+    const pct = itemA.value > 0 ? (diff / itemA.value) * 100 : 0;
+    const deltaText = `Δ ${diff >= 0 ? "+" : ""}${diff.toLocaleString()} (${pct >= 0 ? "+" : ""}${pct.toFixed(1)}%)`;
+
+    const deltaSprite = createTextSprite(
+      deltaText,
+      "#ffffff",
+      24,
+      diff >= 0 ? "#10b981" : "#ef4444"
+    );
+    deltaSprite.position.set(midPoint.x, midPoint.y + 0.8, midPoint.z);
+    deltaSprite.scale.set(3.8, 0.9, 1);
+    group.add(deltaSprite);
+
+    // Vertical dashed drop-lines to each pillar
+    const ringMatA = new THREE.MeshBasicMaterial({ color: 0x2563eb, side: THREE.DoubleSide });
+    const ringGeoA = new THREE.RingGeometry(0.8, 1.0, 24);
+    const ringA = new THREE.Mesh(ringGeoA, ringMatA);
+    ringA.rotation.x = Math.PI / 2;
+    ringA.position.set(posA.x, 0.05, posA.z);
+    group.add(ringA);
+
+    const ringMatB = new THREE.MeshBasicMaterial({ color: 0xf97316, side: THREE.DoubleSide });
+    const ringGeoB = new THREE.RingGeometry(0.8, 1.0, 24);
+    const ringB = new THREE.Mesh(ringGeoB, ringMatB);
+    ringB.rotation.x = Math.PI / 2;
+    ringB.position.set(posB.x, 0.05, posB.z);
+    group.add(ringB);
   }
 
   // Camera presets
@@ -1016,8 +1229,92 @@ export default function ThreeDimensionMatrixView({
           </div>
         </div>
 
-        {/* Right: Camera Angles, 3D Labels, Sort & Utilities */}
+        {/* Right: Camera Angles, Interactive Tools (Threshold, Compare, Labels, Sort) */}
         <div className="flex flex-wrap items-center gap-1.5">
+          {/* FEATURE 2: 3D Capacity / Target Threshold Plane Toggle */}
+          {activeMode !== "3d_donut" && (
+            <Button
+              size="sm"
+              variant={showThresholdPlane ? "default" : "outline"}
+              onClick={() => {
+                const nextState = !showThresholdPlane;
+                setShowThresholdPlane(nextState);
+                toast.info(nextState ? "3D Threshold Plane enabled: Drag elevation ceiling" : "Threshold Plane disabled");
+              }}
+              className={`h-6 px-2 text-[10px] font-semibold gap-1 ${
+                showThresholdPlane
+                  ? "bg-red-600 hover:bg-red-700 text-white font-bold shadow-xs"
+                  : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100"
+              }`}
+              title="Toggle 3D Capacity / Budget Ceiling Plane"
+            >
+              <Target size={11} className={showThresholdPlane ? "text-white" : "text-red-500"} />
+              <span>Ceiling</span>
+            </Button>
+          )}
+
+          {/* FEATURE 3: Multi-Pillar 3D Compare Toggle */}
+          <Button
+            size="sm"
+            variant={isCompareMode ? "default" : "outline"}
+            onClick={() => {
+              const nextMode = !isCompareMode;
+              setIsCompareMode(nextMode);
+              if (!nextMode) {
+                setCompareItemA(null);
+                setCompareItemB(null);
+                toast.info("Comparison mode exited");
+              } else {
+                setSelectedItem(null);
+                toast.info("Comparison Mode: Click first 3D pillar for Item A, then click Item B");
+              }
+            }}
+            className={`h-6 px-2 text-[10px] font-semibold gap-1 ${
+              isCompareMode
+                ? "bg-purple-600 hover:bg-purple-700 text-white font-bold shadow-xs"
+                : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100"
+            }`}
+            title="Toggle Multi-Pillar Comparison Mode"
+          >
+            <GitCompare size={11} className={isCompareMode ? "text-white" : "text-purple-600"} />
+            <span>Compare</span>
+          </Button>
+
+          {/* 3D Floating Value Labels Toggle */}
+          <Button
+            size="sm"
+            variant={showDataLabels ? "secondary" : "outline"}
+            onClick={() => setShowDataLabels(!showDataLabels)}
+            className={`h-6 px-2 text-[10px] font-medium border-slate-200 ${
+              showDataLabels ? "bg-blue-100 text-blue-900 font-bold border-blue-300" : "bg-white text-slate-700"
+            }`}
+            title="Toggle Floating 3D Value Data Labels"
+          >
+            <Hash size={11} className="mr-0.5 text-blue-600" />
+            Labels
+          </Button>
+
+          {/* Interactive 3D Sort */}
+          {activeMode !== "3d_donut" && (
+            <Button
+              size="sm"
+              variant={sortOrder !== "none" ? "secondary" : "outline"}
+              onClick={() => {
+                const nextSort: SortOrder =
+                  sortOrder === "none" ? "desc" : sortOrder === "desc" ? "asc" : "none";
+                setSortOrder(nextSort);
+                toast.info(`3D Bars sorted: ${nextSort === "none" ? "Original" : nextSort === "desc" ? "Highest First" : "Lowest First"}`);
+              }}
+              className={`h-6 px-2 text-[10px] font-medium border-slate-200 ${
+                sortOrder !== "none" ? "bg-amber-100 text-amber-900 font-bold border-amber-300" : "bg-white text-slate-700"
+              }`}
+              title="Sort 3D Bars by Value"
+            >
+              <ArrowUpDown size={11} className="mr-1 text-amber-600" />
+              {sortOrder === "none" ? "Sort" : sortOrder === "desc" ? "High➔Low" : "Low➔High"}
+            </Button>
+          )}
+
           {/* Camera Angles */}
           <div className="flex items-center bg-white rounded-md p-0.5 border border-slate-200 shadow-2xs">
             <Button
@@ -1057,41 +1354,6 @@ export default function ThreeDimensionMatrixView({
               Side
             </Button>
           </div>
-
-          {/* 3D Floating Value Labels Toggle */}
-          <Button
-            size="sm"
-            variant={showDataLabels ? "secondary" : "outline"}
-            onClick={() => setShowDataLabels(!showDataLabels)}
-            className={`h-6 px-2 text-[10px] font-medium border-slate-200 ${
-              showDataLabels ? "bg-blue-100 text-blue-900 font-bold border-blue-300" : "bg-white text-slate-700"
-            }`}
-            title="Toggle Floating 3D Value Data Labels"
-          >
-            <Hash size={11} className="mr-0.5 text-blue-600" />
-            Labels
-          </Button>
-
-          {/* Interactive 3D Sort */}
-          {activeMode !== "3d_donut" && (
-            <Button
-              size="sm"
-              variant={sortOrder !== "none" ? "secondary" : "outline"}
-              onClick={() => {
-                const nextSort: SortOrder =
-                  sortOrder === "none" ? "desc" : sortOrder === "desc" ? "asc" : "none";
-                setSortOrder(nextSort);
-                toast.info(`3D Bars sorted: ${nextSort === "none" ? "Original" : nextSort === "desc" ? "Highest First" : "Lowest First"}`);
-              }}
-              className={`h-6 px-2 text-[10px] font-medium border-slate-200 ${
-                sortOrder !== "none" ? "bg-amber-100 text-amber-900 font-bold border-amber-300" : "bg-white text-slate-700"
-              }`}
-              title="Sort 3D Bars by Value"
-            >
-              <ArrowUpDown size={11} className="mr-1 text-amber-600" />
-              {sortOrder === "none" ? "Sort" : sortOrder === "desc" ? "High➔Low" : "Low➔High"}
-            </Button>
-          )}
 
           {/* Tower Shapes (only in 3D Bar mode) */}
           {activeMode === "3d_bar" && (
@@ -1185,6 +1447,124 @@ export default function ThreeDimensionMatrixView({
         }`}
       />
 
+      {/* FEATURE 2 OVERLAY: Interactive Threshold Plane Slider */}
+      {showThresholdPlane && activeMode !== "3d_donut" && (
+        <div className="absolute top-14 left-4 bg-white/95 backdrop-blur-md border border-red-200 shadow-lg px-3 py-2 rounded-xl flex flex-wrap items-center gap-3 z-10 text-xs">
+          <div className="flex items-center gap-1.5 text-red-700 font-bold">
+            <Target size={14} className="text-red-600" />
+            <span>Capacity / Target Ceiling:</span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Slider
+              value={[thresholdValue]}
+              min={Math.round(maxVal * 0.1)}
+              max={Math.round(maxVal * 1.2)}
+              step={Math.max(1, Math.round(maxVal / 50))}
+              onValueChange={([val]) => setThresholdValue(val)}
+              className="w-32"
+            />
+            <span className="font-mono font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded border border-red-200">
+              {thresholdValue.toLocaleString()}
+            </span>
+          </div>
+
+          <Badge
+            variant="outline"
+            className={`text-[10px] font-semibold ${
+              thresholdTelemetry.count > 0
+                ? "bg-red-50 text-red-700 border-red-300"
+                : "bg-emerald-50 text-emerald-700 border-emerald-300"
+            }`}
+          >
+            {thresholdTelemetry.count > 0 ? (
+              <span className="flex items-center gap-1">
+                <AlertTriangle size={11} /> {thresholdTelemetry.count} Exceeding (+{thresholdTelemetry.totalExcess.toLocaleString()})
+              </span>
+            ) : (
+              "All Facilities within Ceiling"
+            )}
+          </Badge>
+        </div>
+      )}
+
+      {/* FEATURE 3 OVERLAY: Multi-Pillar 3D Comparison HUD Card */}
+      {isCompareMode && (
+        <div className="absolute top-14 right-4 z-20 w-80 bg-white/95 backdrop-blur-md border-2 border-purple-400 rounded-xl shadow-2xl p-3.5 space-y-2 text-slate-800 animate-in fade-in zoom-in-95 duration-150">
+          <div className="flex items-center justify-between border-b border-purple-100 pb-1.5">
+            <div className="flex items-center gap-1.5 font-bold text-xs text-purple-900">
+              <GitCompare size={14} className="text-purple-600" />
+              <span>3D Multi-Pillar Comparison</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setCompareItemA(null);
+                setCompareItemB(null);
+              }}
+              className="text-slate-400 hover:text-slate-700 text-[10px] px-1.5 py-0.5 rounded hover:bg-slate-100"
+            >
+              Clear
+            </button>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 text-xs">
+            {/* Item A */}
+            <div className="p-2 rounded-lg bg-blue-50 border border-blue-200">
+              <span className="text-[10px] font-bold text-blue-800 uppercase block">Pillar A</span>
+              {compareItemA ? (
+                <div className="mt-0.5">
+                  <div className="font-bold text-slate-900 truncate">{compareItemA.rowName}</div>
+                  <div className="text-[10px] text-slate-500 truncate">{compareItemA.colName}</div>
+                  <div className="font-mono font-bold text-blue-700 mt-1">{compareItemA.formatted}</div>
+                </div>
+              ) : (
+                <div className="text-[10px] text-slate-400 italic mt-1">Click a 3D pillar...</div>
+              )}
+            </div>
+
+            {/* Item B */}
+            <div className="p-2 rounded-lg bg-amber-50 border border-amber-200">
+              <span className="text-[10px] font-bold text-amber-800 uppercase block">Pillar B</span>
+              {compareItemB ? (
+                <div className="mt-0.5">
+                  <div className="font-bold text-slate-900 truncate">{compareItemB.rowName}</div>
+                  <div className="text-[10px] text-slate-500 truncate">{compareItemB.colName}</div>
+                  <div className="font-mono font-bold text-amber-700 mt-1">{compareItemB.formatted}</div>
+                </div>
+              ) : (
+                <div className="text-[10px] text-slate-400 italic mt-1">Click second pillar...</div>
+              )}
+            </div>
+          </div>
+
+          {/* Delta Variance Comparison Calculation */}
+          {compareItemA && compareItemB && (
+            <div className="pt-1 border-t border-purple-100 text-xs">
+              {(() => {
+                const diff = compareItemB.value - compareItemA.value;
+                const pct = compareItemA.value > 0 ? (diff / compareItemA.value) * 100 : 0;
+                const isPositive = diff >= 0;
+                return (
+                  <div className="flex items-center justify-between bg-purple-50/80 p-2 rounded-lg border border-purple-200">
+                    <span className="text-slate-600 font-semibold text-[11px]">Variance (B vs A):</span>
+                    <span
+                      className={`font-mono font-bold text-xs ${
+                        isPositive ? "text-emerald-700" : "text-red-600"
+                      }`}
+                    >
+                      {isPositive ? "+" : ""}
+                      {diff.toLocaleString()} ({isPositive ? "+" : ""}
+                      {pct.toFixed(1)}%)
+                    </span>
+                  </div>
+                );
+              })()}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Interactive Series Legend Bar at Bottom */}
       {chartSeriesKeys.length > 1 && activeMode !== "3d_donut" && (
         <div className="px-4 py-2 bg-slate-50/90 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2 text-xs">
@@ -1266,9 +1646,9 @@ export default function ThreeDimensionMatrixView({
         <span>Right-drag: Pan</span>
       </div>
 
-      {/* Interactive Selection Drilldown Inspector HUD Card */}
-      {selectedItem && (
-        <div className="absolute top-16 right-4 z-20 w-72 bg-white/95 backdrop-blur-md border-2 border-primary/40 rounded-xl shadow-2xl p-3.5 space-y-2 text-slate-800 animate-in fade-in zoom-in-95 duration-150">
+      {/* FEATURE 1: Selection Drilldown Inspector HUD Card */}
+      {selectedItem && !isCompareMode && (
+        <div className="absolute top-14 right-4 z-20 w-72 bg-white/95 backdrop-blur-md border-2 border-primary/40 rounded-xl shadow-2xl p-3.5 space-y-2.5 text-slate-800 animate-in fade-in zoom-in-95 duration-150">
           <div className="flex items-start justify-between gap-2 border-b border-slate-100 pb-2">
             <div>
               <span className="text-[10px] font-bold uppercase tracking-wider text-primary block">
@@ -1306,16 +1686,31 @@ export default function ThreeDimensionMatrixView({
             </div>
           </div>
 
-          {/* Interactive Actions */}
+          {/* Interactive Actions (Feature 1 Drill-Down Button included!) */}
           <div className="pt-2 flex flex-col gap-1.5 border-t border-slate-100">
+            {/* FEATURE 1: View Underlying Inmates / Records */}
+            <Button
+              size="sm"
+              onClick={() => setDrilldownModalOpen(true)}
+              className="h-7 text-xs font-semibold gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white w-full shadow-xs"
+              title="Inspect individual inmate/billing records contributing to this 3D pillar"
+            >
+              <Users size={12} />
+              <span>
+                View Inmates / Records ({matchingDrilldownRecords.length})
+              </span>
+            </Button>
+
             <Button
               size="sm"
               onClick={handleFilterBySelectedItem}
-              className="h-7 text-xs font-semibold gap-1.5 bg-primary hover:bg-primary/90 text-white w-full"
+              variant="outline"
+              className="h-7 text-xs font-semibold gap-1.5 border-slate-300 text-slate-700 hover:bg-slate-100 w-full"
             >
-              <Filter size={12} />
-              <span>Filter Report to this Item</span>
+              <Filter size={12} className="text-primary" />
+              <span>Filter Report to this Row</span>
             </Button>
+
             <Button
               size="sm"
               variant="ghost"
@@ -1329,7 +1724,7 @@ export default function ThreeDimensionMatrixView({
       )}
 
       {/* Floating Raycaster Tooltip on Hover */}
-      {hoveredInfo && !selectedItem && (
+      {hoveredInfo && !selectedItem && !isCompareMode && (
         <div
           className="fixed pointer-events-none z-50 p-2.5 rounded-lg bg-slate-950/95 backdrop-blur-md border border-sky-400/60 shadow-2xl text-white text-xs max-w-xs space-y-1 transform -translate-x-1/2 -translate-y-full mb-3"
           style={{
@@ -1352,10 +1747,29 @@ export default function ThreeDimensionMatrixView({
               {hoveredInfo.formatted}
             </span>
           </div>
+
+          {showThresholdPlane && hoveredInfo.value > thresholdValue && (
+            <div className="text-[10px] text-red-400 font-bold flex items-center gap-1 pt-0.5">
+              <AlertTriangle size={11} /> Exceeds ceiling by +{(hoveredInfo.value - thresholdValue).toLocaleString()}
+            </div>
+          )}
+
           <div className="text-[9px] text-slate-400 italic pt-0.5">
-            Click to inspect and filter report
+            Click to inspect and view underlying records
           </div>
         </div>
+      )}
+
+      {/* FEATURE 1: Underlying Records Drilldown Modal Dialog */}
+      {selectedItem && (
+        <DrilldownRecordsModal
+          open={drilldownModalOpen}
+          onOpenChange={setDrilldownModalOpen}
+          title={`${selectedItem.rowName} ${selectedItem.colName ? `— ${selectedItem.colName}` : ""}`}
+          subtitle={`Detailed line-item records matching the selected 3D pillar`}
+          records={matchingDrilldownRecords}
+          metricValue={selectedItem.formatted}
+        />
       )}
     </div>
   );

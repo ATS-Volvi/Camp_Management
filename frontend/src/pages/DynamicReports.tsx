@@ -425,6 +425,7 @@ export default function DynamicReports() {
             config={config}
             onChartTypeChange={(chartType) => setConfig({ ...config, chartType })}
             onConfigChange={setConfig}
+            rawRecords={rawRecords}
           />
 
           {/* High-Density Pivot Matrix Table */}
