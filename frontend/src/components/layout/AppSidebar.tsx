@@ -3,7 +3,7 @@ import {
   Home, Upload, Building2, Truck, Users, Wrench, Package, Settings as SettingsIcon,
   BarChart3, Activity, Bell, HelpCircle, ChevronDown, Search, Box, LogIn, ClipboardList, Sparkles, UtensilsCrossed, UserCheck,
   Shield, UserCog, FileText, AlertTriangle, ChefHat, ShieldCheck, LineChart, Cog, Gauge, BedDouble, Link2, Ban,
-  LayoutDashboard, PieChart, CalendarDays, Briefcase, FileSpreadsheet, LayoutGrid, Receipt, TrendingUp, LogOut
+  LayoutDashboard, PieChart, CalendarDays, Briefcase, FileSpreadsheet, LayoutGrid, Receipt, TrendingUp, LogOut, SlidersHorizontal
 } from "lucide-react";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useEffect, useState } from "react";
@@ -62,6 +62,7 @@ const navGroups: {
     label: "Reports & Insights",
     icon: BarChart3,
     items: [
+      { label: "Dynamic Reports", icon: SlidersHorizontal, path: "/dynamic-reports" },
       { label: "AI Reports", icon: Sparkles, path: "/ai-reports" },
       { label: "Anomaly Report", icon: AlertTriangle, path: "/anomaly-report" },
       { label: "Food Safety Audit", icon: ShieldCheck, path: "/food-safety" },

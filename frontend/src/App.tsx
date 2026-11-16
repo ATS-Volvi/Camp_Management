@@ -24,6 +24,7 @@ import EmployeeStays from "./pages/EmployeeStays";
 import InventoryManagement from "./pages/InventoryManagement";
 import EmployeeMaster from "./pages/EmployeeMaster";
 import Reports from "./pages/Reports";
+import DynamicReports from "./pages/DynamicReports";
 import ItemAssignments from "./pages/ItemAssignments";
 import Activities from "./pages/Activities";
 import AlertsNotifications from "./pages/AlertsNotifications";
@@ -117,6 +118,7 @@ const App = () => (
               <Route path="/employees" element={<EmployeeMaster />} />
               <Route path="/item-assignments" element={<ItemAssignments />} />
               <Route path="/reports" element={<Reports />} />
+              <Route path="/dynamic-reports" element={<DynamicReports />} />
               <Route path="/activities" element={<Activities />} />
               <Route path="/alerts" element={<AlertsNotifications />} />
               <Route path="/attendance" element={<Attendance />} />
