@@ -6,6 +6,9 @@ import {
   BarChart3,
   TrendingUp,
   PieChart as PieIcon,
+  LineChart as LineIcon,
+  ArrowLeft,
+  EyeOff,
   Compass,
   Download,
   Maximize2,
@@ -776,47 +779,90 @@ export default function ThreeDimensionMatrixView({
     >
       {/* 3D Top Header & Controls Ribbon */}
       <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 bg-slate-50/90 backdrop-blur-md border-b border-slate-200 text-slate-700 z-10">
-        {/* Left: Title & 3D Chart Switcher */}
-        <div className="flex items-center gap-2">
-          <Sparkles size={16} className="text-primary" />
-          <span className="text-xs font-bold uppercase tracking-wider text-slate-900">
-            3D Studio (WebGL)
-          </span>
-          <Badge
+        {/* Left: Back to 2D + 2D/3D Unified Mode Selectors */}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Prominent Back to 2D Navigation Button */}
+          <Button
+            size="sm"
             variant="outline"
-            className="text-[10px] font-mono px-2 py-0 border-blue-400 text-blue-700 bg-blue-50"
+            onClick={() => onChartTypeChange && onChartTypeChange("bar")}
+            className="h-7 px-2.5 text-xs font-bold gap-1.5 text-blue-700 bg-blue-50/80 hover:bg-blue-100 border-blue-200 shadow-2xs"
+            title="Return to standard 2D Bar/Line/Donut charts"
           >
-            Vibrant Studio
-          </Badge>
+            <ArrowLeft size={13} className="text-blue-600" />
+            <span>← Back to 2D</span>
+          </Button>
 
-          {/* 3D Chart Mode Selector: Bar / Line / Donut */}
-          <div className="flex items-center gap-1 bg-white p-0.5 rounded-lg border border-slate-200 shadow-2xs ml-2">
+          {/* 2D Quick Switchers */}
+          <div className="flex items-center gap-0.5 bg-white p-0.5 rounded-lg border border-slate-200 shadow-2xs">
+            <span className="text-[10px] font-bold text-slate-400 px-1.5 uppercase">2D:</span>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => onChartTypeChange && onChartTypeChange("bar")}
+              className="h-6 px-2 text-[11px] text-slate-600 hover:text-slate-900"
+              title="2D Grouped Bar Chart"
+            >
+              <BarChart3 size={11} className="mr-1 text-slate-500" /> Bar
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => onChartTypeChange && onChartTypeChange("stacked_bar")}
+              className="h-6 px-2 text-[11px] text-slate-600 hover:text-slate-900"
+              title="2D Stacked Bar Chart"
+            >
+              <Layers size={11} className="mr-1 text-slate-500" /> Stacked
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => onChartTypeChange && onChartTypeChange("line")}
+              className="h-6 px-2 text-[11px] text-slate-600 hover:text-slate-900"
+              title="2D Line Chart"
+            >
+              <LineIcon size={11} className="mr-1 text-slate-500" /> Line
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => onChartTypeChange && onChartTypeChange("donut")}
+              className="h-6 px-2 text-[11px] text-slate-600 hover:text-slate-900"
+              title="2D Donut Chart"
+            >
+              <PieIcon size={11} className="mr-1 text-slate-500" /> Donut
+            </Button>
+          </div>
+
+          {/* 3D Mode Selector: Bar / Line / Donut */}
+          <div className="flex items-center gap-0.5 bg-sky-50/70 p-0.5 rounded-lg border border-sky-200 shadow-2xs">
+            <span className="text-[10px] font-bold text-sky-700 px-1.5 uppercase">3D:</span>
             <Button
               size="sm"
               variant={activeMode === "3d_bar" ? "default" : "ghost"}
               onClick={() => onChartTypeChange && onChartTypeChange("3d_bar")}
-              className="h-6 px-2 text-[11px] gap-1 font-medium"
+              className="h-6 px-2 text-[11px] gap-1 font-semibold"
               title="3D Isometric Bar Grid"
             >
-              <BarChart3 size={12} /> 3D Bar
+              <BarChart3 size={11} /> 3D Bar
             </Button>
             <Button
               size="sm"
               variant={activeMode === "3d_line" ? "default" : "ghost"}
               onClick={() => onChartTypeChange && onChartTypeChange("3d_line")}
-              className="h-6 px-2 text-[11px] gap-1 font-medium"
+              className="h-6 px-2 text-[11px] gap-1 font-semibold"
               title="3D Flowing Line Ribbon"
             >
-              <TrendingUp size={12} /> 3D Line
+              <TrendingUp size={11} /> 3D Line
             </Button>
             <Button
               size="sm"
               variant={activeMode === "3d_donut" ? "default" : "ghost"}
               onClick={() => onChartTypeChange && onChartTypeChange("3d_donut")}
-              className="h-6 px-2 text-[11px] gap-1 font-medium"
+              className="h-6 px-2 text-[11px] gap-1 font-semibold"
               title="3D Extruded Beveled Donut"
             >
-              <PieIcon size={12} /> 3D Donut
+              <PieIcon size={11} /> 3D Donut
             </Button>
           </div>
         </div>
@@ -946,6 +992,17 @@ export default function ThreeDimensionMatrixView({
             title={isFullscreen ? "Exit Fullscreen" : "Fullscreen 3D Studio"}
           >
             {isFullscreen ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
+          </Button>
+
+          {/* Hide Visualizer */}
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => onChartTypeChange && onChartTypeChange("none")}
+            className="h-6 w-6 p-0 text-slate-400 hover:text-slate-800 hover:bg-slate-200"
+            title="Hide Visualizer"
+          >
+            <EyeOff size={13} />
           </Button>
         </div>
       </div>

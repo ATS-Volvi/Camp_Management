@@ -299,7 +299,7 @@ export default function DynamicReports() {
               {config.chartType === "3d_bar" ||
               config.chartType === "3d_line" ||
               config.chartType === "3d_donut"
-                ? "3D Active (Close)"
+                ? "← Exit 3D (2D View)"
                 : "3D View"}
             </span>
           </Button>
