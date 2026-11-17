@@ -29,6 +29,7 @@ import { useDepartmentLunch } from "@/hooks/useDepartmentLunch";
 import DepartmentLunchTable from "./DepartmentLunchTable";
 import { reportPeriodEnd } from "@/lib/stayBilling";
 import { EXPERTISE_LOGO_DATA_URL } from "./expertiseLogoData";
+import { TablePager, usePaged } from "@/components/TablePager";
 
 const fmt = statementAmount;
 
@@ -76,6 +77,7 @@ export default function DepartmentMonthlyReportTab() {
     return addDepartmentLunchStatements(groupDepartmentStatements(locationRows, costCenterMap), departments || [], lunchRequests, fromDate, periodEnd);
   }, [locationRows, costCenterMap, departments, lunchQuery.data, campFilter, blockFilter, fromDate, periodEnd]);
   const shown = groups.filter(g => deptFilter === "all" || g.dept === deptFilter);
+  const pagedShown = usePaged(shown, 15);
 
   // Approved food cancellations for the selected period, resolved to employee name/code.
   const empMeta = useMemo(() => {
@@ -227,7 +229,7 @@ export default function DepartmentMonthlyReportTab() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {shown.map(g => (
+              {pagedShown.rows.map(g => (
                 <Fragment key={g.dept}>
                   <TableRow className="bg-muted/40 cursor-pointer font-semibold" onClick={() => setOpen(o => ({ ...o, [g.dept]: !o[g.dept] }))}>
                     <TableCell><span className="inline-flex items-center gap-1">{open[g.dept] ? <ChevronDown size={14} /> : <ChevronRight size={14} />}{g.dept}</span></TableCell>
@@ -242,17 +244,9 @@ export default function DepartmentMonthlyReportTab() {
                       <Button size="icon" variant="ghost" aria-label={`Print ${g.dept} costing statement`} onClick={e => { e.stopPropagation(); printStatement(g); }}><Printer size={14} /></Button>
                     </div></TableCell>
                   </TableRow>
-                  {(open[g.dept] || deptFilter !== "all") && g.list.map(r => (
-                    <TableRow key={r.id}>
-                      <TableCell className="pl-8"><div>{r.name}</div><div className="text-xs text-muted-foreground font-mono">{r.emp_code} · {r.supplier}</div><div className="text-xs text-muted-foreground">From: {r.stayFrom} To: {r.stayTo}</div></TableCell>
-                      <TableCell />
-                      <TableCell className="text-xs"><div>{r.camp} / {r.block || "—"} / {r.room}</div><div className="font-medium">{r.category || "—"}</div></TableCell>
-                      <TableCell className="text-right">{r.stayDays}</TableCell>
-                      <TableCell className="text-right">{fmt(r.roomRevenue)}{r.holdingCost ? <div className="text-xs text-muted-foreground">Normal {fmt(r.normalRoomCost || 0)} · Holding {fmt(r.holdingCost)}</div> : null}</TableCell>
-                      <TableCell className="text-right"><div>{fmt(r.foodRevenue)}</div><div className="text-[10px] text-muted-foreground whitespace-nowrap">B {fmt(r.breakfastCost ?? 0)} · L {fmt(r.lunchCost ?? 0)} · D {fmt(r.dinnerCost ?? 0)}{r.ramadanCost ? ` · R ${fmt(r.ramadanCost)}` : ""}</div></TableCell>
-                      <TableCell className="text-right">{fmt(r.total)}{r.lockerCost ? <div className="text-xs text-muted-foreground">Locker Charges {fmt(r.lockerCost)}</div> : null}</TableCell><TableCell />
-                    </TableRow>
-                  ))}
+                  {(open[g.dept] || deptFilter !== "all") && (
+                    <DepartmentResidentRows list={g.list} />
+                  )}
                   {(g.departmentLunch?.cost || 0) > 0 && <TableRow><TableCell>Monthly Department Lunch</TableCell><TableCell>{g.costCenter}</TableCell><TableCell /><TableCell className="text-right">{g.departmentLunch?.quantity}</TableCell><TableCell /><TableCell /><TableCell className="text-right">{fmt(g.departmentLunch?.cost || 0)}</TableCell><TableCell /></TableRow>}
                 </Fragment>
               ))}
@@ -269,6 +263,7 @@ export default function DepartmentMonthlyReportTab() {
               )}
             </TableBody>
           </Table>
+          <TablePager {...pagedShown} />
           <FoodTotalsTable groups={shown} />
           <LeaveFoodDeductionTable rows={shown.flatMap(g => g.list)} />
         </div>
@@ -347,5 +342,50 @@ function FoodTotalsTable({ groups }: { groups: any[] }) {
         </TableBody>
       </Table>
     </div>
+  );
+}
+
+function DepartmentResidentRows({ list }: { list: DepartmentCostRow[] }) {
+  const paged = usePaged(list, 50);
+  return (
+    <>
+      {paged.rows.map(r => (
+        <TableRow key={r.id}>
+          <TableCell className="pl-8">
+            <div className="font-medium">{r.name}</div>
+            <div className="text-xs text-muted-foreground font-mono">{r.emp_code} · {r.supplier}</div>
+            <div className="text-xs text-muted-foreground">From: {r.stayFrom} To: {r.stayTo}</div>
+          </TableCell>
+          <TableCell />
+          <TableCell className="text-xs">
+            <div>{r.camp} / {r.block || "—"} / {r.room}</div>
+            <div className="font-medium">{r.category || "—"}</div>
+          </TableCell>
+          <TableCell className="text-right">{r.stayDays}</TableCell>
+          <TableCell className="text-right">
+            {fmt(r.roomRevenue)}
+            {r.holdingCost ? <div className="text-xs text-muted-foreground">Normal {fmt(r.normalRoomCost || 0)} · Holding {fmt(r.holdingCost)}</div> : null}
+          </TableCell>
+          <TableCell className="text-right">
+            <div>{fmt(r.foodRevenue)}</div>
+            <div className="text-[10px] text-muted-foreground whitespace-nowrap">
+              B {fmt(r.breakfastCost ?? 0)} · L {fmt(r.lunchCost ?? 0)} · D {fmt(r.dinnerCost ?? 0)}{r.ramadanCost ? ` · R ${fmt(r.ramadanCost)}` : ""}
+            </div>
+          </TableCell>
+          <TableCell className="text-right">
+            {fmt(r.total)}
+            {r.lockerCost ? <div className="text-xs text-muted-foreground">Locker Charges {fmt(r.lockerCost)}</div> : null}
+          </TableCell>
+          <TableCell />
+        </TableRow>
+      ))}
+      {list.length > 50 && (
+        <TableRow>
+          <TableCell colSpan={8} className="p-0 bg-muted/10">
+            <TablePager {...paged} />
+          </TableCell>
+        </TableRow>
+      )}
+    </>
   );
 }

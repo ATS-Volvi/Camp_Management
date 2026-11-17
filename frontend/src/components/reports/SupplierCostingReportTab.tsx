@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { buildDepartmentStatementPdf, downloadStatementBlob, groupDepartmentStatements, statementAmount as fmt, type DepartmentStatement, type StatementLabels } from "./departmentStatement";
 import { useRevenueData, buildRevenueRows, LeaveNotes } from "./RevenueReportTab";
+import { TablePager, usePaged } from "@/components/TablePager";
 
 const LABELS: StatementLabels = { title: "Supplier Monthly Costing Statement", chargeTo: "Charge to supplier", codeLabel: "Supplier Code", footer: "Supplier" };
 const fileName = (s: string, m: string) => `supplier-costing-${s.replace(/[^a-z0-9_-]/gi, "-")}-${m}`;
@@ -51,6 +52,7 @@ export default function SupplierCostingReportTab() {
   const codeMap = useMemo(() => Object.fromEntries(master.map(m => [m.name, m.code])), [master]);
   const groups = useMemo(() => groupDepartmentStatements(rows, codeMap), [rows, codeMap]);
   const shown = groups.filter(g => supplier === "all" || g.dept === supplier);
+  const pagedShown = usePaged(shown, 15);
   const grand = shown.reduce((s, g) => ({ n: s.n + g.residents, room: s.room + g.room, food: s.food + g.food, total: s.total + g.total }), { n: 0, room: 0, food: 0, total: 0 });
 
   const pdf = (g: DepartmentStatement) => buildDepartmentStatementPdf(g, month, LABELS);
@@ -151,7 +153,7 @@ export default function SupplierCostingReportTab() {
               <TableHead className="text-right">Food Cost (SAR)</TableHead><TableHead className="text-right">Total (SAR)</TableHead><TableHead>Statement</TableHead>
             </TableRow></TableHeader>
             <TableBody>
-              {shown.map(g => (
+              {pagedShown.rows.map(g => (
                 <Fragment key={g.dept}>
                   <TableRow className="bg-muted/40 cursor-pointer font-semibold" onClick={() => setOpen(o => ({ ...o, [g.dept]: !o[g.dept] }))}>
                     <TableCell><span className="inline-flex items-center gap-1">{open[g.dept] ? <ChevronDown size={14} /> : <ChevronRight size={14} />}{g.dept}</span></TableCell>
@@ -163,17 +165,9 @@ export default function SupplierCostingReportTab() {
                       <Button size="icon" variant="ghost" aria-label={`Print ${g.dept} costing statement`} onClick={e => { e.stopPropagation(); printStatement(g); }}><Printer size={14} /></Button>
                     </div></TableCell>
                   </TableRow>
-                  {(open[g.dept] || supplier !== "all") && g.list.map((r: any) => (
-                    <TableRow key={r.id}>
-                      <TableCell className="pl-8"><div>{r.name}</div><div className="text-xs text-muted-foreground font-mono">{r.emp_code} · {r.project}</div><div className="text-xs text-muted-foreground">From: {r.stayFrom} To: {r.stayTo}</div></TableCell>
-                      <TableCell className="text-xs">{r.homeDept} {r.supplierRates ? <Badge variant="outline" className="ml-1 text-[10px]">Supplier rates</Badge> : null}</TableCell>
-                      <TableCell className="text-xs">{r.camp} / {r.room}</TableCell>
-                      <TableCell className="text-right">{r.stayDays}</TableCell>
-                      <TableCell className="text-right">{fmt(r.roomRevenue)}</TableCell>
-                      <TableCell className="text-right"><div>{fmt(r.foodRevenue)}</div><div className="text-[10px] text-muted-foreground whitespace-nowrap">B {fmt(r.breakfastCost ?? 0)} · L {fmt(r.lunchCost ?? 0)} · D {fmt(r.dinnerCost ?? 0)}{r.ramadanCost ? ` · R ${fmt(r.ramadanCost)}` : ""}</div></TableCell>
-                      <TableCell className="text-right">{fmt(r.total)}</TableCell><TableCell />
-                    </TableRow>
-                  ))}
+                  {(open[g.dept] || supplier !== "all") && (
+                    <SupplierResidentRows list={g.list} />
+                  )}
                 </Fragment>
               ))}
               {shown.length === 0 ? <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">No supplier residents for this month</TableCell></TableRow> : (
@@ -183,10 +177,47 @@ export default function SupplierCostingReportTab() {
               )}
             </TableBody>
           </Table>
+          <TablePager {...pagedShown} />
           <LeaveNotes rows={shown.flatMap((g: any) => g.list)} />
         </div>
       </>)}
     <ChartDrilldown selection={chartSelection} onClose={() => setChartSelection(null)} />
     </div>
+  );
+}
+
+function SupplierResidentRows({ list }: { list: any[] }) {
+  const paged = usePaged(list, 50);
+  return (
+    <>
+      {paged.rows.map((r: any) => (
+        <TableRow key={r.id}>
+          <TableCell className="pl-8">
+            <div className="font-medium">{r.name}</div>
+            <div className="text-xs text-muted-foreground font-mono">{r.emp_code} · {r.project}</div>
+            <div className="text-xs text-muted-foreground">From: {r.stayFrom} To: {r.stayTo}</div>
+          </TableCell>
+          <TableCell className="text-xs">{r.homeDept} {r.supplierRates ? <Badge variant="outline" className="ml-1 text-[10px]">Supplier rates</Badge> : null}</TableCell>
+          <TableCell className="text-xs">{r.camp} / {r.room}</TableCell>
+          <TableCell className="text-right">{r.stayDays}</TableCell>
+          <TableCell className="text-right">{fmt(r.roomRevenue)}</TableCell>
+          <TableCell className="text-right">
+            <div>{fmt(r.foodRevenue)}</div>
+            <div className="text-[10px] text-muted-foreground whitespace-nowrap">
+              B {fmt(r.breakfastCost ?? 0)} · L {fmt(r.lunchCost ?? 0)} · D {fmt(r.dinnerCost ?? 0)}{r.ramadanCost ? ` · R ${fmt(r.ramadanCost)}` : ""}
+            </div>
+          </TableCell>
+          <TableCell className="text-right">{fmt(r.total)}</TableCell>
+          <TableCell />
+        </TableRow>
+      ))}
+      {list.length > 50 && (
+        <TableRow>
+          <TableCell colSpan={8} className="p-0 bg-muted/10">
+            <TablePager {...paged} />
+          </TableCell>
+        </TableRow>
+      )}
+    </>
   );
 }

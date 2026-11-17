@@ -21,6 +21,7 @@ import { Download, DollarSign, Users, BedDouble, UtensilsCrossed } from "lucide-
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
+import { TablePager, usePaged } from "@/components/TablePager";
 
 // Throw on any failed query: silently missing check-outs or leaves would mis-bill every stay.
 export function rowsOf<T>({ data, error }: { data: T[] | null; error: unknown }): T[] {
@@ -48,10 +49,12 @@ export function useRevenueData(fromDate: string, toDate: string) {
   const qc = useQueryClient();
   return useQuery({
     queryKey: ["revenue-data", fromDate, toDate],
+    staleTime: 120_000,
+    gcTime: 600_000,
     queryFn: async () => {
-      // Every date range shares one cached base load; invalidating ["revenue-data"] refreshes it too.
-      const [base, cancellations] = await Promise.all([
-        qc.fetchQuery({ queryKey: ["revenue-data", "base"], queryFn: fetchRevenueBase, staleTime: 60_000 }),
+      // Parallelize all base and child datasets with query client caching
+      const [base, cancellations, absences, lockerBilling] = await Promise.all([
+        qc.fetchQuery({ queryKey: ["revenue-data", "base"], queryFn: fetchRevenueBase, staleTime: 120_000 }),
         supabase
           .from("food_cancellation_requests")
           .select("id, employee_id, from_date, to_date, status, source, reason, food_cancellation_request_meals(meal_type)")
@@ -59,9 +62,9 @@ export function useRevenueData(fromDate: string, toDate: string) {
           .lte("from_date", toDate)
           .gte("to_date", fromDate)
           .then(rowsOf),
+        qc.fetchQuery({ queryKey: ["accommodation-absences"], queryFn: loadAccommodationAbsences, staleTime: 120_000 }),
+        qc.fetchQuery({ queryKey: ["locker-billing"], queryFn: loadLockerBilling, staleTime: 120_000 }),
       ]);
-      const absences = await loadAccommodationAbsences();
-      const lockerBilling = await loadLockerBilling();
       return { lockerBilling, absences, ...base, cancellations };
     },
   });
@@ -85,7 +88,11 @@ export function buildRevenueRows(data: any, fromDate: string, toDate: string): a
       campMealByCamp[r.camp_id] = { breakfast, lunch, dinner, ramadan: Number(r.ramadan_rate) || breakfast + lunch + dinner };
     });
     const leaveByEmp: Record<string, LeavePeriod[]> = {};
-    (data.leaves || []).forEach((l: any) => { (leaveByEmp[l.employee_id] = leaveByEmp[l.employee_id] || []).push({ from: l.effective_from, to: l.effective_to }); });
+    const statusPeriodsByEmp: Record<string, any[]> = {};
+    (data.leaves || []).forEach((l: any) => {
+      (leaveByEmp[l.employee_id] = leaveByEmp[l.employee_id] || []).push({ from: l.effective_from, to: l.effective_to });
+      (statusPeriodsByEmp[l.employee_id] = statusPeriodsByEmp[l.employee_id] || []).push({ status: l.to_status, from: l.effective_from, to: l.effective_to || null });
+    });
     const rateMap: Record<string, number> = {};
     rates.forEach((r: any) => { rateMap[`${r.camp_id}-${r.room_category}`] = Number(r.daily_rate) || 0; });
 
@@ -93,6 +100,25 @@ export function buildRevenueRows(data: any, fromDate: string, toDate: string): a
     approvedFoodCancellations(cancellations).forEach((c: any) => {
       (cancelByEmp[c.employee_id] = cancelByEmp[c.employee_id] || []).push(c);
     });
+
+    // Fast indexed lookup for absences by check_in_id (O(1) instead of repeated O(N) filters)
+    const absencesByCiId: Record<string, any[]> = {};
+    (data.absences || []).forEach((a: any) => {
+      (absencesByCiId[a.check_in_id] = absencesByCiId[a.check_in_id] || []).push(a);
+    });
+
+    // Fast indexed lookup for lockers by employee and camp
+    const lockerByEmpAndCamp: Record<string, any[]> = {};
+    if (data.lockerBilling?.allocations && data.lockerBilling?.lockers) {
+      const lockerCampMap = new Map(data.lockerBilling.lockers.map((l: any) => [l.id, l.camp_id]));
+      data.lockerBilling.allocations.forEach((a: any) => {
+        const cId = lockerCampMap.get(a.locker_id);
+        if (cId) {
+          const k = `${a.employee_id}-${cId}`;
+          (lockerByEmpAndCamp[k] = lockerByEmpAndCamp[k] || []).push(a);
+        }
+      });
+    }
 
     return checkIns.map((ci: any) => {
       const emp = ci.employees;
@@ -115,7 +141,8 @@ export function buildRevenueRows(data: any, fromDate: string, toDate: string): a
         : client ? { breakfast: Number(client.breakfast_rate) || 0, lunch: Number(client.lunch_rate) || 0, dinner: Number(client.dinner_rate) || 0, ramadan: Number(client.ramadan_rate) || 0 }
         : campMealByCamp[ci.camp_id] ?? (baseFood > 0 ? defaultMealRates(baseFood) : getExcelMealRates(room.category, room.max_capacity));
       const dailyFood = mealRates.breakfast + mealRates.lunch + mealRates.dinner;
-      const periods = [...(leaveByEmp[ci.employee_id] || []), ...absencePeriods(data.absences || [], ci.id)];
+      const ciAbsences = absencesByCiId[ci.id] || [];
+      const periods = [...(leaveByEmp[ci.employee_id] || []), ...absencePeriods(ciAbsences, ci.id)];
       const leaves = leaveRangesWithin(periods, stayStart, stayEnd);
       // Leave days automatically remove every meal for those days; the room is charged at the holding rate.
       const meal = computeMealCost(stayStart, stayEnd, mealRates,
@@ -146,7 +173,8 @@ export function buildRevenueRows(data: any, fromDate: string, toDate: string): a
       const dailyRoom = roomStay.effectiveDailyRate;
       const holdingCharge = fallbackHoldingCharge;
       const foodRevenue = meal.net;
-      const lockerCost = (data.lockerBilling?.allocations || []).filter((a: any) => a.employee_id === ci.employee_id && data.lockerBilling.lockers.find((l: any) => l.id === a.locker_id)?.camp_id === ci.camp_id).reduce((sum: number, a: any) => sum + lockerCharge(a, format(stayStart, "yyyy-MM-dd"), format(stayEnd, "yyyy-MM-dd")), 0);
+      const empLockers = lockerByEmpAndCamp[`${ci.employee_id}-${ci.camp_id}`] || [];
+      const lockerCost = empLockers.reduce((sum: number, a: any) => sum + lockerCharge(a, format(stayStart, "yyyy-MM-dd"), format(stayEnd, "yyyy-MM-dd")), 0);
       const total = roomRevenue + foodRevenue + lockerCost;
 
       return {
@@ -164,7 +192,7 @@ export function buildRevenueRows(data: any, fromDate: string, toDate: string): a
         room: room.room_number,
         category: room.category,
         presenceStatus: emp.presence_status,
-        statusPeriods: (data.leaves || []).filter((l: any) => l.employee_id === ci.employee_id).map((l: any) => ({ status: l.to_status, from: l.effective_from, to: l.effective_to || null })),
+        statusPeriods: statusPeriodsByEmp[ci.employee_id] || [],
         stayDays,
         dailyRoom,
         leaveDays,
@@ -176,7 +204,7 @@ export function buildRevenueRows(data: any, fromDate: string, toDate: string): a
         hasRateChange: roomStay.hasRateChange,
         rateBreakdownLabel: roomStay.rateBreakdownLabel,
         rateSegments: roomStay.segments,
-        absences: (data.absences || []).filter((a: any) => a.check_in_id === ci.id),
+        absences: ciAbsences,
         dailyFood,
         foodFull: meal.full,
         foodDeductions: meal.deductions,
@@ -227,6 +255,8 @@ export default function RevenueReportTab() {
     food: filtered.reduce((s, r) => s + r.foodRevenue, 0),
     total: filtered.reduce((s, r) => s + r.total, 0),
   }), [filtered]);
+
+  const paged = usePaged(filtered, 50);
 
   const handleExport = () => {
     const headers = ["Employee ID", "Name", "Department", "Supplier", "Project", "Camp", "Room", "Stay Days", "Daily Room (SAR)", "Rate Split", "Room Revenue", "Meals Cancelled", "Food Revenue", "Total Revenue"];
@@ -318,7 +348,7 @@ export default function RevenueReportTab() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.map(r => (
+              {paged.rows.map(r => (
                 <TableRow key={r.id}>
                   <TableCell>
                     <div className="font-medium">{r.name}</div>
@@ -348,7 +378,8 @@ export default function RevenueReportTab() {
               )}
             </TableBody>
           </Table>
-          <LeaveNotes rows={filtered} />
+          <TablePager {...paged} />
+          <LeaveNotes rows={paged.rows} />
         </div>
       )}
     </div>

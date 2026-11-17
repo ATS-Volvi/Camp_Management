@@ -3,6 +3,7 @@ import { PivotMatrixResult, PivotRowNode, ReportConfig } from "@/lib/dynamicRepo
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ChevronRight, ChevronDown, Table2, Layers } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { TablePager, usePaged } from "@/components/TablePager";
 
 interface PivotMatrixTableProps {
   matrix: PivotMatrixResult;
@@ -12,6 +13,7 @@ interface PivotMatrixTableProps {
 export default function PivotMatrixTable({ matrix, config }: PivotMatrixTableProps) {
   const [collapsedKeys, setCollapsedKeys] = useState<Set<string>>(new Set());
   const [density, setDensity] = useState<"compact" | "standard">("standard");
+  const pagedRows = usePaged(matrix.rows || [], 25);
 
   const toggleCollapse = (key: string) => {
     setCollapsedKeys((prev) => {
@@ -194,7 +196,7 @@ export default function PivotMatrixTable({ matrix, config }: PivotMatrixTablePro
           </TableHeader>
 
           <TableBody>
-            {matrix.rows.map((rootNode) => renderRow(rootNode))}
+            {pagedRows.rows.map((rootNode) => renderRow(rootNode))}
 
             {/* Grand Total Row - Sticky to bottom of viewport table */}
             {config.showGrandTotals && (
@@ -217,6 +219,7 @@ export default function PivotMatrixTable({ matrix, config }: PivotMatrixTablePro
             )}
           </TableBody>
         </Table>
+        <TablePager {...pagedRows} />
       </div>
     </div>
   );

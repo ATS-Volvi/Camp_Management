@@ -27,6 +27,7 @@ import { TablePager, usePaged } from "@/components/TablePager";
 function useEmployeeReport(type?: string) {
   return useQuery({
     queryKey: ["report-employees", type],
+    staleTime: 60_000,
     queryFn: async () => {
       let q = supabase.from("employees").select("*").order("created_at", { ascending: false });
       if (type && type !== "all") q = q.eq("employee_type", type);
@@ -40,6 +41,7 @@ function useEmployeeReport(type?: string) {
 function useCheckInReport(from: string, to: string) {
   return useQuery({
     queryKey: ["report-check-ins", from, to],
+    staleTime: 60_000,
     queryFn: async () => {
       const records: CheckInReportRecord[] = [];
       const PAGE = 10_000;
@@ -62,6 +64,7 @@ function useCheckInReport(from: string, to: string) {
 function useCheckOutReport(from: string, to: string) {
   return useQuery({
     queryKey: ["report-check-outs", from, to],
+    staleTime: 60_000,
     queryFn: async () => {
       let query = supabase
         .from("check_outs")
@@ -79,6 +82,7 @@ function useCheckOutReport(from: string, to: string) {
 function useCampsForFilter() {
   return useQuery({
     queryKey: ["camps-filter"],
+    staleTime: 300_000,
     queryFn: async () => {
       const { data, error } = await supabase.from("camps").select("id, name").order("name");
       if (error) throw error;

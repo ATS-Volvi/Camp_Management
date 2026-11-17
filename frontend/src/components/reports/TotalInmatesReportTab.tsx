@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { supabase } from "@/integrations/supabase/client";
 import { loadInmates } from "@/hooks/useInmatesReport";
 import { departmentInmatesMatrix, filterTotalInmates, totalInmatesMatrix } from "@/lib/totalInmates";
+import { TablePager, usePaged } from "@/components/TablePager";
 
 const catLabel = (c: string) => (c === "guest" ? "Guest" : c);
 
@@ -58,6 +59,7 @@ export default function TotalInmatesReportTab() {
   const locationRooms = rooms.filter(r => (camp === "all" || r.camp_id === camp) && (block === "all" || r.building_id === block));
   const { statuses, table, grand } = totalInmatesMatrix(filtered, locationRooms, data);
   const departments = departmentInmatesMatrix(filtered);
+  const pagedDepts = usePaged(departments.table, 15);
   const scope = [camp === "all" ? "All Camps" : camps.find(c => c[0] === camp)?.[1],
     block === "all" ? "All Blocks" : blocks.find(b => b[0] === block)?.[1],
     dept === "all" ? "All Departments" : dept, nationality === "all" ? "All Nationalities" : nationality,
@@ -129,11 +131,12 @@ export default function TotalInmatesReportTab() {
                   <TableRow><TableHead colSpan={statuses.length + 2} className="border-x border-t bg-muted/50 text-center font-semibold">Status</TableHead><TableHead rowSpan={2} className="!w-5 !min-w-5 !px-0 !border-0" aria-hidden="true" /><TableHead colSpan={departments.categories.length + 1} className="border-x border-t bg-muted/50 text-center font-semibold whitespace-nowrap">Room Category — Inmate Counts</TableHead></TableRow>
                   <TableRow><TableHead className="border-l whitespace-nowrap">Department</TableHead>{statuses.map(s => <TableHead key={s} className="text-right whitespace-nowrap">{s}</TableHead>)}<TableHead className="text-right border-r">Total</TableHead>{departments.categories.map((c, i) => <TableHead key={c} className={`text-right whitespace-nowrap ${i === 0 ? "border-l" : ""} `}>{catLabel(c)}</TableHead>)}<TableHead className="text-right border-r font-semibold">Total</TableHead></TableRow>
                 </TableHeader>
-                <TableBody>{departments.table.map(r => <TableRow key={r.department}><TableCell className="font-medium border-l whitespace-nowrap">{r.department}</TableCell>{statuses.map(s => <TableCell key={s} className="text-right">{r.counts[s] || "-"}</TableCell>)}<TableCell className="text-right font-medium border-r">{r.total}</TableCell><TableCell className="!border-0 !px-0 bg-background" aria-hidden="true" />{departments.categories.map((c, i) => <TableCell key={c} className={`text-right ${i === 0 ? "border-l" : ""} `}>{r.categoryCounts[c]}</TableCell>)}<TableCell className="text-right border-r font-semibold">{r.total}</TableCell></TableRow>)}
+                <TableBody>{pagedDepts.rows.map(r => <TableRow key={r.department}><TableCell className="font-medium border-l whitespace-nowrap">{r.department}</TableCell>{statuses.map(s => <TableCell key={s} className="text-right">{r.counts[s] || "-"}</TableCell>)}<TableCell className="text-right font-medium border-r">{r.total}</TableCell><TableCell className="!border-0 !px-0 bg-background" aria-hidden="true" />{departments.categories.map((c, i) => <TableCell key={c} className={`text-right ${i === 0 ? "border-l" : ""} `}>{r.categoryCounts[c]}</TableCell>)}<TableCell className="text-right border-r font-semibold">{r.total}</TableCell></TableRow>)}
                   {!departments.table.length && <TableRow><TableCell colSpan={statuses.length + 4 + departments.categories.length} className="text-center text-muted-foreground">No residents match these filters.</TableCell></TableRow>}
                   <TableRow className="font-bold bg-primary/10"><TableCell className="border-l whitespace-nowrap">Grand Total</TableCell>{statuses.map(s => <TableCell key={s} className="text-right">{departments.grand.counts[s]}</TableCell>)}<TableCell className="text-right border-r">{departments.grand.total}</TableCell><TableCell className="!border-0 !px-0 bg-background" aria-hidden="true" />{departments.categories.map((c, i) => <TableCell key={c} className={`text-right ${i === 0 ? "border-l" : ""} `}>{departments.grand.categoryCounts[c]}</TableCell>)}<TableCell className="text-right border-r">{departments.grand.total}</TableCell></TableRow>
                 </TableBody>
               </Table>
+              <TablePager {...pagedDepts} />
             </div>
           </section>
         </>}

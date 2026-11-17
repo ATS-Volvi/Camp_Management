@@ -15,6 +15,7 @@ import { approvedFoodCancellations } from "@/lib/approvedFoodCancellations";
 import { resolveDailyRoomRate } from "@/lib/roomRateFallback";
 import { resolveCampMealRates } from "@/lib/campMealRates";
 import { useRevenueData, buildRevenueRows } from "./RevenueReportTab";
+import { TablePager, usePaged } from "@/components/TablePager";
 
 const MEAL_TYPES = ["breakfast", "lunch", "dinner"] as const;
 type MealType = (typeof MEAL_TYPES)[number];
@@ -48,49 +49,6 @@ interface InvoiceRow {
   total_cost: number;
 }
 
-function useInvoiceData(fromDate: string, toDate: string, campId: string) {
-  return useQuery({
-    queryKey: ["invoice-data", fromDate, toDate, campId],
-    queryFn: async () => {
-      // Fetch active check-ins overlapping window
-      let q = supabase
-        .from("check_ins")
-        .select("id, employee_id, room_id, camp_id, check_in_date, food_required, employees(id, employee_id, name, department, project, employee_type), rooms(id, room_number, category, daily_food_rate), camps(id, name)")
-        .lte("check_in_date", toDate + "T23:59:59")
-        .order("check_in_date", { ascending: false });
-      if (campId !== "all") q = q.eq("camp_id", campId);
-      const { data: checkIns, error } = await q;
-      if (error) throw error;
-
-      // Fetch related check-outs
-      const empIds = Array.from(new Set((checkIns || []).map((c: any) => c.employee_id)));
-      const { data: checkOuts } = await supabase
-        .from("check_outs")
-        .select("employee_id, check_out_date, room_id")
-        .in("employee_id", empIds.length ? empIds : ["00000000-0000-0000-0000-000000000000"]);
-
-      // Camp room rates + Room Category Master defaults (master rate applies when a camp has no override)
-      const { data: rates } = await supabase.from("camp_room_rates").select("*");
-      const { data: masterCats } = await supabase.from("room_categories").select("category_key, daily_rate");
-
-      // Camp Food Rates master (per-meal prices per camp)
-      const { data: campMealRates } = await supabase.from("camp_meal_rates").select("camp_id, breakfast_rate, lunch_rate, dinner_rate");
-      const { data: roomMealRates, error: mealRateError } = await supabase.from("camp_room_meal_rates").select("camp_id, room_category, breakfast_rate, lunch_rate, dinner_rate, ramadan_rate");
-      if (mealRateError) throw mealRateError;
-
-      // Approved cancellations in range
-      const { data: cancellations } = await supabase
-        .from("food_cancellation_requests")
-        .select("id, employee_id, from_date, to_date, reason, remarks, status, source, food_cancellation_request_meals(meal_type)")
-        .eq("status", "approved")
-        .lte("from_date", toDate)
-        .gte("to_date", fromDate);
-
-      return { checkIns: checkIns || [], checkOuts: checkOuts || [], rates: rates || [], cancellations: cancellations || [], campMealRates: campMealRates || [], roomMealRates: roomMealRates || [], masterCats: masterCats || [] };
-    },
-  });
-}
-
 export default function CostInvoicingTab() {
   const today = new Date();
   const [fromDate, setFromDate] = useState(format(new Date(today.getFullYear(), today.getMonth() - 1, 1), "yyyy-MM-dd"));
@@ -112,15 +70,40 @@ export default function CostInvoicingTab() {
 
   const rows: InvoiceRow[] = useMemo(() => {
     if (!data) return [];
-    return buildRevenueRows(data, fromDate, toDate).filter(r => campId === "all" || data.checkIns.find(ci => ci.id === r.id)?.camp_id === campId).map(r => {
-      const ci = data.checkIns.find(ci => ci.id === r.id);
-      return { employee_id: ci?.employee_id || r.id, emp_code: r.emp_code, name: r.name, department: r.department, project: r.project,
-        camp_name: r.camp, room_number: r.room, room_category: r.category, check_in: ci?.check_in_date || "", check_out: ci ? stayDeparture(ci, data.checkOuts, data.checkIns) : null,
-        stay_days: r.stayDays, daily_room_rate: r.dailyRoom, daily_food_rate: r.dailyFood, meal_unit_rate: r.dailyFood / 3,
-        total_meals_eligible: r.stayDays * 3, meals_cancelled: r.mealsCancelled, meals_consumed: r.stayDays * 3 - r.mealsCancelled,
-        cancellation_breakdown: [], room_cost: Number(r.roomRevenue) || 0, normal_room_cost: Number(r.normalRoomCost) || 0, holding_cost: Number(r.holdingCost) || 0, food_cost_full: Number(r.foodFull) || 0, food_credit: (Number(r.foodFull) || 0) - (Number(r.foodRevenue) || 0),
-        food_cost_net: Number(r.foodRevenue) || 0, locker_cost: Number(r.lockerCost) || 0, total_cost: Number(r.total) || 0 };
-    });
+    const checkInMap = new Map((data.checkIns || []).map((ci: any) => [ci.id, ci]));
+    return buildRevenueRows(data, fromDate, toDate)
+      .filter(r => campId === "all" || checkInMap.get(r.id)?.camp_id === campId)
+      .map(r => {
+        const ci = checkInMap.get(r.id);
+        return {
+          employee_id: ci?.employee_id || r.id,
+          emp_code: r.emp_code,
+          name: r.name,
+          department: r.department,
+          project: r.project,
+          camp_name: r.camp,
+          room_number: r.room,
+          room_category: r.category,
+          check_in: ci?.check_in_date || "",
+          check_out: ci ? stayDeparture(ci, data.checkOuts, data.checkIns) : null,
+          stay_days: r.stayDays,
+          daily_room_rate: r.dailyRoom,
+          daily_food_rate: r.dailyFood,
+          meal_unit_rate: r.dailyFood / 3,
+          total_meals_eligible: r.stayDays * 3,
+          meals_cancelled: r.mealsCancelled,
+          meals_consumed: r.stayDays * 3 - r.mealsCancelled,
+          cancellation_breakdown: [],
+          room_cost: Number(r.roomRevenue) || 0,
+          normal_room_cost: Number(r.normalRoomCost) || 0,
+          holding_cost: Number(r.holdingCost) || 0,
+          food_cost_full: Number(r.foodFull) || 0,
+          food_credit: (Number(r.foodFull) || 0) - (Number(r.foodRevenue) || 0),
+          food_cost_net: Number(r.foodRevenue) || 0,
+          locker_cost: Number(r.lockerCost) || 0,
+          total_cost: Number(r.total) || 0,
+        };
+      });
   }, [data, fromDate, toDate, campId]);
 
   const departments = useMemo(() => Array.from(new Set(rows.map((r) => r.department).filter((d) => d && d !== "—"))).sort(), [rows]);
@@ -144,6 +127,8 @@ export default function CostInvoicingTab() {
     foodNet: filteredRows.reduce((s, r) => s + r.food_cost_net, 0),
     total: filteredRows.reduce((s, r) => s + r.total_cost, 0),
   }), [filteredRows]);
+
+  const paged = usePaged(filteredRows, 50);
 
   const fmt = (n: any) => `SAR ${(Number(n) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
@@ -294,7 +279,7 @@ export default function CostInvoicingTab() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredRows.map((r) => (
+                  {paged.rows.map((r) => (
                     <TableRow key={r.employee_id + r.check_in}>
                       <TableCell>
                         <div className="font-medium">{r.name}</div>
@@ -330,6 +315,7 @@ export default function CostInvoicingTab() {
                 </TableBody>
               </Table>
             </div>
+            <TablePager {...paged} />
           </CardContent>
         </Card>
       )}
