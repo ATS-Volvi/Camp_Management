@@ -268,7 +268,7 @@ export default function VisualizationsPane({
   return (
     <div className="bg-card border border-border rounded-xl shadow-xs overflow-hidden flex flex-col shrink-0 w-full">
       {/* Header Bar */}
-      <div className="p-3 bg-muted/50 border-b border-border flex items-center justify-between">
+      <div className="px-3.5 py-2.5 bg-muted/30 border-b border-border/80 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div className="p-1 rounded bg-primary/10 text-primary">
             <BarChart3 size={15} />

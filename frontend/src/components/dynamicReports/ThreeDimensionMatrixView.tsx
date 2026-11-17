@@ -1326,231 +1326,253 @@ export default function ThreeDimensionMatrixView({
       } ${className}`}
     >
       {/* 3D Top Header & Controls Ribbon */}
-      <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 bg-slate-50/95 backdrop-blur-md border-b border-slate-200 text-slate-700 z-10">
-        {/* Left: 3D Studio Title & Active Mode */}
-        <div className="flex items-center gap-2">
-          <div className="p-1 rounded bg-sky-500/10 text-sky-600 dark:text-sky-400">
-            <Box size={15} />
+      <div className="bg-slate-50/95 backdrop-blur-md border-b border-slate-200 text-slate-700 z-10">
+        {/* Tier 1: Viewport Bar */}
+        <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2 border-b border-slate-200/60">
+          {/* Left: 3D Studio Title & Active Mode */}
+          <div className="flex items-center gap-2">
+            <div className="p-1 rounded bg-sky-500/10 text-sky-600 dark:text-sky-400">
+              <Box size={15} />
+            </div>
+            <span className="text-xs font-bold text-foreground uppercase tracking-wide">
+              {activeMode === "3d_bar"
+                ? "3D Isometric Bar Grid"
+                : activeMode === "3d_line"
+                ? "3D Flowing Line Ribbon"
+                : "3D Extruded Donut Studio"}
+            </span>
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-500/10 text-sky-700 dark:text-sky-300 border border-sky-400/30">
+              WebGL 3D
+            </span>
           </div>
-          <span className="text-xs font-bold text-foreground uppercase tracking-wide">
-            {activeMode === "3d_bar"
-              ? "3D Isometric Bar Grid"
-              : activeMode === "3d_line"
-              ? "3D Flowing Line Ribbon"
-              : "3D Extruded Donut Studio"}
-          </span>
-          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-500/10 text-sky-700 dark:text-sky-300 border border-sky-400/30">
-            WebGL 3D
-          </span>
-        </div>
 
-        {/* Right: Camera Angles, Interactive Tools (Threshold, Compare, Labels, Sort) */}
-        <div className="flex flex-wrap items-center gap-1.5">
-          {/* FEATURE 2: 3D Capacity / Target Threshold Plane Toggle */}
-          {activeMode !== "3d_donut" && (
+          {/* Right: Camera Angles, Auto-Spin & Window Controls */}
+          <div className="flex items-center gap-1.5">
+            {/* Camera Angles Segmented Control */}
+            <div className="flex items-center bg-white rounded-lg p-0.5 border border-slate-300 shadow-2xs">
+              <button
+                type="button"
+                onClick={() => setCameraAngle("iso")}
+                className={`h-6 px-2 text-[11px] font-semibold rounded transition-colors ${
+                  cameraAngle === "iso" ? "bg-primary text-primary-foreground font-bold" : "text-slate-700 hover:bg-slate-100"
+                }`}
+                title="3D Isometric View"
+              >
+                3D
+              </button>
+              <button
+                type="button"
+                onClick={() => setCameraAngle("top")}
+                className={`h-6 px-2 text-[11px] font-semibold rounded transition-colors ${
+                  cameraAngle === "top" ? "bg-primary text-primary-foreground font-bold" : "text-slate-700 hover:bg-slate-100"
+                }`}
+                title="Top-Down Plan View"
+              >
+                Top
+              </button>
+              <button
+                type="button"
+                onClick={() => setCameraAngle("front")}
+                className={`h-6 px-2 text-[11px] font-semibold rounded transition-colors ${
+                  cameraAngle === "front" ? "bg-primary text-primary-foreground font-bold" : "text-slate-700 hover:bg-slate-100"
+                }`}
+                title="Front Elevation View"
+              >
+                Front
+              </button>
+              <button
+                type="button"
+                onClick={() => setCameraAngle("side")}
+                className={`h-6 px-2 text-[11px] font-semibold rounded transition-colors ${
+                  cameraAngle === "side" ? "bg-primary text-primary-foreground font-bold" : "text-slate-700 hover:bg-slate-100"
+                }`}
+                title="Side Profile View"
+              >
+                Side
+              </button>
+            </div>
+
+            {/* Auto Rotate Presentation */}
             <Button
               size="sm"
-              variant={showThresholdPlane ? "default" : "outline"}
-              onClick={() => {
-                const nextState = !showThresholdPlane;
-                setShowThresholdPlane(nextState);
-                toast.info(nextState ? `${datasetContext.limitName} Alert enabled: Move slider to adjust limit` : `${datasetContext.limitName} Alert disabled`);
-              }}
-              className={`h-7 px-2.5 text-xs font-bold gap-1 shadow-2xs ${
-                showThresholdPlane
-                  ? "bg-red-600 hover:bg-red-700 text-white font-bold"
+              variant={autoRotate ? "default" : "outline"}
+              onClick={() => setAutoRotate(!autoRotate)}
+              className={`h-7 px-2 text-xs gap-1 font-bold shadow-2xs ${
+                autoRotate
+                  ? "bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold"
                   : "bg-white text-slate-800 border-slate-300 hover:bg-slate-100"
               }`}
-              title={`Toggle ${datasetContext.limitName} Alert Plane`}
+              title="Toggle automatic rotation"
             >
-              <Target size={12} className={showThresholdPlane ? "text-white" : "text-red-500"} />
-              <span>Limit Alert</span>
+              {autoRotate ? <Pause size={11} /> : <Play size={11} />}
+              Auto-Spin
             </Button>
-          )}
 
-          {/* FEATURE 3: Multi-Pillar 3D Compare Toggle */}
-          <Button
-            size="sm"
-            variant={isCompareMode ? "default" : "outline"}
-            onClick={() => {
-              const nextMode = !isCompareMode;
-              setIsCompareMode(nextMode);
-              if (!nextMode) {
-                setCompareItemA(null);
-                setCompareItemB(null);
-                toast.info("Exited comparison mode");
-              } else {
-                setSelectedItem(null);
-                toast.info("Compare Mode: Click any 2 bars to see difference");
-              }
-            }}
-            className={`h-7 px-2.5 text-xs font-bold gap-1 shadow-2xs ${
-              isCompareMode
-                ? "bg-purple-600 hover:bg-purple-700 text-white font-bold"
-                : "bg-white text-slate-800 border-slate-300 hover:bg-slate-100"
-            }`}
-            title="Compare 2 items side-by-side"
-          >
-            <GitCompare size={12} className={isCompareMode ? "text-white" : "text-purple-600"} />
-            <span>Compare</span>
-          </Button>
-
-          {/* 3D Floating Value Labels Toggle */}
-          <Button
-            size="sm"
-            variant={showDataLabels ? "secondary" : "outline"}
-            onClick={() => setShowDataLabels(!showDataLabels)}
-            className={`h-7 px-2.5 text-xs font-bold border-slate-300 shadow-2xs ${
-              showDataLabels ? "bg-blue-100 text-blue-950 font-bold border-blue-400" : "bg-white text-slate-800 hover:bg-slate-100"
-            }`}
-            title="Show or hide numbers above each bar"
-          >
-            <Hash size={12} className="mr-0.5 text-blue-600" />
-            Show Numbers
-          </Button>
-
-          {/* Interactive 3D Sort */}
-          {activeMode !== "3d_donut" && (
-            <Button
-              size="sm"
-              variant={sortOrder !== "none" ? "secondary" : "outline"}
-              onClick={() => {
-                const nextSort: SortOrder =
-                  sortOrder === "none" ? "desc" : sortOrder === "desc" ? "asc" : "none";
-                setSortOrder(nextSort);
-                toast.info(`Sorted by value: ${nextSort === "none" ? "Original Order" : nextSort === "desc" ? "Highest First" : "Lowest First"}`);
-              }}
-              className={`h-7 px-2.5 text-xs font-bold border-slate-300 shadow-2xs ${
-                sortOrder !== "none" ? "bg-amber-100 text-amber-950 font-bold border-amber-400" : "bg-white text-slate-800 hover:bg-slate-100"
-              }`}
-              title="Sort bars: Highest first or Lowest first"
-            >
-              <ArrowUpDown size={12} className="mr-1 text-amber-600" />
-              {sortOrder === "none" ? "Sort" : sortOrder === "desc" ? "High➔Low" : "Low➔High"}
-            </Button>
-          )}
-
-          {/* Camera Angles */}
-          <div className="flex items-center bg-white rounded-md p-0.5 border border-slate-300 shadow-2xs">
+            {/* Snapshot PNG */}
             <Button
               size="sm"
               variant="ghost"
-              onClick={() => setCameraAngle("iso")}
-              className="h-7 px-2 text-xs font-semibold text-slate-700 hover:text-slate-950 hover:bg-slate-100"
-              title="3D View"
+              onClick={handleSnapshot}
+              className="h-7 w-7 p-0 text-slate-600 hover:text-slate-950 hover:bg-slate-200"
+              title="Save Viewport as PNG"
             >
-              3D
+              <Download size={13} />
             </Button>
+
+            {/* Fullscreen Toggle */}
             <Button
               size="sm"
               variant="ghost"
-              onClick={() => setCameraAngle("top")}
-              className="h-7 px-2 text-xs font-semibold text-slate-700 hover:text-slate-950 hover:bg-slate-100"
-              title="Top Down View"
+              onClick={() => setIsFullscreen(!isFullscreen)}
+              className="h-7 w-7 p-0 text-slate-600 hover:text-slate-950 hover:bg-slate-200"
+              title={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
             >
-              Top
+              {isFullscreen ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
             </Button>
+
+            {/* Hide Visualizer */}
             <Button
               size="sm"
               variant="ghost"
-              onClick={() => setCameraAngle("front")}
-              className="h-7 px-2 text-xs font-semibold text-slate-700 hover:text-slate-950 hover:bg-slate-100"
-              title="Front View"
+              onClick={() => onChartTypeChange && onChartTypeChange("none")}
+              className="h-7 w-7 p-0 text-slate-400 hover:text-slate-900 hover:bg-slate-200"
+              title="Hide Visualizer"
             >
-              Front
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => setCameraAngle("side")}
-              className="h-7 px-2 text-xs font-semibold text-slate-700 hover:text-slate-950 hover:bg-slate-100"
-              title="Side View"
-            >
-              Side
+              <EyeOff size={13} />
             </Button>
           </div>
+        </div>
 
-          {/* Tower Shapes (only in 3D Bar mode) */}
-          {activeMode === "3d_bar" && (
-            <div className="flex items-center bg-white rounded-md p-0.5 border border-slate-300 shadow-2xs">
+        {/* Tier 2: Analytical Tools & Geometry Sub-Ribbon */}
+        <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-1.5 bg-slate-100/70 text-xs">
+          {/* Left: Analysis Tools */}
+          <div className="flex items-center gap-1.5">
+            {/* FEATURE 2: 3D Capacity / Target Threshold Plane Toggle */}
+            {activeMode !== "3d_donut" && (
               <Button
                 size="sm"
-                variant={towerShape === "box" ? "secondary" : "ghost"}
-                onClick={() => setTowerShape("box")}
-                className="h-7 w-7 p-0"
-                title="Box Shape"
+                variant={showThresholdPlane ? "default" : "outline"}
+                onClick={() => {
+                  const nextState = !showThresholdPlane;
+                  setShowThresholdPlane(nextState);
+                  toast.info(nextState ? `${datasetContext.limitName} Alert enabled: Move slider to adjust limit` : `${datasetContext.limitName} Alert disabled`);
+                }}
+                className={`h-6 px-2 text-[11px] font-bold gap-1 shadow-2xs ${
+                  showThresholdPlane
+                    ? "bg-red-600 hover:bg-red-700 text-white font-bold"
+                    : "bg-white text-slate-800 border-slate-300 hover:bg-slate-100"
+                }`}
+                title={`Toggle ${datasetContext.limitName} Alert Plane`}
               >
-                <Square size={13} />
+                <Target size={11} className={showThresholdPlane ? "text-white" : "text-red-500"} />
+                <span>Limit Alert</span>
               </Button>
+            )}
+
+            {/* FEATURE 3: Multi-Pillar 3D Compare Toggle */}
+            <Button
+              size="sm"
+              variant={isCompareMode ? "default" : "outline"}
+              onClick={() => {
+                const nextMode = !isCompareMode;
+                setIsCompareMode(nextMode);
+                if (!nextMode) {
+                  setCompareItemA(null);
+                  setCompareItemB(null);
+                  toast.info("Exited comparison mode");
+                } else {
+                  setSelectedItem(null);
+                  toast.info("Compare Mode: Click any 2 bars to see difference");
+                }
+              }}
+              className={`h-6 px-2 text-[11px] font-bold gap-1 shadow-2xs ${
+                isCompareMode
+                  ? "bg-purple-600 hover:bg-purple-700 text-white font-bold"
+                  : "bg-white text-slate-800 border-slate-300 hover:bg-slate-100"
+              }`}
+              title="Compare 2 items side-by-side"
+            >
+              <GitCompare size={11} className={isCompareMode ? "text-white" : "text-purple-600"} />
+              <span>Compare</span>
+            </Button>
+
+            {/* 3D Floating Value Labels Toggle */}
+            <Button
+              size="sm"
+              variant={showDataLabels ? "secondary" : "outline"}
+              onClick={() => setShowDataLabels(!showDataLabels)}
+              className={`h-6 px-2 text-[11px] font-bold border-slate-300 shadow-2xs ${
+                showDataLabels ? "bg-blue-100 text-blue-950 font-bold border-blue-400" : "bg-white text-slate-800 hover:bg-slate-100"
+              }`}
+              title="Show or hide numbers above each bar"
+            >
+              <Hash size={11} className="mr-0.5 text-blue-600" />
+              <span>Numbers</span>
+            </Button>
+
+            {/* Interactive 3D Sort */}
+            {activeMode !== "3d_donut" && (
               <Button
                 size="sm"
-                variant={towerShape === "cylinder" ? "secondary" : "ghost"}
-                onClick={() => setTowerShape("cylinder")}
-                className="h-7 w-7 p-0"
-                title="Round Shape"
+                variant={sortOrder !== "none" ? "secondary" : "outline"}
+                onClick={() => {
+                  const nextSort: SortOrder =
+                    sortOrder === "none" ? "desc" : sortOrder === "desc" ? "asc" : "none";
+                  setSortOrder(nextSort);
+                  toast.info(`Sorted by value: ${nextSort === "none" ? "Original Order" : nextSort === "desc" ? "Highest First" : "Lowest First"}`);
+                }}
+                className={`h-6 px-2 text-[11px] font-bold border-slate-300 shadow-2xs ${
+                  sortOrder !== "none" ? "bg-amber-100 text-amber-950 font-bold border-amber-400" : "bg-white text-slate-800 hover:bg-slate-100"
+                }`}
+                title="Sort bars: Highest first or Lowest first"
               >
-                <Circle size={13} />
+                <ArrowUpDown size={11} className="mr-1 text-amber-600" />
+                <span>{sortOrder === "none" ? "Sort" : sortOrder === "desc" ? "High➔Low" : "Low➔High"}</span>
               </Button>
-              <Button
-                size="sm"
-                variant={towerShape === "hexagon" ? "secondary" : "ghost"}
-                onClick={() => setTowerShape("hexagon")}
-                className="h-7 w-7 p-0"
-                title="Hexagon Shape"
-              >
-                <Hexagon size={13} />
-              </Button>
-            </div>
-          )}
+            )}
+          </div>
 
-          {/* Auto Rotate Presentation */}
-          <Button
-            size="sm"
-            variant={autoRotate ? "default" : "outline"}
-            onClick={() => setAutoRotate(!autoRotate)}
-            className={`h-7 px-2.5 text-xs gap-1 font-bold shadow-2xs ${
-              autoRotate
-                ? "bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold"
-                : "bg-white text-slate-800 border-slate-300 hover:bg-slate-100"
-            }`}
-            title="Start or pause 360° automatic rotation"
-          >
-            {autoRotate ? <Pause size={11} /> : <Play size={11} />}
-            Auto-Spin
-          </Button>
-
-          {/* Snapshot PNG */}
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={handleSnapshot}
-            className="h-7 w-7 p-0 text-slate-700 hover:text-slate-950 hover:bg-slate-200"
-            title="Save Picture as PNG"
-          >
-            <Download size={14} />
-          </Button>
-
-          {/* Fullscreen Toggle */}
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => setIsFullscreen(!isFullscreen)}
-            className="h-7 w-7 p-0 text-slate-700 hover:text-slate-950 hover:bg-slate-200"
-            title={isFullscreen ? "Exit Full Screen" : "Full Screen"}
-          >
-            {isFullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
-          </Button>
-
-          {/* Hide Visualizer */}
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => onChartTypeChange && onChartTypeChange("none")}
-            className="h-7 w-7 p-0 text-slate-400 hover:text-slate-900 hover:bg-slate-200"
-            title="Hide Visualizer"
-          >
-            <EyeOff size={14} />
-          </Button>
+          {/* Right: Tower Shapes & Navigation Tip */}
+          <div className="flex items-center gap-2">
+            {/* Tower Shapes (only in 3D Bar mode) */}
+            {activeMode === "3d_bar" && (
+              <div className="flex items-center bg-white rounded-md p-0.5 border border-slate-300 shadow-2xs">
+                <button
+                  type="button"
+                  onClick={() => setTowerShape("box")}
+                  className={`h-5 w-5 rounded flex items-center justify-center transition-colors ${
+                    towerShape === "box" ? "bg-slate-200 text-slate-900" : "text-slate-500 hover:text-slate-800"
+                  }`}
+                  title="Box Shape"
+                >
+                  <Square size={11} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTowerShape("cylinder")}
+                  className={`h-5 w-5 rounded flex items-center justify-center transition-colors ${
+                    towerShape === "cylinder" ? "bg-slate-200 text-slate-900" : "text-slate-500 hover:text-slate-800"
+                  }`}
+                  title="Cylinder Shape"
+                >
+                  <Circle size={11} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTowerShape("hexagon")}
+                  className={`h-5 w-5 rounded flex items-center justify-center transition-colors ${
+                    towerShape === "hexagon" ? "bg-slate-200 text-slate-900" : "text-slate-500 hover:text-slate-800"
+                  }`}
+                  title="Hexagon Shape"
+                >
+                  <Hexagon size={11} />
+                </button>
+              </div>
+            )}
+            <span className="text-[10px] text-muted-foreground hidden sm:inline">
+              Left-click rotate • Right-click pan • Scroll zoom
+            </span>
+          </div>
         </div>
       </div>
 

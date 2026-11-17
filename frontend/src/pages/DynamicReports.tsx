@@ -381,9 +381,9 @@ export default function DynamicReports() {
       {/* Dataset & Live Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         {/* Dataset Card */}
-        <Card className="border-border bg-card shadow-2xs">
-          <CardContent className="p-3">
-            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">
+        <Card className="border-border bg-card shadow-2xs border-t-2 border-t-[#0c2340] h-[74px] flex flex-col justify-between">
+          <CardContent className="p-3 pb-2.5 h-full flex flex-col justify-between">
+            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">
               Report Topic
             </span>
             <Select
@@ -404,36 +404,36 @@ export default function DynamicReports() {
         </Card>
 
         {/* Metric 1: Total Records */}
-        <Card className="border-blue-200 bg-blue-50/40 dark:bg-blue-950/20 border-t-2 border-t-blue-600 shadow-2xs">
-          <CardContent className="p-3">
+        <Card className="border-blue-200 bg-blue-50/40 dark:bg-blue-950/20 border-t-2 border-t-blue-600 shadow-2xs h-[74px] flex flex-col justify-between">
+          <CardContent className="p-3 pb-2.5 h-full flex flex-col justify-between">
             <span className="text-[10px] font-bold text-blue-900 dark:text-blue-300 uppercase tracking-wider block">
               Total Records Loaded
             </span>
-            <div className="text-lg font-bold font-mono text-blue-950 dark:text-blue-200 mt-0.5">
+            <div className="text-lg font-bold font-mono text-blue-950 dark:text-blue-200 leading-none">
               {isLoading ? "..." : rawRecords.length.toLocaleString()}
             </div>
           </CardContent>
         </Card>
 
         {/* Metric 2: Primary Grand Total */}
-        <Card className="border-amber-200 bg-amber-50/40 dark:bg-amber-950/20 border-t-2 border-t-amber-500 shadow-2xs">
-          <CardContent className="p-3">
+        <Card className="border-amber-200 bg-amber-50/40 dark:bg-amber-950/20 border-t-2 border-t-amber-500 shadow-2xs h-[74px] flex flex-col justify-between">
+          <CardContent className="p-3 pb-2.5 h-full flex flex-col justify-between">
             <span className="text-[10px] font-bold text-amber-900 dark:text-amber-300 uppercase tracking-wider block">
               Overall Total ({config.values[0]?.aggregation.toUpperCase() || "SUM"})
             </span>
-            <div className="text-lg font-bold font-mono text-amber-950 dark:text-amber-200 mt-0.5 truncate">
+            <div className="text-lg font-bold font-mono text-amber-950 dark:text-amber-200 leading-none truncate">
               {matrixResult.grandTotal?.formatted || "0"}
             </div>
           </CardContent>
         </Card>
 
         {/* Metric 3: Active Groups */}
-        <Card className="border-slate-200 bg-slate-50/50 dark:bg-slate-900/30 border-t-2 border-t-slate-700 shadow-2xs">
-          <CardContent className="p-3">
+        <Card className="border-slate-200 bg-slate-50/50 dark:bg-slate-900/30 border-t-2 border-t-slate-700 shadow-2xs h-[74px] flex flex-col justify-between">
+          <CardContent className="p-3 pb-2.5 h-full flex flex-col justify-between">
             <span className="text-[10px] font-bold text-slate-800 dark:text-slate-300 uppercase tracking-wider block">
               Grouped By
             </span>
-            <div className="text-xs font-semibold text-foreground mt-1 truncate">
+            <div className="text-xs font-semibold text-foreground truncate leading-none pb-0.5">
               {config.rows.map((r) => fieldMap[r]?.label || r).join(" ➔ ") || "All Data"}
             </div>
           </CardContent>
@@ -458,45 +458,53 @@ export default function DynamicReports() {
 
         {/* Center Canvas: Drop Wells, Visualizer & Pivot Matrix */}
         <div className="flex-1 min-w-0 w-full space-y-3.5">
-          {/* Canvas Toolbar & Drop Wells Toggle */}
-          <div className="flex items-center justify-between px-1">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-foreground uppercase tracking-wider">
-                Report Canvas
-              </span>
-              <Badge variant="outline" className="text-[10px] font-semibold text-muted-foreground bg-muted/40">
-                {config.rows.length} rows • {config.columns.length} cols • {config.values.length} measures
-              </Badge>
-            </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setWellsCollapsed(!wellsCollapsed)}
-              className="h-6 text-[11px] font-medium text-muted-foreground hover:text-foreground gap-1 px-2 hover:bg-muted"
-              title="Toggle Drop Wells to maximize vertical space"
-            >
-              {wellsCollapsed ? (
-                <>
-                  <ChevronDown size={13} />
-                  <span>Show Field Wells</span>
-                </>
-              ) : (
-                <>
-                  <ChevronUp size={13} />
-                  <span>Minimize Wells (Expand Height)</span>
-                </>
-              )}
-            </Button>
-          </div>
+          {/* Unified Field Wells Container Card */}
+          <div className="bg-card border border-border rounded-xl shadow-xs overflow-hidden">
+            <div className="px-3.5 py-2.5 bg-muted/30 border-b border-border/80 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="p-1 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400">
+                  <SlidersHorizontal size={13} />
+                </div>
+                <span className="text-xs font-bold text-foreground uppercase tracking-wider">
+                  Field Wells & Slicers
+                </span>
+                <Badge variant="outline" className="text-[10px] font-semibold text-muted-foreground bg-background/80 px-2 py-0 border-border/70">
+                  {config.rows.length} rows • {config.columns.length} cols • {config.values.length} measures
+                </Badge>
+              </div>
 
-          {/* Magnetic Drop Wells */}
-          {!wellsCollapsed && (
-            <DropZoneSection
-              config={config}
-              fieldMap={fieldMap}
-              onConfigChange={setConfig}
-            />
-          )}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setWellsCollapsed(!wellsCollapsed)}
+                className="h-6 text-[11px] font-medium text-muted-foreground hover:text-foreground gap-1 px-2 hover:bg-muted"
+                title="Toggle Drop Wells to maximize vertical space"
+              >
+                {wellsCollapsed ? (
+                  <>
+                    <ChevronDown size={13} />
+                    <span>Show Field Wells</span>
+                  </>
+                ) : (
+                  <>
+                    <ChevronUp size={13} />
+                    <span>Minimize Wells (Expand Height)</span>
+                  </>
+                )}
+              </Button>
+            </div>
+
+            {/* Magnetic Drop Wells Grid */}
+            {!wellsCollapsed && (
+              <div className="p-3 bg-card">
+                <DropZoneSection
+                  config={config}
+                  fieldMap={fieldMap}
+                  onConfigChange={setConfig}
+                />
+              </div>
+            )}
+          </div>
 
           {/* Dynamic Linked Chart Visualizer */}
           <PivotChartPreview

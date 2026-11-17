@@ -62,18 +62,20 @@ export default function FieldCatalogPane({
   };
 
   return (
-    <div className="bg-card border border-border rounded-xl p-3.5 space-y-4 shadow-xs">
+    <div className="bg-card border border-border rounded-xl shadow-xs overflow-hidden flex flex-col shrink-0 w-full">
       {/* Header */}
-      <div className="flex items-center justify-between pb-2 border-b border-border">
+      <div className="px-3.5 py-2.5 bg-muted/30 border-b border-border/80 flex items-center justify-between">
         <div className="flex items-center gap-1.5">
-          <Database size={14} className="text-[#0c2340] dark:text-blue-400" />
+          <div className="p-1 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400">
+            <Database size={13} />
+          </div>
           <span className="text-xs font-bold uppercase tracking-wider text-foreground">
             Fields & Measures
           </span>
         </div>
         <div className="flex items-center gap-1">
           <span className="text-[10px] font-mono font-medium text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
-            {fields.length} available
+            {fields.length}
           </span>
           {onToggleCollapse && (
             <Button
@@ -89,8 +91,9 @@ export default function FieldCatalogPane({
         </div>
       </div>
 
-      {/* Field Search Bar */}
-      <div className="relative">
+      <div className="p-3 space-y-4">
+        {/* Field Search Bar */}
+        <div className="relative">
         <Search size={13} className="absolute left-2.5 top-2 text-muted-foreground" />
         <Input
           type="text"
@@ -210,6 +213,7 @@ export default function FieldCatalogPane({
             </div>
           ))}
         </div>
+      </div>
       </div>
     </div>
   );

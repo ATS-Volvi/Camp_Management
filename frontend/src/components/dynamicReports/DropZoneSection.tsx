@@ -126,7 +126,7 @@ export default function DropZoneSection({ config, fieldMap, onConfigChange }: Dr
   };
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3.5">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2.5">
       {/* ────────────────────────────────────────────────────────── */}
       {/* 1. ROWS ZONE (Hierarchy) - Blue Theme                      */}
       {/* ────────────────────────────────────────────────────────── */}
@@ -134,7 +134,7 @@ export default function DropZoneSection({ config, fieldMap, onConfigChange }: Dr
         onDragOver={(e) => handleDragOver(e, "rows")}
         onDragLeave={handleDragLeave}
         onDrop={(e) => handleDrop(e, "rows")}
-        className={`group bg-card rounded-xl p-3 transition-all duration-200 min-h-[108px] flex flex-col justify-between ${
+        className={`group bg-card rounded-lg p-2.5 transition-all duration-200 min-h-[104px] h-full flex flex-col justify-between ${
           activeDropZone === "rows"
             ? "border-2 border-blue-500 bg-blue-50/40 dark:bg-blue-950/30 shadow-md ring-2 ring-blue-400/25 scale-[1.01]"
             : config.rows.length > 0
@@ -142,7 +142,7 @@ export default function DropZoneSection({ config, fieldMap, onConfigChange }: Dr
             : "border-2 border-dashed border-border/70 hover:border-blue-300/80 bg-muted/20"
         }`}
       >
-        <div className="flex items-center justify-between pb-2 border-b border-border/40">
+        <div className="flex items-center justify-between pb-1.5 border-b border-border/40">
           <div className="flex items-center gap-1.5">
             <div className="w-5 h-5 rounded-md bg-blue-100 dark:bg-blue-950 text-blue-600 dark:text-blue-400 flex items-center justify-center">
               <Rows size={12} strokeWidth={2.5} />
@@ -175,9 +175,9 @@ export default function DropZoneSection({ config, fieldMap, onConfigChange }: Dr
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-1.5 pt-2 flex-1 items-start content-start">
+        <div className="flex flex-wrap gap-1.5 pt-2 flex-1 items-start content-start min-h-[40px]">
           {config.rows.length === 0 ? (
-            <div className="w-full flex items-center justify-center py-3 text-muted-foreground/60 text-[11px] gap-1.5">
+            <div className="w-full flex items-center justify-center py-2.5 text-muted-foreground/60 text-[11px] gap-1.5">
               <Plus size={12} className="opacity-50" />
               <span>Drop row dimensions (e.g. Dept, Floor)</span>
             </div>
@@ -204,7 +204,7 @@ export default function DropZoneSection({ config, fieldMap, onConfigChange }: Dr
         </div>
 
         {/* Quick Add Button */}
-        <div className="pt-2 flex justify-end border-t border-border/20 mt-1">
+        <div className="pt-1.5 flex justify-end border-t border-border/30 mt-auto">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button
@@ -246,7 +246,7 @@ export default function DropZoneSection({ config, fieldMap, onConfigChange }: Dr
         onDragOver={(e) => handleDragOver(e, "columns")}
         onDragLeave={handleDragLeave}
         onDrop={(e) => handleDrop(e, "columns")}
-        className={`group bg-card rounded-xl p-3 transition-all duration-200 min-h-[108px] flex flex-col justify-between ${
+        className={`group bg-card rounded-lg p-2.5 transition-all duration-200 min-h-[104px] h-full flex flex-col justify-between ${
           activeDropZone === "columns"
             ? "border-2 border-indigo-500 bg-indigo-50/40 dark:bg-indigo-950/30 shadow-md ring-2 ring-indigo-400/25 scale-[1.01]"
             : config.columns.length > 0
@@ -254,7 +254,7 @@ export default function DropZoneSection({ config, fieldMap, onConfigChange }: Dr
             : "border-2 border-dashed border-border/70 hover:border-indigo-300/80 bg-muted/20"
         }`}
       >
-        <div className="flex items-center justify-between pb-2 border-b border-border/40">
+        <div className="flex items-center justify-between pb-1.5 border-b border-border/40">
           <div className="flex items-center gap-1.5">
             <div className="w-5 h-5 rounded-md bg-indigo-100 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
               <Columns size={12} strokeWidth={2.5} />
@@ -287,9 +287,9 @@ export default function DropZoneSection({ config, fieldMap, onConfigChange }: Dr
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-1.5 pt-2 flex-1 items-start content-start">
+        <div className="flex flex-wrap gap-1.5 pt-2 flex-1 items-start content-start min-h-[40px]">
           {config.columns.length === 0 ? (
-            <div className="w-full flex items-center justify-center py-3 text-muted-foreground/60 text-[11px] gap-1.5">
+            <div className="w-full flex items-center justify-center py-2.5 text-muted-foreground/60 text-[11px] gap-1.5">
               <Plus size={12} className="opacity-50" />
               <span>Drop column dimensions (e.g. Status, Room Tier)</span>
             </div>
@@ -313,7 +313,7 @@ export default function DropZoneSection({ config, fieldMap, onConfigChange }: Dr
         </div>
 
         {/* Quick Add Button */}
-        <div className="pt-2 flex justify-end border-t border-border/20 mt-1">
+        <div className="pt-1.5 flex justify-end border-t border-border/30 mt-auto">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button
@@ -355,7 +355,7 @@ export default function DropZoneSection({ config, fieldMap, onConfigChange }: Dr
         onDragOver={(e) => handleDragOver(e, "values")}
         onDragLeave={handleDragLeave}
         onDrop={(e) => handleDrop(e, "values")}
-        className={`group bg-card rounded-xl p-3 transition-all duration-200 min-h-[108px] flex flex-col justify-between ${
+        className={`group bg-card rounded-lg p-2.5 transition-all duration-200 min-h-[104px] h-full flex flex-col justify-between ${
           activeDropZone === "values"
             ? "border-2 border-amber-500 bg-amber-50/40 dark:bg-amber-950/30 shadow-md ring-2 ring-amber-400/25 scale-[1.01]"
             : config.values.length > 0
@@ -363,7 +363,7 @@ export default function DropZoneSection({ config, fieldMap, onConfigChange }: Dr
             : "border-2 border-dashed border-border/70 hover:border-amber-300/80 bg-muted/20"
         }`}
       >
-        <div className="flex items-center justify-between pb-2 border-b border-border/40">
+        <div className="flex items-center justify-between pb-1.5 border-b border-border/40">
           <div className="flex items-center gap-1.5">
             <div className="w-5 h-5 rounded-md bg-amber-100 dark:bg-amber-950 text-amber-600 dark:text-amber-400 flex items-center justify-center">
               <Sigma size={12} strokeWidth={2.5} />
@@ -396,9 +396,9 @@ export default function DropZoneSection({ config, fieldMap, onConfigChange }: Dr
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-1.5 pt-2 flex-1 items-start content-start">
+        <div className="flex flex-wrap gap-1.5 pt-2 flex-1 items-start content-start min-h-[40px]">
           {config.values.length === 0 ? (
-            <div className="w-full flex items-center justify-center py-3 text-muted-foreground/60 text-[11px] gap-1.5">
+            <div className="w-full flex items-center justify-center py-2.5 text-muted-foreground/60 text-[11px] gap-1.5">
               <Plus size={12} className="opacity-50" />
               <span>Drop metric fields (e.g. Inmates Count, Headcount)</span>
             </div>
@@ -459,7 +459,7 @@ export default function DropZoneSection({ config, fieldMap, onConfigChange }: Dr
         </div>
 
         {/* Quick Add Button */}
-        <div className="pt-2 flex justify-end border-t border-border/20 mt-1">
+        <div className="pt-1.5 flex justify-end border-t border-border/30 mt-auto">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button
@@ -501,7 +501,7 @@ export default function DropZoneSection({ config, fieldMap, onConfigChange }: Dr
         onDragOver={(e) => handleDragOver(e, "filters")}
         onDragLeave={handleDragLeave}
         onDrop={(e) => handleDrop(e, "filters")}
-        className={`group bg-card rounded-xl p-3 transition-all duration-200 min-h-[108px] flex flex-col justify-between ${
+        className={`group bg-card rounded-lg p-2.5 transition-all duration-200 min-h-[104px] h-full flex flex-col justify-between ${
           activeDropZone === "filters"
             ? "border-2 border-emerald-500 bg-emerald-50/40 dark:bg-emerald-950/30 shadow-md ring-2 ring-emerald-400/25 scale-[1.01]"
             : Object.keys(config.filters).length > 0
@@ -509,7 +509,7 @@ export default function DropZoneSection({ config, fieldMap, onConfigChange }: Dr
             : "border-2 border-dashed border-border/70 hover:border-emerald-300/80 bg-muted/20"
         }`}
       >
-        <div className="flex items-center justify-between pb-2 border-b border-border/40">
+        <div className="flex items-center justify-between pb-1.5 border-b border-border/40">
           <div className="flex items-center gap-1.5">
             <div className="w-5 h-5 rounded-md bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
               <Filter size={12} strokeWidth={2.5} />
@@ -542,9 +542,9 @@ export default function DropZoneSection({ config, fieldMap, onConfigChange }: Dr
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-1.5 pt-2 flex-1 items-start content-start">
+        <div className="flex flex-wrap gap-1.5 pt-2 flex-1 items-start content-start min-h-[40px]">
           {Object.keys(config.filters).length === 0 ? (
-            <div className="w-full flex items-center justify-center py-3 text-muted-foreground/60 text-[11px] gap-1.5">
+            <div className="w-full flex items-center justify-center py-2.5 text-muted-foreground/60 text-[11px] gap-1.5">
               <Plus size={12} className="opacity-50" />
               <span>Drop fields here to slice dataset</span>
             </div>
@@ -568,7 +568,7 @@ export default function DropZoneSection({ config, fieldMap, onConfigChange }: Dr
         </div>
 
         {/* Quick Add Button */}
-        <div className="pt-2 flex justify-end border-t border-border/20 mt-1">
+        <div className="pt-1.5 flex justify-end border-t border-border/30 mt-auto">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button
