@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { PivotMatrixResult, ReportConfig, ChartType } from "@/lib/dynamicReports/types";
 import {
   ResponsiveContainer,
@@ -29,7 +29,7 @@ import {
   Scatter,
   ZAxis,
 } from "recharts";
-import { BarChart3, EyeOff, Sparkles, TrendingUp, Hash } from "lucide-react";
+import { BarChart3, EyeOff, Sparkles, TrendingUp, Hash, Columns, ArrowRightLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ThreeDimensionMatrixView from "./ThreeDimensionMatrixView";
 import { COLOR_THEMES } from "./VisualizationsPane";
@@ -188,6 +188,46 @@ export default function PivotChartPreview({
   const showLegend = config.showLegend !== false;
   const showLabels = config.showDataLabels === true;
 
+  // Spacing mode for dense categories: "scroll" gives every bar 56px min-width; "fit" compresses into viewport
+  const [barSpacingMode, setBarSpacingMode] = useState<"scroll" | "fit">(
+    chartData.length > 10 ? "scroll" : "fit"
+  );
+
+  // Shorten excessively long axis labels with ellipsis so they never collide
+  const formatAxisLabel = (value: any) => {
+    if (!value) return "";
+    const str = String(value);
+    if (str.length > 16) {
+      return str.slice(0, 14) + "…";
+    }
+    return str;
+  };
+
+  const isVerticalBarOrLine = [
+    "bar",
+    "stacked_bar",
+    "percent_stacked_bar",
+    "line",
+    "area",
+    "stacked_area",
+    "combo",
+  ].includes(config.chartType);
+
+  const isHorizontalBar = [
+    "horizontal_bar",
+    "stacked_horizontal_bar",
+  ].includes(config.chartType);
+
+  // Each column gets 56px minimum in scroll mode so ticks never collide
+  const minColWidth = 56;
+  const scrollWidth = Math.max(760, chartData.length * minColWidth);
+  const activeChartWidth = isVerticalBarOrLine && barSpacingMode === "scroll" ? scrollWidth : "100%";
+
+  // In horizontal bar mode, each category gets 30px height so Y-axis labels aren't squished
+  const minRowHeight = 30;
+  const scrollHeight = Math.max(500, chartData.length * minRowHeight);
+  const activeChartHeight = isHorizontalBar ? scrollHeight : 500;
+
   const chartTitle =
     config.chartType === "horizontal_bar"
       ? "Clustered Bar (Horizontal)"
@@ -216,7 +256,7 @@ export default function PivotChartPreview({
       : `Visual Chart (${config.chartType.replace("_", " ")})`;
 
   return (
-    <div className="bg-card border border-border rounded-xl p-4 space-y-4 shadow-xs">
+    <div className="bg-card border border-border rounded-xl p-4 space-y-3 shadow-xs">
       {/* Visual Chart Header */}
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 pb-3">
         <div className="flex items-center gap-2">
@@ -227,9 +267,56 @@ export default function PivotChartPreview({
           <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
             {matchedTheme.name}
           </span>
+          <span className="text-[11px] font-mono text-muted-foreground font-semibold">
+            ({chartData.length} categories)
+          </span>
         </div>
 
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-2">
+          {/* Spacing Switcher for dense vertical charts */}
+          {isVerticalBarOrLine && chartData.length > 8 && (
+            <div className="flex items-center bg-muted/50 border border-border rounded-lg p-0.5 text-xs">
+              <button
+                type="button"
+                onClick={() => setBarSpacingMode("scroll")}
+                className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all flex items-center gap-1 ${
+                  barSpacingMode === "scroll"
+                    ? "bg-primary text-primary-foreground shadow-xs"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+                title="Every category gets dedicated width with smooth horizontal scrolling so all labels are 100% readable"
+              >
+                <span>↔ Spaced (Scrollable)</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setBarSpacingMode("fit")}
+                className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all flex items-center gap-1 ${
+                  barSpacingMode === "fit"
+                    ? "bg-primary text-primary-foreground shadow-xs"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+                title="Fit all categories inside visible canvas width"
+              >
+                <span>⇥ Fit Screen</span>
+              </button>
+            </div>
+          )}
+
+          {/* Quick Switch to Horizontal Bar view when many categories */}
+          {isVerticalBarOrLine && chartData.length > 10 && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => onChartTypeChange("horizontal_bar")}
+              className="h-7 text-[11px] font-semibold gap-1 text-primary border-primary/30 hover:bg-primary/10"
+              title="Switch to Horizontal Bar layout where category names are listed cleanly on the vertical axis"
+            >
+              <TrendingUp size={12} />
+              <span className="hidden sm:inline">Horizontal View</span>
+            </Button>
+          )}
+
           <Button
             size="sm"
             variant="ghost"
@@ -238,19 +325,65 @@ export default function PivotChartPreview({
             title="Hide Chart"
           >
             <EyeOff size={12} className="mr-1" />
-            <span className="text-[10px]">Hide Visual</span>
+            <span className="text-[10px]">Hide</span>
           </Button>
         </div>
       </div>
 
-      {/* Responsive Canvas */}
-      <div className="h-[460px] sm:h-[500px] lg:h-[520px] w-full pt-1">
+      {/* Information Banner for Dense Categories in Scroll Mode */}
+      {isVerticalBarOrLine && barSpacingMode === "scroll" && chartData.length > 10 && (
+        <div className="px-3 py-1.5 bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200/60 dark:border-blue-900/40 rounded-lg flex items-center justify-between text-xs text-blue-900 dark:text-blue-300">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+            <span className="font-semibold">
+              Showing {chartData.length} categories with readable spacing.
+            </span>
+            <span className="text-muted-foreground hidden md:inline">
+              Scroll horizontally with trackpad, mouse wheel, or bottom scrollbar ➔
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => onChartTypeChange("horizontal_bar")}
+            className="text-[11px] font-bold text-primary underline underline-offset-2 hover:opacity-80"
+          >
+            Prefer vertical list? Switch to Horizontal Bars
+          </button>
+        </div>
+      )}
+
+      {/* Responsive Canvas Container */}
+      <div
+        className={`w-full rounded-lg border border-border/40 bg-background/50 ${
+          isVerticalBarOrLine && barSpacingMode === "scroll"
+            ? "overflow-x-auto pb-3"
+            : isHorizontalBar
+            ? "overflow-y-auto max-h-[580px]"
+            : "overflow-hidden"
+        }`}
+      >
+        <div
+          style={{
+            width: typeof activeChartWidth === "number" ? `${activeChartWidth}px` : activeChartWidth,
+            minWidth: "100%",
+            height: `${activeChartHeight}px`,
+          }}
+          className="pt-2"
+        >
         <ResponsiveContainer width="100%" height="100%">
           {/* 1. Clustered Column (Vertical Bar) */}
           {config.chartType === "bar" ? (
-            <BarChart data={chartData} margin={{ top: 12, right: 20, left: 10, bottom: 65 }}>
+            <BarChart data={chartData} margin={{ top: 12, right: 20, left: 10, bottom: 80 }}>
               {showGrid && <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.3} />}
-              <XAxis dataKey="name" tick={{ fontSize: 11, fill: "#334155", fontWeight: 600 }} angle={-25} textAnchor="end" height={60} interval={0} />
+              <XAxis
+                dataKey="name"
+                tick={{ fontSize: 11, fill: "#334155", fontWeight: 600 }}
+                angle={-35}
+                textAnchor="end"
+                height={75}
+                interval={barSpacingMode === "fit" && chartData.length > 18 ? "preserveStartEnd" : 0}
+                tickFormatter={formatAxisLabel}
+              />
               <YAxis tick={{ fontSize: 12, fill: "#334155", fontWeight: 600 }} />
               <Tooltip contentStyle={{ borderRadius: 8, fontSize: 12, fontWeight: 600, backgroundColor: "var(--card)" }} />
               {showLegend && <Legend verticalAlign="top" align="right" wrapperStyle={{ paddingBottom: 10, fontSize: 11, fontWeight: 600 }} />}
@@ -266,9 +399,17 @@ export default function PivotChartPreview({
             </BarChart>
           ) : /* 2. Stacked Column */
           config.chartType === "stacked_bar" ? (
-            <BarChart data={chartData} margin={{ top: 12, right: 20, left: 10, bottom: 65 }}>
+            <BarChart data={chartData} margin={{ top: 12, right: 20, left: 10, bottom: 80 }}>
               {showGrid && <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.3} />}
-              <XAxis dataKey="name" tick={{ fontSize: 11, fill: "#334155", fontWeight: 600 }} angle={-25} textAnchor="end" height={60} interval={0} />
+              <XAxis
+                dataKey="name"
+                tick={{ fontSize: 11, fill: "#334155", fontWeight: 600 }}
+                angle={-35}
+                textAnchor="end"
+                height={75}
+                interval={barSpacingMode === "fit" && chartData.length > 18 ? "preserveStartEnd" : 0}
+                tickFormatter={formatAxisLabel}
+              />
               <YAxis tick={{ fontSize: 12, fill: "#334155", fontWeight: 600 }} />
               <Tooltip contentStyle={{ borderRadius: 8, fontSize: 12, fontWeight: 600, backgroundColor: "var(--card)" }} />
               {showLegend && <Legend verticalAlign="top" align="right" wrapperStyle={{ paddingBottom: 10, fontSize: 11, fontWeight: 600 }} />}
@@ -283,10 +424,16 @@ export default function PivotChartPreview({
             </BarChart>
           ) : /* 3. Clustered Bar (Horizontal) */
           config.chartType === "horizontal_bar" ? (
-            <BarChart data={chartData} layout="vertical" margin={{ top: 10, right: 30, left: 70, bottom: 10 }}>
+            <BarChart data={chartData} layout="vertical" margin={{ top: 10, right: 30, left: 130, bottom: 10 }}>
               {showGrid && <CartesianGrid strokeDasharray="3 3" horizontal={false} opacity={0.3} />}
               <XAxis type="number" tick={{ fontSize: 12, fill: "#334155", fontWeight: 600 }} />
-              <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: "#334155", fontWeight: 600 }} width={80} />
+              <YAxis
+                type="category"
+                dataKey="name"
+                tick={{ fontSize: 11, fill: "#334155", fontWeight: 600 }}
+                width={130}
+                tickFormatter={formatAxisLabel}
+              />
               <Tooltip contentStyle={{ borderRadius: 8, fontSize: 12, fontWeight: 600, backgroundColor: "var(--card)" }} />
               {showLegend && <Legend wrapperStyle={{ fontSize: 12, fontWeight: 600 }} />}
               {chartSeriesKeys.map((seriesKey, i) => (
@@ -301,10 +448,16 @@ export default function PivotChartPreview({
             </BarChart>
           ) : /* 4. Stacked Bar (Horizontal) */
           config.chartType === "stacked_horizontal_bar" ? (
-            <BarChart data={chartData} layout="vertical" margin={{ top: 10, right: 30, left: 70, bottom: 10 }}>
+            <BarChart data={chartData} layout="vertical" margin={{ top: 10, right: 30, left: 130, bottom: 10 }}>
               {showGrid && <CartesianGrid strokeDasharray="3 3" horizontal={false} opacity={0.3} />}
               <XAxis type="number" tick={{ fontSize: 12, fill: "#334155", fontWeight: 600 }} />
-              <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: "#334155", fontWeight: 600 }} width={80} />
+              <YAxis
+                type="category"
+                dataKey="name"
+                tick={{ fontSize: 11, fill: "#334155", fontWeight: 600 }}
+                width={130}
+                tickFormatter={formatAxisLabel}
+              />
               <Tooltip contentStyle={{ borderRadius: 8, fontSize: 12, fontWeight: 600, backgroundColor: "var(--card)" }} />
               {showLegend && <Legend wrapperStyle={{ fontSize: 12, fontWeight: 600 }} />}
               {chartSeriesKeys.map((seriesKey, i) => (
@@ -318,9 +471,17 @@ export default function PivotChartPreview({
             </BarChart>
           ) : /* 5. 100% Stacked Column */
           config.chartType === "percent_stacked_bar" ? (
-            <BarChart data={percentStackedData} margin={{ top: 12, right: 20, left: 10, bottom: 65 }}>
+            <BarChart data={percentStackedData} margin={{ top: 12, right: 20, left: 10, bottom: 80 }}>
               {showGrid && <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.3} />}
-              <XAxis dataKey="name" tick={{ fontSize: 11, fill: "#334155", fontWeight: 600 }} angle={-25} textAnchor="end" height={60} interval={0} />
+              <XAxis
+                dataKey="name"
+                tick={{ fontSize: 11, fill: "#334155", fontWeight: 600 }}
+                angle={-35}
+                textAnchor="end"
+                height={75}
+                interval={barSpacingMode === "fit" && chartData.length > 18 ? "preserveStartEnd" : 0}
+                tickFormatter={formatAxisLabel}
+              />
               <YAxis tickFormatter={(val) => `${val}%`} domain={[0, 100]} tick={{ fontSize: 12, fill: "#334155", fontWeight: 600 }} />
               <Tooltip
                 formatter={(val: any) => `${val}%`}
@@ -338,9 +499,17 @@ export default function PivotChartPreview({
             </BarChart>
           ) : /* 6. Line Chart */
           config.chartType === "line" ? (
-            <LineChart data={chartData} margin={{ top: 12, right: 20, left: 10, bottom: 65 }}>
+            <LineChart data={chartData} margin={{ top: 12, right: 20, left: 10, bottom: 80 }}>
               {showGrid && <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.3} />}
-              <XAxis dataKey="name" tick={{ fontSize: 11, fill: "#334155", fontWeight: 600 }} angle={-25} textAnchor="end" height={60} interval={0} />
+              <XAxis
+                dataKey="name"
+                tick={{ fontSize: 11, fill: "#334155", fontWeight: 600 }}
+                angle={-35}
+                textAnchor="end"
+                height={75}
+                interval={barSpacingMode === "fit" && chartData.length > 18 ? "preserveStartEnd" : 0}
+                tickFormatter={formatAxisLabel}
+              />
               <YAxis tick={{ fontSize: 12, fill: "#334155", fontWeight: 600 }} />
               <Tooltip contentStyle={{ borderRadius: 8, fontSize: 12, fontWeight: 600, backgroundColor: "var(--card)" }} />
               {showLegend && <Legend verticalAlign="top" align="right" wrapperStyle={{ paddingBottom: 10, fontSize: 11, fontWeight: 600 }} />}
@@ -358,7 +527,7 @@ export default function PivotChartPreview({
             </LineChart>
           ) : /* 7. Area Chart */
           config.chartType === "area" ? (
-            <AreaChart data={chartData} margin={{ top: 12, right: 20, left: 10, bottom: 65 }}>
+            <AreaChart data={chartData} margin={{ top: 12, right: 20, left: 10, bottom: 80 }}>
               <defs>
                 {chartSeriesKeys.map((k, i) => (
                   <linearGradient key={k} id={`colorArea-${i}`} x1="0" y1="0" x2="0" y2="1">
@@ -368,7 +537,15 @@ export default function PivotChartPreview({
                 ))}
               </defs>
               {showGrid && <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.3} />}
-              <XAxis dataKey="name" tick={{ fontSize: 11, fill: "#334155", fontWeight: 600 }} angle={-25} textAnchor="end" height={60} interval={0} />
+              <XAxis
+                dataKey="name"
+                tick={{ fontSize: 11, fill: "#334155", fontWeight: 600 }}
+                angle={-35}
+                textAnchor="end"
+                height={75}
+                interval={barSpacingMode === "fit" && chartData.length > 18 ? "preserveStartEnd" : 0}
+                tickFormatter={formatAxisLabel}
+              />
               <YAxis tick={{ fontSize: 12, fill: "#334155", fontWeight: 600 }} />
               <Tooltip contentStyle={{ borderRadius: 8, fontSize: 12, fontWeight: 600, backgroundColor: "var(--card)" }} />
               {showLegend && <Legend verticalAlign="top" align="right" wrapperStyle={{ paddingBottom: 10, fontSize: 11, fontWeight: 600 }} />}
@@ -386,7 +563,7 @@ export default function PivotChartPreview({
             </AreaChart>
           ) : /* 8. Stacked Area Chart */
           config.chartType === "stacked_area" ? (
-            <AreaChart data={chartData} margin={{ top: 12, right: 20, left: 10, bottom: 65 }}>
+            <AreaChart data={chartData} margin={{ top: 12, right: 20, left: 10, bottom: 80 }}>
               <defs>
                 {chartSeriesKeys.map((k, i) => (
                   <linearGradient key={k} id={`colorAreaStacked-${i}`} x1="0" y1="0" x2="0" y2="1">
@@ -396,7 +573,15 @@ export default function PivotChartPreview({
                 ))}
               </defs>
               {showGrid && <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.3} />}
-              <XAxis dataKey="name" tick={{ fontSize: 11, fill: "#334155", fontWeight: 600 }} angle={-25} textAnchor="end" height={60} interval={0} />
+              <XAxis
+                dataKey="name"
+                tick={{ fontSize: 11, fill: "#334155", fontWeight: 600 }}
+                angle={-35}
+                textAnchor="end"
+                height={75}
+                interval={barSpacingMode === "fit" && chartData.length > 18 ? "preserveStartEnd" : 0}
+                tickFormatter={formatAxisLabel}
+              />
               <YAxis tick={{ fontSize: 12, fill: "#334155", fontWeight: 600 }} />
               <Tooltip contentStyle={{ borderRadius: 8, fontSize: 12, fontWeight: 600, backgroundColor: "var(--card)" }} />
               {showLegend && <Legend verticalAlign="top" align="right" wrapperStyle={{ paddingBottom: 10, fontSize: 11, fontWeight: 600 }} />}
@@ -415,9 +600,17 @@ export default function PivotChartPreview({
             </AreaChart>
           ) : /* 9. Combo Chart (Line + Column) */
           config.chartType === "combo" ? (
-            <ComposedChart data={chartData} margin={{ top: 12, right: 20, left: 10, bottom: 65 }}>
+            <ComposedChart data={chartData} margin={{ top: 12, right: 20, left: 10, bottom: 80 }}>
               {showGrid && <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.3} />}
-              <XAxis dataKey="name" tick={{ fontSize: 11, fill: "#334155", fontWeight: 600 }} angle={-25} textAnchor="end" height={60} interval={0} />
+              <XAxis
+                dataKey="name"
+                tick={{ fontSize: 11, fill: "#334155", fontWeight: 600 }}
+                angle={-35}
+                textAnchor="end"
+                height={75}
+                interval={barSpacingMode === "fit" && chartData.length > 18 ? "preserveStartEnd" : 0}
+                tickFormatter={formatAxisLabel}
+              />
               <YAxis tick={{ fontSize: 12, fill: "#334155", fontWeight: 600 }} />
               <Tooltip contentStyle={{ borderRadius: 8, fontSize: 12, fontWeight: 600, backgroundColor: "var(--card)" }} />
               {showLegend && <Legend verticalAlign="top" align="right" wrapperStyle={{ paddingBottom: 10, fontSize: 11, fontWeight: 600 }} />}
@@ -541,6 +734,7 @@ export default function PivotChartPreview({
             </PieChart>
           )}
         </ResponsiveContainer>
+        </div>
       </div>
     </div>
   );
