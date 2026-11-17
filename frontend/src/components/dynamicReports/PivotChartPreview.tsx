@@ -201,8 +201,8 @@ export default function PivotChartPreview({
   const formatAxisLabel = (value: any) => {
     if (!value) return "";
     const str = String(value);
-    if (str.length > 16) {
-      return str.slice(0, 14) + "…";
+    if (str.length > 14) {
+      return str.slice(0, 12) + "…";
     }
     return str;
   };
@@ -222,14 +222,14 @@ export default function PivotChartPreview({
     "stacked_horizontal_bar",
   ].includes(config.chartType);
 
-  // Each column gets 56px minimum in scroll mode so ticks never collide
-  const minColWidth = 56;
+  // Each column gets 76px minimum in scroll mode so rotated ticks never collide
+  const minColWidth = 76;
   const scrollWidth = Math.max(760, chartData.length * minColWidth);
   const activeChartWidth = isVerticalBarOrLine && barSpacingMode === "scroll" ? scrollWidth : "100%";
 
-  // Interval calculation so rotated X-axis category labels never collide
+  // Adaptive interval calculation so rotated X-axis category labels never collide in viewport fit mode
   const computedInterval = barSpacingMode === "fit"
-    ? (chartData.length > 30 ? 2 : chartData.length > 15 ? 1 : 0)
+    ? (chartData.length > 30 ? Math.ceil(chartData.length / 12) : chartData.length > 15 ? 1 : 0)
     : 0;
 
   // In horizontal bar mode, each category gets 30px height so Y-axis labels aren't squished

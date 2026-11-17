@@ -183,87 +183,135 @@ export default function DepartmentMonthlyReportTab() {
       </div>
       {!isLoading && !isError && !lunchQuery.isLoading && !lunchQuery.isError && shown.length > 0 && (
         <div className="space-y-3">
-          {shown.map(g => (
-            <div key={g.dept} className="grid gap-3 xl:grid-cols-2 items-start">
-              <Card aria-label={`${g.dept} costing summary`}>
+          {deptFilter !== "all" && selected ? (
+            /* Single Department Detailed Analytics Card & Category Status Matrix */
+            <div key={selected.dept} className="grid gap-3 xl:grid-cols-2 items-start">
+              <Card aria-label={`${selected.dept} costing summary`}>
                 <CardContent className="pt-4 space-y-3">
                   <div className="flex flex-wrap items-baseline justify-between gap-2">
-                    <div className="font-semibold">{g.dept}</div>
-                    <div className="text-xs text-muted-foreground">Cost Center <span className="font-mono">{g.costCenter}</span> · {periodLabel}</div>
+                    <div className="font-semibold text-base">{selected.dept}</div>
+                    <div className="text-xs text-muted-foreground">Cost Center <span className="font-mono">{selected.costCenter}</span> · {periodLabel}</div>
                   </div>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                    {[["Total Candidates", String(g.residents)], ["Total Food Value", `SAR ${fmt(g.food)}`], ["Total Room Cost", `SAR ${fmt(g.room)}`], ["Monthly Department Lunch", `SAR ${fmt(g.departmentLunch?.cost || 0)}`], ["Grand Total", `SAR ${fmt(g.total)}`]].map(([label, value], i) => (
-                      <div key={label} className={`rounded-md border p-2 ${i === 3 ? "bg-primary/10 border-primary/30" : "bg-muted/40"}`}>
+                    {[
+                      ["Total Candidates", String(selected.residents)],
+                      ["Total Food Value", `SAR ${fmt(selected.food)}`],
+                      ["Total Room Cost", `SAR ${fmt(selected.room)}`],
+                      ["Monthly Department Lunch", `SAR ${fmt(selected.departmentLunch?.cost || 0)}`],
+                      ["Grand Total", `SAR ${fmt(selected.total)}`],
+                    ].map(([label, value], i) => (
+                      <div key={label} className={`rounded-md border p-2 ${i === 4 ? "bg-primary/10 border-primary/30" : "bg-muted/40"}`}>
                         <div className="text-[11px] text-muted-foreground">{label}</div>
                         <div className="text-sm font-semibold">{value}</div>
                       </div>
                     ))}
                   </div>
                   <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                    <span>Breakfast: SAR {fmt(g.breakfast)}</span><span>Lunch: SAR {fmt(g.lunch)}</span>
-                    <span>Dinner: SAR {fmt(g.dinner)}</span><span>Ramadan: SAR {fmt(g.ramadan)}</span>
+                    <span>Breakfast: SAR {fmt(selected.breakfast)}</span>
+                    <span>Lunch: SAR {fmt(selected.lunch)}</span>
+                    <span>Dinner: SAR {fmt(selected.dinner)}</span>
+                    <span>Ramadan: SAR {fmt(selected.ramadan)}</span>
                   </div>
-                  <FoodTotalsTable groups={[g]} />
-                  <FoodDeductionSummary value={g.deductions} />
-                  <DepartmentLunchTable summary={g.departmentLunch || { quantity: 0, cost: 0, daily: [] }} />
+                  <FoodTotalsTable groups={[selected]} />
+                  <FoodDeductionSummary value={selected.deductions} />
+                  <DepartmentLunchTable summary={selected.departmentLunch || { quantity: 0, cost: 0, daily: [] }} />
                 </CardContent>
               </Card>
-              <CategoryStatusMatrix rows={g.list} asOfDate={periodEnd} department={g.dept} />
+              <CategoryStatusMatrix rows={selected.list} asOfDate={periodEnd} department={selected.dept} />
             </div>
-          ))}
+          ) : (
+            /* High-Performance Overview KPI Summary for All Departments */
+            <Card aria-label="All departments summary" className="border-primary/20 bg-primary/5">
+              <CardContent className="pt-4 pb-4 space-y-3">
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <div className="font-semibold text-sm">All Departments Summary ({shown.length} Departments)</div>
+                  <div className="text-xs text-muted-foreground">{periodLabel}</div>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                  <div className="rounded-md border bg-background/80 p-2.5">
+                    <div className="text-[11px] text-muted-foreground">Total Inmates</div>
+                    <div className="text-lg font-bold">{grand.n.toLocaleString()}</div>
+                  </div>
+                  <div className="rounded-md border bg-background/80 p-2.5">
+                    <div className="text-[11px] text-muted-foreground">Total Room Cost</div>
+                    <div className="text-lg font-bold">SAR {fmt(grand.room)}</div>
+                  </div>
+                  <div className="rounded-md border bg-background/80 p-2.5">
+                    <div className="text-[11px] text-muted-foreground">Total Food Cost</div>
+                    <div className="text-lg font-bold">SAR {fmt(grand.food)}</div>
+                  </div>
+                  <div className="rounded-md border bg-background/80 p-2.5">
+                    <div className="text-[11px] text-muted-foreground">Office Lunch</div>
+                    <div className="text-lg font-bold">SAR {fmt(shown.reduce((s, g) => s + (g.departmentLunch?.cost || 0), 0))}</div>
+                  </div>
+                  <div className="rounded-md border border-primary/30 bg-primary/10 p-2.5">
+                    <div className="text-[11px] text-primary font-semibold">Grand Total</div>
+                    <div className="text-lg font-extrabold text-primary">SAR {fmt(grand.total)}</div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
       )}
       {(isError || lunchQuery.isError) ? <div role="alert" className="py-8 text-center">Unable to load department costs. <Button variant="outline" onClick={() => { refetch(); lunchQuery.refetch(); }}>Retry</Button></div> : (isLoading || lunchQuery.isLoading) ? <div className="text-center py-12 text-muted-foreground">Loading...</div> : (
-        <div className="border rounded-lg overflow-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Department / Employee</TableHead>
-                <TableHead>Cost Center</TableHead>
-                <TableHead>Camp / Block / Room / Category</TableHead>
-                <TableHead className="text-right">Residents / Days</TableHead>
-                <TableHead className="text-right">Room Cost (SAR)</TableHead>
-                <TableHead className="text-right">Food Cost (SAR)</TableHead>
-                <TableHead className="text-right">Total to Charge (SAR)</TableHead>
-                <TableHead>Statement</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {pagedShown.rows.map(g => (
-                <Fragment key={g.dept}>
-                  <TableRow className="bg-muted/40 cursor-pointer font-semibold" onClick={() => setOpen(o => ({ ...o, [g.dept]: !o[g.dept] }))}>
-                    <TableCell><span className="inline-flex items-center gap-1">{open[g.dept] ? <ChevronDown size={14} /> : <ChevronRight size={14} />}{g.dept}</span></TableCell>
-                    <TableCell className="font-mono text-xs">{g.costCenter}</TableCell>
-                    <TableCell />
-                    <TableCell className="text-right">{g.residents}</TableCell>
-                    <TableCell className="text-right">{fmt(g.room)}</TableCell>
-                    <TableCell className="text-right">{fmt(g.food)}</TableCell>
-                    <TableCell className="text-right">{fmt(g.total)}</TableCell>
-                    <TableCell><div className="flex gap-1">
-                      <Button size="sm" variant="outline" aria-label={`Download ${g.dept} costing PDF`} onClick={e => { e.stopPropagation(); exportPdf(g); }}><Download size={14} className="mr-1" /> PDF</Button>
-                      <Button size="icon" variant="ghost" aria-label={`Print ${g.dept} costing statement`} onClick={e => { e.stopPropagation(); printStatement(g); }}><Printer size={14} /></Button>
-                    </div></TableCell>
-                  </TableRow>
-                  {(open[g.dept] || deptFilter !== "all") && (
-                    <DepartmentResidentRows list={g.list} />
-                  )}
-                  {(g.departmentLunch?.cost || 0) > 0 && <TableRow><TableCell>Monthly Department Lunch</TableCell><TableCell>{g.costCenter}</TableCell><TableCell /><TableCell className="text-right">{g.departmentLunch?.quantity}</TableCell><TableCell /><TableCell /><TableCell className="text-right">{fmt(g.departmentLunch?.cost || 0)}</TableCell><TableCell /></TableRow>}
-                </Fragment>
-              ))}
-              {shown.length === 0 ? (
-                <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">No residents for the selected filters</TableCell></TableRow>
-              ) : (
-                <TableRow className="font-bold border-t-2">
-                  <TableCell>Grand Total</TableCell><TableCell /><TableCell />
-                  <TableCell className="text-right">{grand.n}</TableCell>
-                  <TableCell className="text-right">{fmt(grand.room)}</TableCell>
-                  <TableCell className="text-right">{fmt(grand.food)}</TableCell>
-                  <TableCell className="text-right">{fmt(grand.total)}</TableCell><TableCell />
+        <div className="border rounded-lg overflow-hidden space-y-0">
+          <div className="p-2 border-b bg-muted/20">
+            <TablePager {...pagedShown} />
+          </div>
+          <div className="overflow-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Department / Employee</TableHead>
+                  <TableHead>Cost Center</TableHead>
+                  <TableHead>Camp / Block / Room / Category</TableHead>
+                  <TableHead className="text-right">Residents / Days</TableHead>
+                  <TableHead className="text-right">Room Cost (SAR)</TableHead>
+                  <TableHead className="text-right">Food Cost (SAR)</TableHead>
+                  <TableHead className="text-right">Total to Charge (SAR)</TableHead>
+                  <TableHead>Statement</TableHead>
                 </TableRow>
-              )}
-            </TableBody>
-          </Table>
-          <TablePager {...pagedShown} />
+              </TableHeader>
+              <TableBody>
+                {pagedShown.rows.map(g => (
+                  <Fragment key={g.dept}>
+                    <TableRow className="bg-muted/40 cursor-pointer font-semibold" onClick={() => setOpen(o => ({ ...o, [g.dept]: !o[g.dept] }))}>
+                      <TableCell><span className="inline-flex items-center gap-1">{open[g.dept] ? <ChevronDown size={14} /> : <ChevronRight size={14} />}{g.dept}</span></TableCell>
+                      <TableCell className="font-mono text-xs">{g.costCenter}</TableCell>
+                      <TableCell />
+                      <TableCell className="text-right">{g.residents}</TableCell>
+                      <TableCell className="text-right">{fmt(g.room)}</TableCell>
+                      <TableCell className="text-right">{fmt(g.food)}</TableCell>
+                      <TableCell className="text-right">{fmt(g.total)}</TableCell>
+                      <TableCell><div className="flex gap-1">
+                        <Button size="sm" variant="outline" aria-label={`Download ${g.dept} costing PDF`} onClick={e => { e.stopPropagation(); exportPdf(g); }}><Download size={14} className="mr-1" /> PDF</Button>
+                        <Button size="icon" variant="ghost" aria-label={`Print ${g.dept} costing statement`} onClick={e => { e.stopPropagation(); printStatement(g); }}><Printer size={14} /></Button>
+                      </div></TableCell>
+                    </TableRow>
+                    {(open[g.dept] || deptFilter !== "all") && (
+                      <DepartmentResidentRows list={g.list} departmentName={g.dept} />
+                    )}
+                    {(g.departmentLunch?.cost || 0) > 0 && <TableRow><TableCell>Monthly Department Lunch</TableCell><TableCell>{g.costCenter}</TableCell><TableCell /><TableCell className="text-right">{g.departmentLunch?.quantity}</TableCell><TableCell /><TableCell /><TableCell className="text-right">{fmt(g.departmentLunch?.cost || 0)}</TableCell><TableCell /></TableRow>}
+                  </Fragment>
+                ))}
+                {shown.length === 0 ? (
+                  <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">No residents for the selected filters</TableCell></TableRow>
+                ) : (
+                  <TableRow className="font-bold border-t-2">
+                    <TableCell>Grand Total</TableCell><TableCell /><TableCell />
+                    <TableCell className="text-right">{grand.n}</TableCell>
+                    <TableCell className="text-right">{fmt(grand.room)}</TableCell>
+                    <TableCell className="text-right">{fmt(grand.food)}</TableCell>
+                    <TableCell className="text-right">{fmt(grand.total)}</TableCell><TableCell />
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+          <div className="p-2 border-t bg-muted/20">
+            <TablePager {...pagedShown} />
+          </div>
           <FoodTotalsTable groups={shown} />
           <LeaveFoodDeductionTable rows={shown.flatMap(g => g.list)} />
         </div>
@@ -345,10 +393,43 @@ function FoodTotalsTable({ groups }: { groups: any[] }) {
   );
 }
 
-function DepartmentResidentRows({ list }: { list: DepartmentCostRow[] }) {
-  const paged = usePaged(list, 50);
+function DepartmentResidentRows({ list, departmentName }: { list: DepartmentCostRow[]; departmentName?: string }) {
+  const [residentSearch, setResidentSearch] = useState("");
+  const filtered = useMemo(() => {
+    if (!residentSearch.trim()) return list;
+    const q = residentSearch.toLowerCase().trim();
+    return list.filter(r =>
+      (r.name && r.name.toLowerCase().includes(q)) ||
+      (r.emp_code && r.emp_code.toLowerCase().includes(q)) ||
+      (r.supplier && r.supplier.toLowerCase().includes(q)) ||
+      (r.room && r.room.toLowerCase().includes(q))
+    );
+  }, [list, residentSearch]);
+
+  const paged = usePaged(filtered, 25);
+
   return (
     <>
+      <TableRow className="bg-muted/15 border-b border-border/50">
+        <TableCell colSpan={8} className="py-2 px-8">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="text-xs font-semibold text-muted-foreground flex items-center gap-2">
+              <span>{departmentName || "Department"} Candidates:</span>
+              <span className="font-bold text-foreground">{filtered.length} of {list.length}</span>
+            </div>
+            {list.length > 5 && (
+              <div className="w-64">
+                <Input
+                  placeholder="Search resident, ID, supplier..."
+                  value={residentSearch}
+                  onChange={e => setResidentSearch(e.target.value)}
+                  className="h-7 text-xs bg-background"
+                />
+              </div>
+            )}
+          </div>
+        </TableCell>
+      </TableRow>
       {paged.rows.map(r => (
         <TableRow key={r.id}>
           <TableCell className="pl-8">
@@ -379,7 +460,14 @@ function DepartmentResidentRows({ list }: { list: DepartmentCostRow[] }) {
           <TableCell />
         </TableRow>
       ))}
-      {list.length > 50 && (
+      {filtered.length === 0 && (
+        <TableRow>
+          <TableCell colSpan={8} className="text-center py-4 text-xs text-muted-foreground">
+            No residents matching "{residentSearch}"
+          </TableCell>
+        </TableRow>
+      )}
+      {filtered.length > 25 && (
         <TableRow>
           <TableCell colSpan={8} className="p-0 bg-muted/10">
             <TablePager {...paged} />

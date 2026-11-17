@@ -3,13 +3,18 @@ import { supabase } from "@/integrations/supabase/client";
 import type { DepartmentLunch } from "@/lib/departmentLunch";
 
 export function useDepartmentLunch(from: string, to: string) {
- return useQuery({ queryKey: ["department-lunch",from,to], queryFn: async () => {
-  const rows: DepartmentLunch[] = [];
-  for (let offset=0;;offset+=1000) {
-   const {data,error}=await supabase.from("department_lunch_requests").select("*, departments(name,code,cost_center), camps(name)").gte("meal_date",from).lte("meal_date",to).order("meal_date").order("id").range(offset,offset+999);
-   if(error) throw error; rows.push(...(data || [])); if((data || []).length<1000) break;
-  } return rows;
- }});
+ return useQuery({
+  queryKey: ["department-lunch", from, to],
+  staleTime: 120_000,
+  gcTime: 600_000,
+  queryFn: async () => {
+   const rows: DepartmentLunch[] = [];
+   for (let offset=0;;offset+=1000) {
+    const {data,error}=await supabase.from("department_lunch_requests").select("*, departments(name,code,cost_center), camps(name)").gte("meal_date",from).lte("meal_date",to).order("meal_date").order("id").range(offset,offset+999);
+    if(error) throw error; rows.push(...(data || [])); if((data || []).length<1000) break;
+   } return rows;
+  }
+ });
 }
 export function useLunchManagers() {
  return useQuery({queryKey:["department-lunch-managers"],queryFn:async()=>{const {data,error}=await supabase.from("department_lunch_managers").select("*");if(error)throw error;return data;}});
