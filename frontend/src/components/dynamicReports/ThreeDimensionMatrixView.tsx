@@ -221,6 +221,7 @@ export default function ThreeDimensionMatrixView({
   const [useHeatmap, setUseHeatmap] = useState<boolean>(false);
   const [heightScale, setHeightScale] = useState<number>(1.2);
   const [autoRotate, setAutoRotate] = useState<boolean>(false);
+  const [cameraAngle, setCameraAngleState] = useState<ViewAngle>("iso");
   const [showDataLabels, setShowDataLabels] = useState<boolean>(false);
   const [sortOrder, setSortOrder] = useState<SortOrder>("none");
   const [activeSeriesFilter, setActiveSeriesFilter] = useState<string | null>(null);
@@ -1260,6 +1261,7 @@ export default function ThreeDimensionMatrixView({
 
   // Camera presets
   const setCameraAngle = (angle: ViewAngle) => {
+    setCameraAngleState(angle);
     if (!cameraRef.current || !controlsRef.current) return;
     const camera = cameraRef.current;
     const controls = controlsRef.current;
