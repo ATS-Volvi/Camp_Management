@@ -31,8 +31,20 @@ export interface DatasetDefinition {
 export type ChartType =
   | "bar"
   | "stacked_bar"
+  | "horizontal_bar"
+  | "stacked_horizontal_bar"
+  | "percent_stacked_bar"
   | "line"
+  | "area"
+  | "stacked_area"
+  | "combo"
+  | "pie"
   | "donut"
+  | "radar"
+  | "radial_bar"
+  | "treemap"
+  | "kpi_card"
+  | "scatter"
   | "3d_bar"
   | "3d_line"
   | "3d_donut"
@@ -47,6 +59,10 @@ export interface ReportConfig {
   showSubtotals: boolean;
   showGrandTotals: boolean;
   chartType: ChartType;
+  colorTheme?: "powerbi" | "vibrant" | "ocean" | "sunset" | "emerald";
+  showDataLabels?: boolean;
+  showGridlines?: boolean;
+  showLegend?: boolean;
 }
 
 export interface PresetTemplate {

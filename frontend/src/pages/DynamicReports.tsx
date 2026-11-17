@@ -9,6 +9,7 @@ import FieldCatalogPane from "@/components/dynamicReports/FieldCatalogPane";
 import DropZoneSection from "@/components/dynamicReports/DropZoneSection";
 import PivotMatrixTable from "@/components/dynamicReports/PivotMatrixTable";
 import PivotChartPreview from "@/components/dynamicReports/PivotChartPreview";
+import VisualizationsPane from "@/components/dynamicReports/VisualizationsPane";
 import SaveReportModal from "@/components/dynamicReports/SaveReportModal";
 
 import { Button } from "@/components/ui/button";
@@ -53,6 +54,7 @@ export default function DynamicReports() {
   });
 
   const [saveModalOpen, setSaveModalOpen] = useState(false);
+  const [visualsCollapsed, setVisualsCollapsed] = useState(false);
 
   // Active dataset definition & field map
   const activeDatasetDef = DATASET_DEFINITIONS[config.dataset] || DATASET_DEFINITIONS.inmates;
@@ -400,18 +402,18 @@ export default function DynamicReports() {
         </Card>
       </div>
 
-      {/* Main Studio Work Area */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
-        {/* Left Column: Field Palette (3 cols) */}
-        <div className="lg:col-span-3 sticky top-4">
+      {/* Main Studio Work Area: Power BI 3-Pane Layout */}
+      <div className="flex flex-col lg:flex-row gap-4 items-start w-full">
+        {/* Left Pane: Fields & Measures Palette */}
+        <div className="w-full lg:w-60 xl:w-64 shrink-0 lg:sticky lg:top-4">
           <FieldCatalogPane
             fields={activeDatasetDef.fields}
             onAddField={handleAddField}
           />
         </div>
 
-        {/* Right Column: Drop Wells & Matrix Workspace (9 cols) */}
-        <div className="lg:col-span-9 space-y-4">
+        {/* Center Canvas: Drop Wells, Visualizer & Pivot Matrix */}
+        <div className="flex-1 min-w-0 w-full space-y-4">
           {/* Magnetic Drop Wells */}
           <DropZoneSection
             config={config}
@@ -432,6 +434,16 @@ export default function DynamicReports() {
           <PivotMatrixTable
             matrix={matrixResult}
             config={config}
+          />
+        </div>
+
+        {/* Right Pane: Power BI Visualizations Selector & Format Controls */}
+        <div className="w-full lg:w-auto shrink-0 lg:sticky lg:top-4">
+          <VisualizationsPane
+            config={config}
+            onConfigChange={setConfig}
+            collapsed={visualsCollapsed}
+            onToggleCollapse={() => setVisualsCollapsed(!visualsCollapsed)}
           />
         </div>
       </div>
