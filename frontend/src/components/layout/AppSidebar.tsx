@@ -3,7 +3,7 @@ import {
   Home, Upload, Building2, Truck, Users, Wrench, Package, Settings as SettingsIcon,
   BarChart3, Activity, Bell, HelpCircle, ChevronDown, Search, Box, LogIn, ClipboardList, Sparkles, UtensilsCrossed, UserCheck,
   Shield, UserCog, FileText, AlertTriangle, ChefHat, ShieldCheck, LineChart, Cog, Gauge, BedDouble, Link2, Ban,
-  LayoutDashboard, PieChart, CalendarDays, Briefcase, FileSpreadsheet, LayoutGrid, Receipt, TrendingUp, LogOut, SlidersHorizontal
+  LayoutDashboard, PieChart, CalendarDays, Briefcase, SlidersHorizontal
 } from "lucide-react";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useEffect, useState } from "react";
@@ -72,9 +72,9 @@ const navGroups: {
 ];
 
 const bottomNav = [
-  { label: "Reports", icon: BarChart3, path: "/reports", expandable: true },
-  { label: "Activities", icon: Activity, path: "/activities", expandable: true },
-  { label: "Alerts & Notifications", icon: Bell, path: "/alerts", expandable: true },
+  { label: "Reports", icon: BarChart3, path: "/reports" },
+  { label: "Activities", icon: Activity, path: "/activities" },
+  { label: "Alerts & Notifications", icon: Bell, path: "/alerts" },
 ];
 
 const dashboardNav = [
@@ -84,13 +84,6 @@ const dashboardNav = [
   { label: "Contract Overview", icon: FileText, path: "/dashboards/contracts" },
   { label: "Expertise Board", icon: Gauge, path: "/dashboards/expertise" },
   { label: "Operations Dashboard", icon: Activity, path: "/dashboard" },
-];
-
-const reportsNav = [
-  { label: "Occupancy & Charges", icon: Building2, path: "/reports?tab=occupancy-charges" },
-  { label: "Department Monthly", icon: Receipt, path: "/reports?tab=dept-monthly" },
-  { label: "Total Inmates", icon: Users, path: "/reports?tab=total-inmates" },
-  { label: "Revenue Summary", icon: TrendingUp, path: "/reports?tab=revenue" },
 ];
 
 const adminNav = [
@@ -119,8 +112,6 @@ export default function AppSidebar() {
   const { isSuperAdmin } = usePermissions();
   const dashboardActive = location.pathname === "/dashboard" || location.pathname.startsWith("/dashboards/");
   const [dashboardsOpen, setDashboardsOpen] = useState(dashboardActive);
-  const reportsActive = location.pathname.startsWith("/reports");
-  const [reportsOpen, setReportsOpen] = useState(reportsActive);
   const [openGroups, setOpenGroups] = useState<string[]>(() =>
     GROUP_LABELS.filter(label => {
       const items = label === "Administration" ? adminNav : navGroups.find(g => g.label === label)?.items ?? [];
@@ -130,9 +121,6 @@ export default function AppSidebar() {
 
   // Keep the owning section open when navigation lands inside it (e.g. deep links).
   useEffect(() => {
-    if (location.pathname.startsWith("/reports")) {
-      setReportsOpen(true);
-    }
     const owner = GROUP_LABELS.find(label => {
       const items = label === "Administration" ? adminNav : navGroups.find(g => g.label === label)?.items ?? [];
       return items.some(item => isPathActive(location.pathname, item.path));
@@ -226,64 +214,16 @@ export default function AppSidebar() {
         {renderGroup("Administration", Shield, adminNav, navGroups.length + 1)}
 
         <div className="pt-4 space-y-0.5">
-          {/* Expandable Reports Dropdown Accordion */}
-          <Button
-            variant="ghost"
-            aria-expanded={reportsOpen}
-            aria-controls="reports-menu"
-            onClick={() => setReportsOpen(!reportsOpen)}
-            className={`sidebar-link w-full justify-between ${reportsActive ? "sidebar-link-active" : ""}`}
-          >
-            <span className="flex items-center gap-3">
-              <BarChart3 size={18} />
-              <span>Reports</span>
-            </span>
-            <ChevronDown size={16} className={`transition-transform duration-200 ${reportsOpen ? "rotate-180" : ""}`} />
-          </Button>
-
-          {reportsOpen && (
-            <div id="reports-menu" className="ml-3 pl-2 border-l space-y-0.5">
-              {reportsNav.map((item) => {
-                const targetTab = new URLSearchParams(item.path.split("?")[1] || "").get("tab");
-                const currentTab = new URLSearchParams(location.search).get("tab") || "occupancy-charges";
-                const isSelected = location.pathname.startsWith("/reports") && targetTab === currentTab;
-
-                return (
-                  <NavLink
-                    key={item.path}
-                    to={item.path}
-                    className={`sidebar-link text-xs flex items-center gap-2 ${
-                      isSelected
-                        ? "sidebar-link-active font-bold text-primary bg-primary/10"
-                        : "text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    <item.icon
-                      size={15}
-                      className={`shrink-0 ${
-                        isSelected ? "text-primary" : "text-muted-foreground"
-                      }`}
-                    />
-                    <span className="truncate">{item.label}</span>
-                  </NavLink>
-                );
-              })}
-            </div>
-          )}
-
-          {bottomNav.filter(item => item.path !== "/reports").map(item => (
+          {bottomNav.map(item => (
             <NavLink
               key={item.path}
               to={item.path}
               className={({ isActive: active }) =>
-                `sidebar-link justify-between ${active ? "sidebar-link-active" : ""}`
+                `sidebar-link ${active || isPathActive(location.pathname, item.path) ? "sidebar-link-active" : ""}`
               }
             >
-              <span className="flex items-center gap-3">
-                <item.icon size={18} />
-                {item.label}
-              </span>
-              {item.expandable && <ChevronDown size={16} />}
+              <item.icon size={18} />
+              <span>{item.label}</span>
             </NavLink>
           ))}
         </div>
