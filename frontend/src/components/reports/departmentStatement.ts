@@ -43,6 +43,9 @@ export interface DepartmentCostRow {
   normalRoomCost?: number;
   holdingCost?: number;
   lockerCost?: number;
+  hasRateChange?: boolean;
+  rateBreakdownLabel?: string;
+  rateSegments?: any[];
   absences?: { temporary_out_date: string; expected_return_date: string | null; actual_return_date: string | null; reason: string; ended_by_checkout: boolean; absence_status?: string }[];
 }
 

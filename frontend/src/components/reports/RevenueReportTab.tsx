@@ -7,6 +7,7 @@ import { getExcelTierRates, getExcelMealRates } from "@/lib/excelRates";
 import { approvedFoodCancellations } from "@/lib/approvedFoodCancellations";
 import { billableStayWindow, stayDeparture } from "@/lib/stayBilling";
 import { LEAVE_STATUSES, leaveDaysWithin, leaveRangesWithin, dmy, roomCostWithHolding, type LeavePeriod } from "@/lib/roomHolding";
+import { resolveRoomStayCost, type RoomRateSchedule } from "@/lib/roomRateSchedule";
 import { matchesDepartment } from "@/lib/departmentLabels";
 import { useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -29,7 +30,7 @@ export function rowsOf<T>({ data, error }: { data: T[] | null; error: unknown })
 
 /** Everything revenue needs except cancellations. Not date-bound: stays outside a window bill 0 days. */
 async function fetchRevenueBase() {
-  const [checkIns, checkOuts, rates, categories, suppliers, ramadan, campMealRates, leaves] = await Promise.all([
+  const [checkIns, checkOuts, rates, categories, suppliers, ramadan, campMealRates, leaves, rateSchedules] = await Promise.all([
     supabase.from("check_ins").select("id, employee_id, room_id, camp_id, check_in_date, food_required, employees(id, employee_id, name, department, supplier_name, employee_type, project, presence_status), rooms(id, room_number, category, daily_food_rate, building_id, buildings(name)), camps(id, name)").then(rowsOf),
     supabase.from("check_outs").select("employee_id, check_out_date").then(rowsOf),
     supabase.from("camp_room_rates").select("*").then(rowsOf),
@@ -38,8 +39,9 @@ async function fetchRevenueBase() {
     supabase.from("camp_food_cancellation_settings").select("camp_id, ramadan_mode, ramadan_start, ramadan_end").then(rowsOf),
     supabase.from("camp_meal_rates").select("camp_id, breakfast_rate, lunch_rate, dinner_rate, ramadan_rate").then(rowsOf),
     supabase.from("employee_status_log").select("employee_id, to_status, effective_from, effective_to").in("to_status", LEAVE_STATUSES as any).then(rowsOf),
+    (supabase as any).from("camp_room_rate_schedules").select("*").then((res: any) => res.data ?? []).catch(() => []),
   ]);
-  return { checkIns, checkOuts, rates, categories, suppliers, ramadan, campMealRates, leaves };
+  return { checkIns, checkOuts, rates, categories, suppliers, ramadan, campMealRates, leaves, rateSchedules };
 }
 
 export function useRevenueData(fromDate: string, toDate: string) {
@@ -106,7 +108,8 @@ export function buildRevenueRows(data: any, fromDate: string, toDate: string): a
       const clientRoom = client?.client_room_rates?.find((r: any) => r.room_category_code === codeByKey[room.category]);
       const standardRates = getExcelTierRates(room.category, room.max_capacity);
       const configuredDailyRoom = rateMap[`${ci.camp_id}-${room.category}`];
-      const dailyRoom = clientRoom ? Number(clientRoom.daily_rate) || 0 : (configuredDailyRoom && configuredDailyRoom > 0 ? configuredDailyRoom : standardRates.accommodationRate);
+      const fallbackDailyRoom = clientRoom ? Number(clientRoom.daily_rate) || 0 : (configuredDailyRoom && configuredDailyRoom > 0 ? configuredDailyRoom : standardRates.accommodationRate);
+      const fallbackHoldingCharge = (holdingMap[room.category] && holdingMap[room.category] > 0) ? holdingMap[room.category] : standardRates.holdingRate;
       const baseFood = ci.food_required ? Number(room.daily_food_rate) || 0 : 0;
       const mealRates: MealRates = !ci.food_required ? { breakfast: 0, lunch: 0, dinner: 0, ramadan: 0 }
         : client ? { breakfast: Number(client.breakfast_rate) || 0, lunch: Number(client.lunch_rate) || 0, dinner: Number(client.dinner_rate) || 0, ramadan: Number(client.ramadan_rate) || 0 }
@@ -122,9 +125,26 @@ export function buildRevenueRows(data: any, fromDate: string, toDate: string): a
       const mealsCancelled = meal.mealsCancelled;
       const leaveFoodDeductions = computeMealCost(stayStart, stayEnd, mealRates,
         leaves.map(l => ({ from: l.from, to: l.to, meals: [] })), ramadanByCamp[ci.camp_id]).deductions;
-      const holdingCharge = (holdingMap[room.category] && holdingMap[room.category] > 0) ? holdingMap[room.category] : standardRates.holdingRate;
-      const leaveDays = Math.min(stayDays, leaveDaysWithin(periods, stayStart, stayEnd));
-      const roomRevenue = roomCostWithHolding(stayDays, leaveDays, dailyRoom, holdingCharge);
+
+      // Rate schedule resolution (date-effective room rate changes)
+      const rateSchedules: RoomRateSchedule[] = data.rateSchedules || [];
+      const roomStay = resolveRoomStayCost(
+        stayStart,
+        stayEnd,
+        ci.camp_id,
+        room.category,
+        rateSchedules,
+        fallbackDailyRoom,
+        fallbackHoldingCharge,
+        leaves
+      );
+
+      const leaveDays = roomStay.leaveDays;
+      const roomRevenue = roomStay.totalRoomRevenue;
+      const normalRoomCost = roomStay.normalRoomCost;
+      const holdingCost = roomStay.holdingCost;
+      const dailyRoom = roomStay.effectiveDailyRate;
+      const holdingCharge = fallbackHoldingCharge;
       const foodRevenue = meal.net;
       const lockerCost = (data.lockerBilling?.allocations || []).filter((a: any) => a.employee_id === ci.employee_id && data.lockerBilling.lockers.find((l: any) => l.id === a.locker_id)?.camp_id === ci.camp_id).reduce((sum: number, a: any) => sum + lockerCharge(a, format(stayStart, "yyyy-MM-dd"), format(stayEnd, "yyyy-MM-dd")), 0);
       const total = roomRevenue + foodRevenue + lockerCost;
@@ -151,8 +171,11 @@ export function buildRevenueRows(data: any, fromDate: string, toDate: string): a
         stayFrom: dmy(stayStart), stayTo: dmy(stayEnd),
         leaves: leaves.map(l => ({ from: dmy(l.from), to: dmy(l.to) })),
         holdingCharge,
-        normalRoomCost: (stayDays - leaveDays) * dailyRoom,
-        holdingCost: leaveDays * holdingCharge,
+        normalRoomCost,
+        holdingCost,
+        hasRateChange: roomStay.hasRateChange,
+        rateBreakdownLabel: roomStay.rateBreakdownLabel,
+        rateSegments: roomStay.segments,
         absences: (data.absences || []).filter((a: any) => a.check_in_id === ci.id),
         dailyFood,
         foodFull: meal.full,
@@ -206,8 +229,23 @@ export default function RevenueReportTab() {
   }), [filtered]);
 
   const handleExport = () => {
-    const headers = ["Employee ID", "Name", "Department", "Supplier", "Project", "Camp", "Room", "Stay Days", "Daily Room (SAR)", "Room Revenue", "Meals Cancelled", "Food Revenue", "Total Revenue"];
-    const csvRows = filtered.map(r => [r.emp_code, r.name, r.department, r.supplier, r.project, r.camp, r.room, r.stayDays, r.dailyRoom, r.roomRevenue.toFixed(2), r.mealsCancelled, r.foodRevenue.toFixed(2), r.total.toFixed(2)]);
+    const headers = ["Employee ID", "Name", "Department", "Supplier", "Project", "Camp", "Room", "Stay Days", "Daily Room (SAR)", "Rate Split", "Room Revenue", "Meals Cancelled", "Food Revenue", "Total Revenue"];
+    const csvRows = filtered.map(r => [
+      r.emp_code,
+      r.name,
+      r.department,
+      r.supplier,
+      r.project,
+      r.camp,
+      r.room,
+      r.stayDays,
+      (Number(r.dailyRoom) || 0).toFixed(2),
+      r.hasRateChange ? r.rateBreakdownLabel : "Standard",
+      (Number(r.roomRevenue) || 0).toFixed(2),
+      r.mealsCancelled,
+      (Number(r.foodRevenue) || 0).toFixed(2),
+      (Number(r.total) || 0).toFixed(2),
+    ]);
     const csv = [headers.join(","), ...csvRows.map(r => r.map(c => `"${c}"`).join(","))].join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
@@ -291,7 +329,15 @@ export default function RevenueReportTab() {
                   <TableCell>{r.supplier}</TableCell>
                   <TableCell><div className="text-xs">{r.camp}</div><div className="font-medium">{r.room}</div></TableCell>
                   <TableCell className="text-right">{r.stayDays}</TableCell>
-                  <TableCell className="text-right">{(Number(r.roomRevenue) || 0).toLocaleString()}{Number(r.holdingCost) > 0 && <div className="text-xs text-muted-foreground">Normal {r.normalRoomCost} · Holding {r.holdingCost}</div>}</TableCell>
+                  <TableCell className="text-right">
+                    {(Number(r.roomRevenue) || 0).toLocaleString()}
+                    {r.hasRateChange && (
+                      <div className="text-[11px] text-blue-600 font-medium" title={r.rateBreakdownLabel}>
+                        ⚡ Split: {r.rateBreakdownLabel}
+                      </div>
+                    )}
+                    {Number(r.holdingCost) > 0 && <div className="text-xs text-muted-foreground">Normal {r.normalRoomCost} · Holding {r.holdingCost}</div>}
+                  </TableCell>
                   <TableCell className="text-right">{Number(r.mealsCancelled) || 0}</TableCell>
                   <TableCell className="text-right">{(Number(r.foodRevenue) || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}</TableCell>
                   <TableCell className="text-right font-semibold">{(Number(r.total) || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}{Number(r.lockerCost) > 0 && <div className="text-xs text-muted-foreground">Locker Charges {(Number(r.lockerCost) || 0).toFixed(2)}</div>}</TableCell>

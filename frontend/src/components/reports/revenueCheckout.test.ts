@@ -114,4 +114,41 @@ describe("report billing stops at checkout", () => {
     expect(row6x1.foodRevenue).toBeCloseTo(100.0);
     expect(row6x1.total).toBeCloseTo(190.0); // SAR 19/day
   });
+
+  it("splits stay room billing accurately when room rate changes mid-month (Oct 1-30, rate changes Oct 15)", () => {
+    const input = {
+      checkIns: [{
+        id: "stay-split",
+        employee_id: "emp-split",
+        camp_id: "camp-1",
+        check_in_date: "2026-10-01T00:00:00Z",
+        food_required: false,
+        employees: { name: "Ahmed", employee_id: "E-100", employee_type: "own" },
+        rooms: { room_number: "101", category: "staff_4bed" },
+        camps: { name: "Main Camp" }
+      }],
+      checkOuts: [{ employee_id: "emp-split", check_out_date: "2026-10-31T00:00:00Z" }], // 30 days: Oct 1 to Oct 30
+      rates: [{ camp_id: "camp-1", room_category: "staff_4bed", daily_rate: 50 }],
+      categories: [{ category_key: "staff_4bed", holding_charge: 15 }],
+      rateSchedules: [
+        { camp_id: "camp-1", room_category: "staff_4bed", daily_rate: 50, holding_rate: 15, effective_from: "2026-10-01", effective_to: "2026-10-14" },
+        { camp_id: "camp-1", room_category: "staff_4bed", daily_rate: 70, holding_rate: 20, effective_from: "2026-10-15", effective_to: null },
+      ],
+      cancellations: [],
+    };
+
+    const rows = buildRevenueRows(input, "2026-10-01", "2026-10-31");
+    expect(rows).toHaveLength(1);
+    const row = rows[0];
+
+    // 30 days total
+    expect(row.stayDays).toBe(30);
+    expect(row.hasRateChange).toBe(true);
+    // 14 days @ 50 = 700, 16 days @ 70 = 1120 -> 1820 total
+    expect(row.roomRevenue).toBe(1820);
+    expect(row.normalRoomCost).toBe(1820);
+    expect(row.rateBreakdownLabel).toBe("14d @ SAR 50 + 16d @ SAR 70");
+    expect(row.rateSegments).toHaveLength(2);
+    expect(row.total).toBe(1820);
+  });
 });

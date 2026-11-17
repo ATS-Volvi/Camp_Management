@@ -227,6 +227,11 @@ export default function PivotChartPreview({
   const scrollWidth = Math.max(760, chartData.length * minColWidth);
   const activeChartWidth = isVerticalBarOrLine && barSpacingMode === "scroll" ? scrollWidth : "100%";
 
+  // Interval calculation so rotated X-axis category labels never collide
+  const computedInterval = barSpacingMode === "fit"
+    ? (chartData.length > 30 ? 2 : chartData.length > 15 ? 1 : 0)
+    : 0;
+
   // In horizontal bar mode, each category gets 30px height so Y-axis labels aren't squished
   const minRowHeight = 30;
   const scrollHeight = Math.max(340, chartData.length * minRowHeight);
@@ -468,7 +473,7 @@ export default function PivotChartPreview({
                 angle={-35}
                 textAnchor="end"
                 height={75}
-                interval={barSpacingMode === "fit" && chartData.length > 18 ? "preserveStartEnd" : 0}
+                interval={computedInterval}
                 tickFormatter={formatAxisLabel}
               />
               <YAxis tick={{ fontSize: 12, fill: "#334155", fontWeight: 600 }} />
@@ -494,7 +499,7 @@ export default function PivotChartPreview({
                 angle={-35}
                 textAnchor="end"
                 height={75}
-                interval={barSpacingMode === "fit" && chartData.length > 18 ? "preserveStartEnd" : 0}
+                interval={computedInterval}
                 tickFormatter={formatAxisLabel}
               />
               <YAxis tick={{ fontSize: 12, fill: "#334155", fontWeight: 600 }} />
@@ -522,7 +527,7 @@ export default function PivotChartPreview({
                 tickFormatter={formatAxisLabel}
               />
               <Tooltip contentStyle={{ borderRadius: 8, fontSize: 12, fontWeight: 600, backgroundColor: "var(--card)" }} />
-              {showLegend && <Legend wrapperStyle={{ fontSize: 12, fontWeight: 600 }} />}
+              {showLegend && <Legend verticalAlign="top" align="right" wrapperStyle={{ paddingBottom: 10, fontSize: 11, fontWeight: 600 }} />}
               {chartSeriesKeys.map((seriesKey, i) => (
                 <Bar
                   key={seriesKey}
@@ -546,7 +551,7 @@ export default function PivotChartPreview({
                 tickFormatter={formatAxisLabel}
               />
               <Tooltip contentStyle={{ borderRadius: 8, fontSize: 12, fontWeight: 600, backgroundColor: "var(--card)" }} />
-              {showLegend && <Legend wrapperStyle={{ fontSize: 12, fontWeight: 600 }} />}
+              {showLegend && <Legend verticalAlign="top" align="right" wrapperStyle={{ paddingBottom: 10, fontSize: 11, fontWeight: 600 }} />}
               {chartSeriesKeys.map((seriesKey, i) => (
                 <Bar
                   key={seriesKey}
@@ -566,7 +571,7 @@ export default function PivotChartPreview({
                 angle={-35}
                 textAnchor="end"
                 height={75}
-                interval={barSpacingMode === "fit" && chartData.length > 18 ? "preserveStartEnd" : 0}
+                interval={computedInterval}
                 tickFormatter={formatAxisLabel}
               />
               <YAxis tickFormatter={(val) => `${val}%`} domain={[0, 100]} tick={{ fontSize: 12, fill: "#334155", fontWeight: 600 }} />
@@ -594,7 +599,7 @@ export default function PivotChartPreview({
                 angle={-35}
                 textAnchor="end"
                 height={75}
-                interval={barSpacingMode === "fit" && chartData.length > 18 ? "preserveStartEnd" : 0}
+                interval={computedInterval}
                 tickFormatter={formatAxisLabel}
               />
               <YAxis tick={{ fontSize: 12, fill: "#334155", fontWeight: 600 }} />
@@ -630,7 +635,7 @@ export default function PivotChartPreview({
                 angle={-35}
                 textAnchor="end"
                 height={75}
-                interval={barSpacingMode === "fit" && chartData.length > 18 ? "preserveStartEnd" : 0}
+                interval={computedInterval}
                 tickFormatter={formatAxisLabel}
               />
               <YAxis tick={{ fontSize: 12, fill: "#334155", fontWeight: 600 }} />
@@ -666,7 +671,7 @@ export default function PivotChartPreview({
                 angle={-35}
                 textAnchor="end"
                 height={75}
-                interval={barSpacingMode === "fit" && chartData.length > 18 ? "preserveStartEnd" : 0}
+                interval={computedInterval}
                 tickFormatter={formatAxisLabel}
               />
               <YAxis tick={{ fontSize: 12, fill: "#334155", fontWeight: 600 }} />
@@ -695,7 +700,7 @@ export default function PivotChartPreview({
                 angle={-35}
                 textAnchor="end"
                 height={75}
-                interval={barSpacingMode === "fit" && chartData.length > 18 ? "preserveStartEnd" : 0}
+                interval={computedInterval}
                 tickFormatter={formatAxisLabel}
               />
               <YAxis tick={{ fontSize: 12, fill: "#334155", fontWeight: 600 }} />
@@ -725,7 +730,7 @@ export default function PivotChartPreview({
           config.chartType === "pie" ? (
             <PieChart>
               <Tooltip contentStyle={{ borderRadius: 8, fontSize: 12, fontWeight: 600, backgroundColor: "var(--card)" }} />
-              {showLegend && <Legend wrapperStyle={{ fontSize: 12, fontWeight: 600 }} />}
+              {showLegend && <Legend verticalAlign="top" align="right" wrapperStyle={{ paddingBottom: 10, fontSize: 11, fontWeight: 600 }} />}
               <Pie
                 data={singleSeriesData}
                 dataKey="value"
@@ -747,7 +752,7 @@ export default function PivotChartPreview({
               <PolarAngleAxis dataKey="name" tick={{ fontSize: 11, fill: "#334155", fontWeight: 600 }} />
               <PolarRadiusAxis angle={30} domain={[0, "auto"]} />
               <Tooltip contentStyle={{ borderRadius: 8, fontSize: 12, fontWeight: 600, backgroundColor: "var(--card)" }} />
-              {showLegend && <Legend wrapperStyle={{ fontSize: 12, fontWeight: 600 }} />}
+              {showLegend && <Legend verticalAlign="top" align="right" wrapperStyle={{ paddingBottom: 10, fontSize: 11, fontWeight: 600 }} />}
               {chartSeriesKeys.map((seriesKey, i) => (
                 <Radar
                   key={seriesKey}
@@ -788,7 +793,7 @@ export default function PivotChartPreview({
               <XAxis dataKey="name" tick={{ fontSize: 12, fill: "#334155", fontWeight: 600 }} angle={-15} textAnchor="end" />
               <YAxis tick={{ fontSize: 12, fill: "#334155", fontWeight: 600 }} />
               <Tooltip contentStyle={{ borderRadius: 8, fontSize: 12, fontWeight: 600, backgroundColor: "var(--card)" }} />
-              {showLegend && <Legend wrapperStyle={{ fontSize: 12, fontWeight: 600 }} />}
+              {showLegend && <Legend verticalAlign="top" align="right" wrapperStyle={{ paddingBottom: 10, fontSize: 11, fontWeight: 600 }} />}
               {chartSeriesKeys.map((seriesKey, i) => (
                 <Scatter
                   key={seriesKey}
@@ -802,7 +807,7 @@ export default function PivotChartPreview({
             /* 15. Default: Donut Chart */
             <PieChart>
               <Tooltip contentStyle={{ borderRadius: 8, fontSize: 12, fontWeight: 600, backgroundColor: "var(--card)" }} />
-              {showLegend && <Legend wrapperStyle={{ fontSize: 12, fontWeight: 600 }} />}
+              {showLegend && <Legend verticalAlign="top" align="right" wrapperStyle={{ paddingBottom: 10, fontSize: 11, fontWeight: 600 }} />}
               <Pie
                 data={singleSeriesData}
                 dataKey="value"
