@@ -39,7 +39,12 @@ import {
   Layers,
   Box,
   Share2,
+  Maximize2,
+  Minimize2,
+  ChevronUp,
+  ChevronDown,
 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
 
@@ -54,7 +59,9 @@ export default function DynamicReports() {
   });
 
   const [saveModalOpen, setSaveModalOpen] = useState(false);
+  const [fieldsCollapsed, setFieldsCollapsed] = useState(false);
   const [visualsCollapsed, setVisualsCollapsed] = useState(false);
+  const [wellsCollapsed, setWellsCollapsed] = useState(false);
 
   // Active dataset definition & field map
   const activeDatasetDef = DATASET_DEFINITIONS[config.dataset] || DATASET_DEFINITIONS.inmates;
@@ -306,6 +313,37 @@ export default function DynamicReports() {
             </span>
           </Button>
 
+          {/* Focus Mode (75%+ Canvas Toggle) */}
+          <Button
+            size="sm"
+            onClick={() => {
+              const nextCollapsed = !(fieldsCollapsed && visualsCollapsed);
+              setFieldsCollapsed(nextCollapsed);
+              setVisualsCollapsed(nextCollapsed);
+              if (nextCollapsed) {
+                toast.info("Focus Mode: side panels collapsed to maximize report canvas to 90%.");
+              }
+            }}
+            className={`h-8 text-xs font-semibold gap-1.5 transition-all shadow-xs ${
+              fieldsCollapsed && visualsCollapsed
+                ? "bg-indigo-600 hover:bg-indigo-700 text-white font-bold"
+                : "bg-white/10 hover:bg-white/20 text-white border border-white/20"
+            }`}
+            title="Toggle Focus Mode: collapse side panels to expand report canvas to 90% of screen"
+          >
+            {fieldsCollapsed && visualsCollapsed ? (
+              <>
+                <Minimize2 size={13} className="text-white" />
+                <span>Restore Panels</span>
+              </>
+            ) : (
+              <>
+                <Maximize2 size={13} className="text-indigo-300" />
+                <span>Focus View (75%+)</span>
+              </>
+            )}
+          </Button>
+
           {/* Excel Export */}
           <Button
             size="sm"
@@ -403,23 +441,62 @@ export default function DynamicReports() {
       </div>
 
       {/* Main Studio Work Area: Power BI 3-Pane Layout */}
-      <div className="flex flex-col lg:flex-row gap-4 items-start w-full">
+      <div className="flex flex-col lg:flex-row gap-3.5 items-start w-full">
         {/* Left Pane: Fields & Measures Palette */}
-        <div className="w-full lg:w-60 xl:w-64 shrink-0 lg:sticky lg:top-4">
+        <div
+          className={`${
+            fieldsCollapsed ? "w-11" : "w-full lg:w-52 xl:w-56"
+          } shrink-0 lg:sticky lg:top-4 transition-all duration-200`}
+        >
           <FieldCatalogPane
             fields={activeDatasetDef.fields}
             onAddField={handleAddField}
+            collapsed={fieldsCollapsed}
+            onToggleCollapse={() => setFieldsCollapsed(!fieldsCollapsed)}
           />
         </div>
 
         {/* Center Canvas: Drop Wells, Visualizer & Pivot Matrix */}
-        <div className="flex-1 min-w-0 w-full space-y-4">
+        <div className="flex-1 min-w-0 w-full space-y-3.5">
+          {/* Canvas Toolbar & Drop Wells Toggle */}
+          <div className="flex items-center justify-between px-1">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-foreground uppercase tracking-wider">
+                Report Canvas
+              </span>
+              <Badge variant="outline" className="text-[10px] font-semibold text-muted-foreground bg-muted/40">
+                {config.rows.length} rows • {config.columns.length} cols • {config.values.length} measures
+              </Badge>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setWellsCollapsed(!wellsCollapsed)}
+              className="h-6 text-[11px] font-medium text-muted-foreground hover:text-foreground gap-1 px-2 hover:bg-muted"
+              title="Toggle Drop Wells to maximize vertical space"
+            >
+              {wellsCollapsed ? (
+                <>
+                  <ChevronDown size={13} />
+                  <span>Show Field Wells</span>
+                </>
+              ) : (
+                <>
+                  <ChevronUp size={13} />
+                  <span>Minimize Wells (Expand Height)</span>
+                </>
+              )}
+            </Button>
+          </div>
+
           {/* Magnetic Drop Wells */}
-          <DropZoneSection
-            config={config}
-            fieldMap={fieldMap}
-            onConfigChange={setConfig}
-          />
+          {!wellsCollapsed && (
+            <DropZoneSection
+              config={config}
+              fieldMap={fieldMap}
+              onConfigChange={setConfig}
+            />
+          )}
 
           {/* Dynamic Linked Chart Visualizer */}
           <PivotChartPreview
@@ -438,7 +515,11 @@ export default function DynamicReports() {
         </div>
 
         {/* Right Pane: Power BI Visualizations Selector & Format Controls */}
-        <div className="w-full lg:w-auto shrink-0 lg:sticky lg:top-4">
+        <div
+          className={`${
+            visualsCollapsed ? "w-12" : "w-full lg:w-60 xl:w-64"
+          } shrink-0 lg:sticky lg:top-4 transition-all duration-200`}
+        >
           <VisualizationsPane
             config={config}
             onConfigChange={setConfig}

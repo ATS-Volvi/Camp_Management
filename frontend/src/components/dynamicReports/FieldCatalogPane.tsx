@@ -9,15 +9,42 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { GripVertical, Plus, Search, Database, Layers } from "lucide-react";
+import { GripVertical, Plus, Search, Database, Layers, ChevronLeft, ChevronRight } from "lucide-react";
 
 interface FieldCatalogPaneProps {
   fields: FieldDefinition[];
   onAddField: (fieldId: string, targetZone: "rows" | "columns" | "values" | "filters") => void;
+  collapsed?: boolean;
+  onToggleCollapse?: () => void;
 }
 
-export default function FieldCatalogPane({ fields, onAddField }: FieldCatalogPaneProps) {
+export default function FieldCatalogPane({
+  fields,
+  onAddField,
+  collapsed = false,
+  onToggleCollapse,
+}: FieldCatalogPaneProps) {
   const [search, setSearch] = useState("");
+
+  if (collapsed) {
+    return (
+      <div className="bg-card border border-border rounded-xl p-2 flex flex-col items-center gap-3 shadow-xs w-11 shrink-0">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onToggleCollapse}
+          className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
+          title="Expand Fields Pane"
+        >
+          <ChevronRight size={15} />
+        </Button>
+        <div className="writing-vertical text-[10px] font-bold text-muted-foreground uppercase tracking-widest py-2 select-none flex items-center gap-1.5">
+          <Database size={11} className="text-primary" />
+          <span>Fields ({fields.length})</span>
+        </div>
+      </div>
+    );
+  }
 
   const filteredFields = fields.filter(
     (f) =>
@@ -44,9 +71,22 @@ export default function FieldCatalogPane({ fields, onAddField }: FieldCatalogPan
             Fields & Measures
           </span>
         </div>
-        <span className="text-[10px] font-mono font-medium text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
-          {fields.length} available
-        </span>
+        <div className="flex items-center gap-1">
+          <span className="text-[10px] font-mono font-medium text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+            {fields.length} available
+          </span>
+          {onToggleCollapse && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onToggleCollapse}
+              className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground ml-0.5"
+              title="Collapse Pane"
+            >
+              <ChevronLeft size={14} />
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Field Search Bar */}

@@ -244,7 +244,7 @@ export default function PivotChartPreview({
       </div>
 
       {/* Responsive Canvas */}
-      <div className="h-[320px] w-full pt-1">
+      <div className="h-[460px] sm:h-[500px] lg:h-[520px] w-full pt-1">
         <ResponsiveContainer width="100%" height="100%">
           {/* 1. Clustered Column (Vertical Bar) */}
           {config.chartType === "bar" ? (

@@ -1628,7 +1628,7 @@ export default function ThreeDimensionMatrixView({
       <div
         ref={containerRef}
         className={`w-full relative cursor-grab active:cursor-grabbing bg-[#f8fafc] ${
-          isFullscreen ? "flex-1 min-h-[500px]" : "h-[440px]"
+          isFullscreen ? "flex-1 min-h-[500px]" : "h-[540px] sm:h-[580px] lg:h-[620px]"
         }`}
       />
 

@@ -266,7 +266,7 @@ export default function VisualizationsPane({
   }
 
   return (
-    <div className="bg-card border border-border rounded-xl shadow-xs overflow-hidden flex flex-col shrink-0 w-full sm:w-72 lg:w-76">
+    <div className="bg-card border border-border rounded-xl shadow-xs overflow-hidden flex flex-col shrink-0 w-full">
       {/* Header Bar */}
       <div className="p-3 bg-muted/50 border-b border-border flex items-center justify-between">
         <div className="flex items-center gap-2">
