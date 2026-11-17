@@ -6,8 +6,9 @@ import { toast } from "@/hooks/use-toast";
 import { ToastAction } from "@/components/ui/toast";
 import { getRoomCategoryLabel } from "@/constants/roomCategories";
 
-export type CheckInPeriod = "range" | "daily" | "monthly";
+export type CheckInPeriod = "all" | "range" | "daily" | "monthly";
 export function checkInPeriodBounds(mode: CheckInPeriod, day: string, month: string, from: string, to: string) {
+  if (mode === "all") return { from: "", to: "" };
   if (mode === "daily") return { from: day, to: day };
   if (mode === "monthly") return { from: `${month}-01`, to: format(endOfMonth(parseISO(`${month}-01`)), "yyyy-MM-dd") };
   return { from, to };

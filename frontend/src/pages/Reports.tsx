@@ -364,9 +364,9 @@ function CheckInReportTab() {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
 
-  const [periodMode, setPeriodMode] = useState<CheckInPeriod>("monthly");
-  const [reportDay, setReportDay] = useState(format(new Date(), "yyyy-MM-dd"));
-  const [reportMonth, setReportMonth] = useState(format(new Date(), "yyyy-MM"));
+  const [periodMode, setPeriodMode] = useState<CheckInPeriod>("all");
+  const [reportDay, setReportDay] = useState("2026-10-26");
+  const [reportMonth, setReportMonth] = useState("2026-10");
   const bounds = checkInPeriodBounds(periodMode, reportDay, reportMonth, dateFrom, dateTo);
   const { data: checkIns = [], isLoading, isError, refetch } = useCheckInReport(bounds.from, bounds.to);
   const invalidRange = Boolean(bounds.from && bounds.to && bounds.from > bounds.to);
@@ -402,7 +402,9 @@ function CheckInReportTab() {
   }, [checkIns, search, campFilter, typeFilter, supplierFilter, designationFilter, categoryFilter, companyFilter, projectFilter, invalidRange]);
   const paged = usePaged(filtered);
 
-  const periodLabel = `${bounds.from || "Beginning"} to ${bounds.to || "Present"}`;
+  const periodLabel = bounds.from || bounds.to
+    ? `${bounds.from || "Beginning"} to ${bounds.to || "Present"}`
+    : "All Records";
   const exportPdf = () => {
     const filterLabels = [
       campFilter === "all" ? "All Camps" : camps.find(c => c.id === campFilter)?.name || "Camp",
@@ -507,7 +509,7 @@ function CheckInReportTab() {
       </div>
       <div className="flex flex-wrap items-center gap-3">
         <div className="flex gap-1" role="group" aria-label="Report period">
-          {([ ["daily", "Date-wise"], ["monthly", "Month-wise"], ["range", "Date Range"] ] as const).map(([value, label]) => (
+          {([ ["all", "All Records"], ["monthly", "Month-wise"], ["daily", "Date-wise"], ["range", "Date Range"] ] as const).map(([value, label]) => (
             <Button key={value} variant={periodMode === value ? "default" : "outline"} aria-pressed={periodMode === value} onClick={() => setPeriodMode(value)}>{label}</Button>
           ))}
         </div>
@@ -526,7 +528,14 @@ function CheckInReportTab() {
       {isError ? <div role="alert">Unable to load check-in records. <Button variant="outline" onClick={() => refetch()}>Retry</Button></div> : isLoading ? (
         <div className="text-center py-12 text-muted-foreground">Loading...</div>
       ) : filtered.length === 0 ? (
-        <div className="text-center py-12 text-muted-foreground">No check-in records found.</div>
+        <div className="text-center py-12 text-muted-foreground space-y-3">
+          <p>No check-in records found for this period.</p>
+          {periodMode !== "all" && (
+            <Button variant="outline" size="sm" onClick={() => setPeriodMode("all")}>
+              View All Records (9,500+ check-ins)
+            </Button>
+          )}
+        </div>
       ) : (
         <div className="border rounded-lg max-h-[60vh] overflow-auto">
           <Table>

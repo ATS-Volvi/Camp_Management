@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 import { checkInPeriodBounds, latestSuccessfulCheckIns, type CheckInReportRecord } from "./checkInReport";
 
 describe("check-in reporting rules", () => {
+  it("all-time reporting returns empty bounds to query all records", () => {
+    expect(checkInPeriodBounds("all", "", "", "", "")).toEqual({ from: "", to: "" });
+  });
   it("date-wise reporting includes exactly the selected date", () => {
     expect(checkInPeriodBounds("daily", "2026-10-17", "2026-04", "", "")).toEqual({ from: "2026-10-17", to: "2026-10-17" });
   });
