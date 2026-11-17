@@ -9,7 +9,7 @@ import FieldCatalogPane from "@/components/dynamicReports/FieldCatalogPane";
 import DropZoneSection from "@/components/dynamicReports/DropZoneSection";
 import PivotMatrixTable from "@/components/dynamicReports/PivotMatrixTable";
 import PivotChartPreview from "@/components/dynamicReports/PivotChartPreview";
-import VisualizationsPane from "@/components/dynamicReports/VisualizationsPane";
+import VisualizationsTopRibbon from "@/components/dynamicReports/VisualizationsTopRibbon";
 import SaveReportModal from "@/components/dynamicReports/SaveReportModal";
 
 import { Button } from "@/components/ui/button";
@@ -64,7 +64,6 @@ export default function DynamicReports() {
 
   const [saveModalOpen, setSaveModalOpen] = useState(false);
   const [fieldsCollapsed, setFieldsCollapsed] = useState(false);
-  const [visualsCollapsed, setVisualsCollapsed] = useState(false);
   const [wellsCollapsed, setWellsCollapsed] = useState(false);
   // Default to "split": Graph on top, Report Table prominent underneath
   const [canvasViewMode, setCanvasViewMode] = useState<"split" | "table" | "chart">("split");
@@ -557,6 +556,18 @@ export default function DynamicReports() {
             )}
           </div>
 
+          {/* Visualizations Ribbon - Shifted to Top below Field Wells */}
+          <VisualizationsTopRibbon
+            config={config}
+            onConfigChange={(newConfig) => {
+              if (newConfig.chartType !== config.chartType && canvasViewMode === "table" && newConfig.chartType !== "none") {
+                setCanvasViewMode("split");
+                toast.info(`Showing "${newConfig.chartType.replace("_", " ")}" visual on top`);
+              }
+              setConfig(newConfig);
+            }}
+          />
+
           {/* Canvas Main Body based on canvasViewMode */}
           {canvasViewMode === "chart" ? (
             /* Visual Chart View */
@@ -568,47 +579,29 @@ export default function DynamicReports() {
               rawRecords={rawRecords}
             />
           ) : canvasViewMode === "split" ? (
-            /* Split View: Chart + Matrix */
+            /* Split View: Chart on Top + Report Matrix below */
             <>
-              <PivotChartPreview
-                matrix={matrixResult}
-                config={config}
-                onChartTypeChange={(chartType) => setConfig({ ...config, chartType })}
-                onConfigChange={setConfig}
-                rawRecords={rawRecords}
-              />
+              {config.chartType !== "none" && (
+                <PivotChartPreview
+                  matrix={matrixResult}
+                  config={config}
+                  onChartTypeChange={(chartType) => setConfig({ ...config, chartType })}
+                  onConfigChange={setConfig}
+                  rawRecords={rawRecords}
+                />
+              )}
               <PivotMatrixTable
                 matrix={matrixResult}
                 config={config}
               />
             </>
           ) : (
-            /* Table Mode (Default): Pivot Matrix Table Prominent on Page */
+            /* Table Mode: Pivot Matrix Table Prominent on Page */
             <PivotMatrixTable
               matrix={matrixResult}
               config={config}
             />
           )}
-        </div>
-
-        {/* Right Pane: Power BI Visualizations Selector & Format Controls */}
-        <div
-          className={`${
-            visualsCollapsed ? "w-12" : "w-full lg:w-60 xl:w-64"
-          } shrink-0 lg:sticky lg:top-4 transition-all duration-200`}
-        >
-          <VisualizationsPane
-            config={config}
-            onConfigChange={(newConfig) => {
-              if (newConfig.chartType !== config.chartType && canvasViewMode === "table" && newConfig.chartType !== "none") {
-                setCanvasViewMode("split");
-                toast.info(`Showing "${newConfig.chartType.replace("_", " ")}" visual on top`);
-              }
-              setConfig(newConfig);
-            }}
-            collapsed={visualsCollapsed}
-            onToggleCollapse={() => setVisualsCollapsed(!visualsCollapsed)}
-          />
         </div>
       </div>
 
