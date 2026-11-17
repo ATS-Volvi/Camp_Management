@@ -25,6 +25,7 @@ import { useDepartments } from "@/hooks/useDepartments";
 import { matchesDepartment } from "@/lib/departmentLabels";
 import { exportAllReportsToExcel } from "@/lib/exportAllReportsToExcel";
 import expertiseLogo from "@/assets/expertise-logo.png";
+import { useRevenueData, buildRevenueRows } from "./RevenueReportTab";
 
 // Normalizes status strings from UI dropdown to database and logic values
 function normalizePresenceStatus(status: string): string | null {
@@ -113,6 +114,12 @@ export default function ExpertiseOccupancyStatementTab({
       daysInPeriod: days,
     };
   }, [periodPreset, customFrom, customTo]);
+
+  // Query live revenue & stay data dynamically for the chosen date range
+  const { data: revenueData } = useRevenueData(fromIso, toIso);
+  const revenueRows = useMemo(() => {
+    return buildRevenueRows(revenueData, fromIso, toIso);
+  }, [revenueData, fromIso, toIso]);
 
   // Query live check-ins strictly in the active date range
   const { data: liveCheckIns = [], isLoading: isCheckInsLoading } = useQuery({
