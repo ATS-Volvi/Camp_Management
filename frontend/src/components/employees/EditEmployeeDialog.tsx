@@ -22,6 +22,7 @@ const emptyForm = {
   name: "",
   designation: "",
   department: "",
+  sub_department: "",
   sap_department: "",
   employee_group: "",
   current_location: "",
@@ -61,6 +62,7 @@ export default function EditEmployeeDialog({ open, onOpenChange, type, employee 
         name: employee.name || "",
         designation: employee.designation || "",
         department: employee.department || "",
+        sub_department: (employee as any).sub_department || employee.sap_department || "",
         sap_department: employee.sap_department || "",
         employee_group: employee.employee_group || "",
         current_location: employee.current_location || "",
@@ -98,6 +100,7 @@ export default function EditEmployeeDialog({ open, onOpenChange, type, employee 
         employee_type: type,
         designation: isCampStaff ? form.staff_role : (form.designation || null),
         department: form.department || null,
+        sub_department: form.sub_department || null,
         sap_department: form.sap_department || null,
         employee_group: form.employee_group || null,
         current_location: form.current_location || null,
@@ -190,8 +193,8 @@ export default function EditEmployeeDialog({ open, onOpenChange, type, employee 
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label>Department as per SAP</Label>
-                <Input value={form.sap_department} onChange={(e) => update("sap_department", e.target.value)} placeholder="e.g. 1000-PSD" />
+                <Label>Sub Department</Label>
+                <Input value={form.sub_department || form.sap_department} onChange={(e) => { update("sub_department", e.target.value); update("sap_department", e.target.value); }} placeholder="e.g. Waste Management / Equipment Services" />
               </div>
               <div className="space-y-1.5">
                 <Label>Employee Group</Label>

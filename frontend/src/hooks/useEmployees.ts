@@ -22,6 +22,7 @@ export interface Employee {
   employee_type: string;
   designation: string | null;
   department: string | null;
+  sub_department?: string | null;
   company: string | null;
   phone: string | null;
   email: string | null;

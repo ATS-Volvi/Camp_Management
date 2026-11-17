@@ -16,7 +16,7 @@ class AttendanceDatabase {
                 WHERE camp_id = ANY($1)
                 ORDER BY employee_id, check_out_date DESC
             )
-            SELECT e.id, e.name, e.employee_id as emp_id_str, e.designation, e.company, e.employee_type, e.supplier_name, e.department, e.project,
+            SELECT e.id, e.name, e.employee_id as emp_id_str, e.designation, e.company, e.employee_type, e.supplier_name, e.department, e.sub_department, e.project,
                    ci.room_id, ci.check_in_date, ci.camp_id,
                    r.room_number, r.category as room_category,
                    crr.daily_rate

@@ -240,7 +240,7 @@ function EmployeeReportTab() {
       if (supplierFilter !== "all" && e.supplier_name !== supplierFilter) return false;
       if (search) {
         const s = search.toLowerCase();
-        return e.name.toLowerCase().includes(s) || e.employee_id.toLowerCase().includes(s) || (e.supplier_name || "").toLowerCase().includes(s);
+        return e.name.toLowerCase().includes(s) || e.employee_id.toLowerCase().includes(s) || (e.department || "").toLowerCase().includes(s) || ((e as any).sub_department || "").toLowerCase().includes(s) || (e.supplier_name || "").toLowerCase().includes(s);
       }
       return true;
     });
@@ -255,8 +255,8 @@ function EmployeeReportTab() {
   }), [filtered]);
 
   const handleExport = () => {
-    const headers = ["Employee ID", "Name", "Type", "Designation", "Department", "Supplier", "Nationality", "Status", "Phone", "Project"];
-    const rows = filtered.map(e => [e.employee_id, e.name, e.employee_type, e.designation || "", e.department || "", e.supplier_name || "", e.nationality || "", e.status, e.phone || "", e.project || ""]);
+    const headers = ["Employee ID", "Name", "Type", "Designation", "Department", "Sub Department", "Supplier", "Nationality", "Status", "Phone", "Project"];
+    const rows = filtered.map(e => [e.employee_id, e.name, e.employee_type, e.designation || "", e.department || "", (e as any).sub_department || "", e.supplier_name || "", e.nationality || "", e.status, e.phone || "", e.project || ""]);
     const csv = [headers.join(","), ...rows.map(r => r.map(c => `"${c}"`).join(","))].join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
@@ -320,6 +320,7 @@ function EmployeeReportTab() {
                 <TableHead>Type</TableHead>
                 <TableHead>Designation</TableHead>
                 <TableHead>Department</TableHead>
+                <TableHead>Sub Department</TableHead>
                 <TableHead>Supplier</TableHead>
                 <TableHead>Nationality</TableHead>
                 <TableHead>Project</TableHead>
@@ -334,6 +335,7 @@ function EmployeeReportTab() {
                   <TableCell><Badge variant="outline">{e.employee_type}</Badge></TableCell>
                   <TableCell>{e.designation || "—"}</TableCell>
                   <TableCell>{e.department || "—"}</TableCell>
+                  <TableCell>{(e as any).sub_department || "—"}</TableCell>
                   <TableCell>{e.supplier_name || "—"}</TableCell>
                   <TableCell>{e.nationality || "—"}</TableCell>
                   <TableCell>{e.project || "—"}</TableCell>

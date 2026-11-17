@@ -13,6 +13,7 @@ export interface DepartmentCostRow {
   emp_code: string;
   name: string;
   department: string;
+  subDepartment?: string;
   supplier: string;
   project: string;
   camp: string;

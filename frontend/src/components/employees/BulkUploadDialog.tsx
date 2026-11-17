@@ -46,6 +46,7 @@ const EMPLOYEE_COLUMNS = [
   "name",
   "designation",
   "department",
+  "sub_department",
   "phone",
   "email",
   "nationality",
@@ -284,6 +285,7 @@ export default function BulkUploadDialog({ open, onOpenChange, type }: Props) {
 
           const designation = String(row.designation || row["Designation"] || row.job_title || "").trim();
           const department = String(row.department || row["Department"] || row.dept || "").trim();
+          const subDepartment = String(row.sub_department || row["Sub Department"] || row["Sub-Department"] || row.sub_dept || "").trim();
           const phone = row.phone || row["Phone"] || row["Phone Number"] ? String(row.phone || row["Phone"] || row["Phone Number"]).trim() : null;
           const email = row.email || row["Email"] || row["Email Address"] ? String(row.email || row["Email"] || row["Email Address"]).trim() : null;
           const nationality = String(row.nationality || row["Nationality"] || "").trim() || null;
@@ -331,6 +333,7 @@ export default function BulkUploadDialog({ open, onOpenChange, type }: Props) {
               employee_type: type,
               designation: designation || null,
               department: department || null,
+              sub_department: subDepartment || null,
               company,
               supplier_name: supplierName,
               phone,

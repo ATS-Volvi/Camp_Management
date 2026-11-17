@@ -53,7 +53,7 @@ export default function EmployeeMaster() {
   const doExport = () => {
     const rows = (selected.size ? filtered.filter((e) => selected.has(e.id)) : filtered).map((e: any) => ({
       "Employee ID": e.employee_id, Name: e.name, Type: e.employee_type,
-      Designation: e.designation || "", Department: e.department || "", "Department as per SAP": e.sap_department || "",
+      Designation: e.designation || "", Department: e.department || "", "Sub Department": e.sub_department || e.sap_department || "",
       "Employee Group": e.employee_group || "", Company: e.company || "", Supplier: e.supplier_name || "",
       Project: e.project || "", "Staff Role": e.staff_role || "",
       "Current Location": e.current_location || "", Remarks: e.remarks || "",
@@ -162,7 +162,7 @@ export default function EmployeeMaster() {
       (e.designation || "").toLowerCase().includes(search.toLowerCase()) ||
       (e.supplier_name || "").toLowerCase().includes(search.toLowerCase()) ||
       (e.staff_role || "").toLowerCase().includes(search.toLowerCase()) ||
-      (e.sap_department || "").toLowerCase().includes(search.toLowerCase()) ||
+      ((e.sub_department || e.sap_department || "").toLowerCase().includes(search.toLowerCase())) ||
       (e.employee_group || "").toLowerCase().includes(search.toLowerCase()) ||
       (e.current_location || "").toLowerCase().includes(search.toLowerCase()) ||
       (e.remarks || "").toLowerCase().includes(search.toLowerCase()))
@@ -379,7 +379,7 @@ function EmployeeTable({
               <>
                 <TableHead>Designation</TableHead>
                 <TableHead>Department</TableHead>
-                <TableHead>Department as per SAP</TableHead>
+                <TableHead>Sub Department</TableHead>
                 <TableHead>Employee Group</TableHead>
                 <TableHead>{type === "supplier" ? "Supplier" : "Company"}</TableHead>
                 <TableHead>Project</TableHead>
@@ -421,7 +421,7 @@ function EmployeeTable({
                     {emp.department ? (deptCodeMap[emp.department] || emp.department) : "—"}
                     </Badge>
                   </TableCell>
-                  <TableCell>{emp.sap_department || "—"}</TableCell>
+                  <TableCell>{emp.sub_department || emp.sap_department || "—"}</TableCell>
                   <TableCell>
                     {emp.employee_group ? <Badge variant="outline" className="text-xs">{emp.employee_group}</Badge> : "—"}
                   </TableCell>

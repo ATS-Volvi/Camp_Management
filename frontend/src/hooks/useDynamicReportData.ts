@@ -13,7 +13,7 @@ export function useDynamicReportData(dataset: DatasetId) {
             .from("check_ins")
             .select(`
               id, check_in_date, food_required,
-              employees(id, employee_id, name, department, presence_status, company, designation, nationality, project),
+              employees(id, employee_id, name, department, sub_department, presence_status, company, designation, nationality, project),
               rooms(room_number, category, max_capacity, floor),
               camps(name)
             `)
@@ -30,6 +30,7 @@ export function useDynamicReportData(dataset: DatasetId) {
             room_number: r.rooms?.room_number || "N/A",
             room_category: r.rooms?.category || "4x1",
             department: r.employees?.department || "Unassigned",
+            sub_department: r.employees?.sub_department || r.employees?.department || "Unassigned",
             project: r.employees?.project || "General",
             company: r.employees?.company || "Expertise",
             nationality: r.employees?.nationality || "Indian",
@@ -48,7 +49,7 @@ export function useDynamicReportData(dataset: DatasetId) {
             .from("check_ins")
             .select(`
               id, check_in_date, food_required,
-              employees(department, presence_status, project),
+              employees(department, sub_department, presence_status, project),
               rooms(category),
               camps(name)
             `)
@@ -80,6 +81,7 @@ export function useDynamicReportData(dataset: DatasetId) {
             return {
               id: r.id,
               department: r.employees?.department || "EMBS",
+              sub_department: r.employees?.sub_department || r.employees?.department || "EMBS",
               project: r.employees?.project || "General",
               camp: r.camps?.name || "Main Camp",
               room_category: r.rooms?.category || "4x1",
@@ -99,12 +101,12 @@ export function useDynamicReportData(dataset: DatasetId) {
           const [checkInsRes, checkOutsRes] = await Promise.all([
             supabase
               .from("check_ins")
-              .select("id, check_in_date, employees(department, nationality, project), rooms(category), camps(name)")
+              .select("id, check_in_date, employees(department, sub_department, nationality, project), rooms(category), camps(name)")
               .order("check_in_date", { ascending: false })
               .limit(500),
             supabase
               .from("check_outs")
-              .select("id, check_out_date, checkout_reason, damage_charges, employees(department, nationality, project), rooms(category), camps(name)")
+              .select("id, check_out_date, checkout_reason, damage_charges, employees(department, sub_department, nationality, project), rooms(category), camps(name)")
               .order("check_out_date", { ascending: false })
               .limit(500),
           ]);
@@ -117,6 +119,7 @@ export function useDynamicReportData(dataset: DatasetId) {
               movement_type: "Check-In (Arrival)",
               camp: ci.camps?.name || "Main Camp",
               department: ci.employees?.department || "Unassigned",
+              sub_department: ci.employees?.sub_department || ci.employees?.department || "Unassigned",
               project: ci.employees?.project || "General",
               nationality: ci.employees?.nationality || "Indian",
               room_category: ci.rooms?.category || "4x1",
@@ -133,6 +136,7 @@ export function useDynamicReportData(dataset: DatasetId) {
               movement_type: "Check-Out (Departure)",
               camp: co.camps?.name || "Main Camp",
               department: co.employees?.department || "Unassigned",
+              sub_department: co.employees?.sub_department || co.employees?.department || "Unassigned",
               project: co.employees?.project || "General",
               nationality: co.employees?.nationality || "Indian",
               room_category: co.rooms?.category || "4x1",

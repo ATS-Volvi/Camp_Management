@@ -12,6 +12,7 @@ export const DATASET_DEFINITIONS: Record<string, DatasetDefinition> = {
       { id: "room_number", label: "Room Number", category: "dimension", dataType: "string" },
       { id: "room_category", label: "Room Category", category: "dimension", dataType: "string" },
       { id: "department", label: "Department", category: "dimension", dataType: "string" },
+      { id: "sub_department", label: "Sub Department", category: "dimension", dataType: "string" },
       { id: "project", label: "Project", category: "dimension", dataType: "string" },
       { id: "company", label: "Company", category: "dimension", dataType: "string" },
       { id: "nationality", label: "Nationality", category: "dimension", dataType: "string" },
@@ -29,6 +30,7 @@ export const DATASET_DEFINITIONS: Record<string, DatasetDefinition> = {
     description: "Financial costing, room rate mandays, catering, and monthly net charges",
     fields: [
       { id: "department", label: "Department", category: "dimension", dataType: "string" },
+      { id: "sub_department", label: "Sub Department", category: "dimension", dataType: "string" },
       { id: "project", label: "Project", category: "dimension", dataType: "string" },
       { id: "camp", label: "Camp Name", category: "dimension", dataType: "string" },
       { id: "room_category", label: "Room Category", category: "dimension", dataType: "string" },
@@ -50,6 +52,7 @@ export const DATASET_DEFINITIONS: Record<string, DatasetDefinition> = {
       { id: "movement_type", label: "Movement Type", category: "dimension", dataType: "string" },
       { id: "camp", label: "Camp Name", category: "dimension", dataType: "string" },
       { id: "department", label: "Department", category: "dimension", dataType: "string" },
+      { id: "sub_department", label: "Sub Department", category: "dimension", dataType: "string" },
       { id: "project", label: "Project", category: "dimension", dataType: "string" },
       { id: "nationality", label: "Nationality", category: "dimension", dataType: "string" },
       { id: "room_category", label: "Room Category", category: "dimension", dataType: "string" },

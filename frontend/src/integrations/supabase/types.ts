@@ -1980,6 +1980,7 @@ export type Database = {
           sap_department: string | null
           staff_role: string | null
           status: string
+          sub_department: string | null
           supplier_name: string | null
           updated_at: string
           user_id: string | null
@@ -2013,6 +2014,7 @@ export type Database = {
           sap_department?: string | null
           staff_role?: string | null
           status?: string
+          sub_department?: string | null
           supplier_name?: string | null
           updated_at?: string
           user_id?: string | null
@@ -2046,6 +2048,7 @@ export type Database = {
           sap_department?: string | null
           staff_role?: string | null
           status?: string
+          sub_department?: string | null
           supplier_name?: string | null
           updated_at?: string
           user_id?: string | null

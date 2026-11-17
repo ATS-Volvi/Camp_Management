@@ -106,8 +106,8 @@ export default function DepartmentMonthlyReportTab() {
   const filePeriod = `${fromDate}_to_${toDate}`;
 
   const exportCsv = () => {
-    const h = ["Period", "Cost Center", "Department", "Employee ID", "Name", "Supplier", "Project", "Camp", "Block", "Room", "Room Category", "Days", "Room Cost (SAR)", "Breakfast (SAR)", "Lunch (SAR)", "Dinner (SAR)", "Ramadan (SAR)", "Net Food Cost (SAR)", "Locker Charges (SAR)", "Total to Charge (SAR)"];
-    const lines = shown.flatMap(g => g.list.map(r => [periodLabel, g.costCenter, g.dept, r.emp_code, r.name, r.supplier, r.project, r.camp, r.block || "—", r.room, r.category || "", r.stayDays, r.roomRevenue.toFixed(2), ...[r.breakfastCost, r.lunchCost, r.dinnerCost, r.ramadanCost].map((v: number | undefined) => (v ?? 0).toFixed(2)), r.foodRevenue.toFixed(2), (r.lockerCost || 0).toFixed(2), r.total.toFixed(2)]));
+    const h = ["Period", "Cost Center", "Department", "Sub Department", "Employee ID", "Name", "Supplier", "Project", "Camp", "Block", "Room", "Room Category", "Days", "Room Cost (SAR)", "Breakfast (SAR)", "Lunch (SAR)", "Dinner (SAR)", "Ramadan (SAR)", "Net Food Cost (SAR)", "Locker Charges (SAR)", "Total to Charge (SAR)"];
+    const lines = shown.flatMap(g => g.list.map(r => [periodLabel, g.costCenter, g.dept, r.subDepartment || g.dept, r.emp_code, r.name, r.supplier, r.project, r.camp, r.block || "—", r.room, r.category || "", r.stayDays, r.roomRevenue.toFixed(2), ...[r.breakfastCost, r.lunchCost, r.dinnerCost, r.ramadanCost].map((v: number | undefined) => (v ?? 0).toFixed(2)), r.foodRevenue.toFixed(2), (r.lockerCost || 0).toFixed(2), r.total.toFixed(2)]));
     const lunchLines = shown.flatMap(g => (g.departmentLunch?.daily || []).map(d => [periodLabel, g.costCenter, g.dept, "", "Department Lunch", "", "", "", "", "", d.date, "", "", d.quantity, "", "", "", "", d.cost.toFixed(2)]));
     const totalLines = shown.map(g => [periodLabel, g.costCenter, g.dept, "", "GRAND TOTAL", "", "", "", "", "", "", "", "", "", "", "", "", "", "", g.total.toFixed(2)]);
     const csv = [h, ...lines, [], ["Approved department lunch", "Cost center", "Department", "", "Line item", "", "", "", "", "", "Date", "", "", "Lunch count", "", "", "", "", "Cost (SAR)"], ...lunchLines, ...totalLines]
@@ -434,7 +434,9 @@ function DepartmentResidentRows({ list, departmentName }: { list: DepartmentCost
         <TableRow key={r.id}>
           <TableCell className="pl-8">
             <div className="font-medium">{r.name}</div>
-            <div className="text-xs text-muted-foreground font-mono">{r.emp_code} · {r.supplier}</div>
+            <div className="text-xs text-muted-foreground font-mono">
+              {r.emp_code} · {r.supplier}{r.subDepartment && r.subDepartment !== r.department ? ` · ${r.subDepartment}` : ""}
+            </div>
             <div className="text-xs text-muted-foreground">From: {r.stayFrom} To: {r.stayTo}</div>
           </TableCell>
           <TableCell />

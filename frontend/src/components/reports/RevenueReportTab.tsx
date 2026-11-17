@@ -32,7 +32,7 @@ export function rowsOf<T>({ data, error }: { data: T[] | null; error: unknown })
 /** Everything revenue needs except cancellations. Not date-bound: stays outside a window bill 0 days. */
 async function fetchRevenueBase() {
   const [checkIns, checkOuts, rates, categories, suppliers, ramadan, campMealRates, leaves, rateSchedules] = await Promise.all([
-    supabase.from("check_ins").select("id, employee_id, room_id, camp_id, check_in_date, food_required, employees(id, employee_id, name, department, supplier_name, employee_type, project, presence_status), rooms(id, room_number, category, daily_food_rate, building_id, buildings(name)), camps(id, name)").then(rowsOf),
+    supabase.from("check_ins").select("id, employee_id, room_id, camp_id, check_in_date, food_required, employees(id, employee_id, name, department, sub_department, supplier_name, employee_type, project, presence_status), rooms(id, room_number, category, daily_food_rate, building_id, buildings(name)), camps(id, name)").then(rowsOf),
     supabase.from("check_outs").select("employee_id, check_out_date").then(rowsOf),
     supabase.from("camp_room_rates").select("*").then(rowsOf),
     supabase.from("room_categories").select("code, category_key, holding_charge").then(rowsOf),
@@ -183,6 +183,7 @@ export function buildRevenueRows(data: any, fromDate: string, toDate: string): a
         emp_code: emp.employee_id,
         name: emp.name,
         department: emp.department || "—",
+        subDepartment: (emp as any).sub_department || emp.department || "—",
         supplier: emp.supplier_name || (emp.employee_type === "own" ? "Own" : "—"),
         project: emp.project || "—",
         camp: camp?.name || "—",
