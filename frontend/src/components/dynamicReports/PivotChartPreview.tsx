@@ -29,7 +29,7 @@ import {
   Scatter,
   ZAxis,
 } from "recharts";
-import { BarChart3, EyeOff, Sparkles, TrendingUp, Hash, Columns, ArrowRightLeft } from "lucide-react";
+import { BarChart3, EyeOff, Sparkles, TrendingUp, Hash, Columns, ArrowRightLeft, ChevronDown, ChevronUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ThreeDimensionMatrixView from "./ThreeDimensionMatrixView";
 import { COLOR_THEMES } from "./VisualizationsPane";
@@ -193,6 +193,10 @@ export default function PivotChartPreview({
     chartData.length > 10 ? "scroll" : "fit"
   );
 
+  // Height mode: "compact" (340px) leaves maximum prominence for the report matrix below; "full" (480px) for deep analysis
+  const [chartHeightMode, setChartHeightMode] = useState<"compact" | "full">("compact");
+  const [isChartMinimized, setIsChartMinimized] = useState(false);
+
   // Shorten excessively long axis labels with ellipsis so they never collide
   const formatAxisLabel = (value: any) => {
     if (!value) return "";
@@ -225,8 +229,12 @@ export default function PivotChartPreview({
 
   // In horizontal bar mode, each category gets 30px height so Y-axis labels aren't squished
   const minRowHeight = 30;
-  const scrollHeight = Math.max(500, chartData.length * minRowHeight);
-  const activeChartHeight = isHorizontalBar ? scrollHeight : 500;
+  const scrollHeight = Math.max(340, chartData.length * minRowHeight);
+  const activeChartHeight = isHorizontalBar
+    ? scrollHeight
+    : chartHeightMode === "compact"
+    ? 340
+    : 480;
 
   const chartTitle =
     config.chartType === "horizontal_bar"
@@ -255,6 +263,46 @@ export default function PivotChartPreview({
       ? "Scatter Plot"
       : `Visual Chart (${config.chartType.replace("_", " ")})`;
 
+  // Minimized Bar: Quick 1-click expand so user can focus 100% on the report table
+  if (isChartMinimized) {
+    return (
+      <div className="bg-card border border-border rounded-xl px-4 py-2.5 flex items-center justify-between shadow-2xs">
+        <div className="flex items-center gap-2">
+          <BarChart3 size={15} className="text-primary" />
+          <span className="text-xs font-bold text-foreground uppercase tracking-wide">
+            {chartTitle}
+          </span>
+          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
+            {matchedTheme.name}
+          </span>
+          <span className="text-[11px] text-muted-foreground font-semibold">
+            (Minimized — {chartData.length} categories)
+          </span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setIsChartMinimized(false)}
+            className="h-7 text-xs font-semibold gap-1 text-primary border-primary/30 hover:bg-primary/10"
+          >
+            <ChevronDown size={13} />
+            <span>Expand Graph</span>
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => onChartTypeChange("none")}
+            className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
+            title="Hide Visual"
+          >
+            <EyeOff size={13} />
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-card border border-border rounded-xl p-4 space-y-3 shadow-xs">
       {/* Visual Chart Header */}
@@ -273,32 +321,60 @@ export default function PivotChartPreview({
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Height Mode Switcher: Compact (keeps table visible) vs Full */}
+          <div className="flex items-center bg-muted/50 border border-border rounded-lg p-0.5 text-xs">
+            <button
+              type="button"
+              onClick={() => setChartHeightMode("compact")}
+              className={`px-2 py-0.5 rounded text-[10px] font-bold transition-all ${
+                chartHeightMode === "compact"
+                  ? "bg-primary text-primary-foreground shadow-xs"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+              title="Compact 340px height keeps the data report table visible on screen"
+            >
+              Compact
+            </button>
+            <button
+              type="button"
+              onClick={() => setChartHeightMode("full")}
+              className={`px-2 py-0.5 rounded text-[10px] font-bold transition-all ${
+                chartHeightMode === "full"
+                  ? "bg-primary text-primary-foreground shadow-xs"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+              title="Full 480px height for detailed inspection"
+            >
+              Full
+            </button>
+          </div>
+
           {/* Spacing Switcher for dense vertical charts */}
           {isVerticalBarOrLine && chartData.length > 8 && (
             <div className="flex items-center bg-muted/50 border border-border rounded-lg p-0.5 text-xs">
               <button
                 type="button"
                 onClick={() => setBarSpacingMode("scroll")}
-                className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all flex items-center gap-1 ${
+                className={`px-2 py-0.5 rounded text-[10px] font-bold transition-all flex items-center gap-1 ${
                   barSpacingMode === "scroll"
                     ? "bg-primary text-primary-foreground shadow-xs"
                     : "text-muted-foreground hover:text-foreground"
                 }`}
                 title="Every category gets dedicated width with smooth horizontal scrolling so all labels are 100% readable"
               >
-                <span>↔ Spaced (Scrollable)</span>
+                <span>↔ Spaced</span>
               </button>
               <button
                 type="button"
                 onClick={() => setBarSpacingMode("fit")}
-                className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all flex items-center gap-1 ${
+                className={`px-2 py-0.5 rounded text-[10px] font-bold transition-all flex items-center gap-1 ${
                   barSpacingMode === "fit"
                     ? "bg-primary text-primary-foreground shadow-xs"
                     : "text-muted-foreground hover:text-foreground"
                 }`}
                 title="Fit all categories inside visible canvas width"
               >
-                <span>⇥ Fit Screen</span>
+                <span>⇥ Fit</span>
               </button>
             </div>
           )}
@@ -309,23 +385,34 @@ export default function PivotChartPreview({
               size="sm"
               variant="outline"
               onClick={() => onChartTypeChange("horizontal_bar")}
-              className="h-7 text-[11px] font-semibold gap-1 text-primary border-primary/30 hover:bg-primary/10"
+              className="h-6 text-[10px] font-semibold gap-1 px-1.5 text-primary border-primary/30 hover:bg-primary/10"
               title="Switch to Horizontal Bar layout where category names are listed cleanly on the vertical axis"
             >
-              <TrendingUp size={12} />
-              <span className="hidden sm:inline">Horizontal View</span>
+              <TrendingUp size={11} />
+              <span className="hidden sm:inline">Horizontal</span>
             </Button>
           )}
+
+          {/* Minimize Button */}
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => setIsChartMinimized(true)}
+            className="h-6 px-1.5 text-[10px] text-muted-foreground hover:text-foreground gap-1"
+            title="Minimize Graph to give full prominence to the Report Matrix Table"
+          >
+            <ChevronUp size={12} />
+            <span className="hidden sm:inline">Minimize</span>
+          </Button>
 
           <Button
             size="sm"
             variant="ghost"
             onClick={() => onChartTypeChange("none")}
-            className="h-6 px-1.5 text-[11px] text-muted-foreground hover:text-foreground"
-            title="Hide Chart"
+            className="h-6 px-1.5 text-[10px] text-muted-foreground hover:text-foreground"
+            title="Hide Visual"
           >
-            <EyeOff size={12} className="mr-1" />
-            <span className="text-[10px]">Hide</span>
+            <EyeOff size={12} />
           </Button>
         </div>
       </div>

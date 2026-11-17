@@ -66,8 +66,8 @@ export default function DynamicReports() {
   const [fieldsCollapsed, setFieldsCollapsed] = useState(false);
   const [visualsCollapsed, setVisualsCollapsed] = useState(false);
   const [wellsCollapsed, setWellsCollapsed] = useState(false);
-  const [canvasViewMode, setCanvasViewMode] = useState<"table" | "chart" | "split">("table");
-  const [floatingChartOpen, setFloatingChartOpen] = useState(false);
+  // Default to "split": Graph on top, Report Table prominent underneath
+  const [canvasViewMode, setCanvasViewMode] = useState<"split" | "table" | "chart">("split");
 
   // Active dataset definition & field map
   const activeDatasetDef = DATASET_DEFINITIONS[config.dataset] || DATASET_DEFINITIONS.inmates;
@@ -479,9 +479,22 @@ export default function DynamicReports() {
                 </Badge>
               </div>
 
-              {/* View Switcher: Table (Prominent Report) / Chart / Split */}
+              {/* View Switcher: Split (Graph on Top + Report Table) / Table Only / Chart Only */}
               <div className="flex items-center gap-1.5">
                 <div className="flex items-center bg-background rounded-lg p-0.5 border border-border shadow-2xs">
+                  <button
+                    type="button"
+                    onClick={() => setCanvasViewMode("split")}
+                    className={`flex items-center gap-1 px-2.5 py-1 rounded text-xs font-semibold transition-all ${
+                      canvasViewMode === "split"
+                        ? "bg-primary text-primary-foreground font-bold shadow-xs"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                    title="Graph on Top with Report Matrix underneath (Default)"
+                  >
+                    <Columns size={12} />
+                    <span>Graph & Report</span>
+                  </button>
                   <button
                     type="button"
                     onClick={() => setCanvasViewMode("table")}
@@ -490,10 +503,10 @@ export default function DynamicReports() {
                         ? "bg-primary text-primary-foreground font-bold shadow-xs"
                         : "text-muted-foreground hover:text-foreground"
                     }`}
-                    title="Prominent Data Report (Default)"
+                    title="Report Table Only (Full Canvas)"
                   >
                     <Table size={12} />
-                    <span>Report Matrix</span>
+                    <span>Report Matrix Only</span>
                   </button>
                   <button
                     type="button"
@@ -503,23 +516,10 @@ export default function DynamicReports() {
                         ? "bg-primary text-primary-foreground font-bold shadow-xs"
                         : "text-muted-foreground hover:text-foreground"
                     }`}
-                    title="Visual Chart Canvas"
+                    title="Visual Graph Only"
                   >
                     <BarChart3 size={12} />
-                    <span>Visual Graph</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setCanvasViewMode("split")}
-                    className={`flex items-center gap-1 px-2.5 py-1 rounded text-xs font-semibold transition-all ${
-                      canvasViewMode === "split"
-                        ? "bg-primary text-primary-foreground font-bold shadow-xs"
-                        : "text-muted-foreground hover:text-foreground"
-                    }`}
-                    title="Split View (Chart + Table)"
-                  >
-                    <Columns size={12} />
-                    <span>Split View</span>
+                    <span>Graph Only</span>
                   </button>
                 </div>
 
@@ -600,10 +600,9 @@ export default function DynamicReports() {
           <VisualizationsPane
             config={config}
             onConfigChange={(newConfig) => {
-              // When user selects a chart and is in table mode, switch to split view so they immediately see it
               if (newConfig.chartType !== config.chartType && canvasViewMode === "table" && newConfig.chartType !== "none") {
                 setCanvasViewMode("split");
-                toast.info(`Switched to Split View to show "${newConfig.chartType.replace("_", " ")}" visual`);
+                toast.info(`Showing "${newConfig.chartType.replace("_", " ")}" visual on top`);
               }
               setConfig(newConfig);
             }}
@@ -612,75 +611,6 @@ export default function DynamicReports() {
           />
         </div>
       </div>
-
-      {/* Floating Hovering Action Button (FAB) for Quick Graph Preview */}
-      {canvasViewMode === "table" && config.chartType !== "none" && (
-        <div className="fixed bottom-6 right-6 z-40">
-          <Button
-            onClick={() => setFloatingChartOpen(true)}
-            className="h-11 px-4 rounded-full bg-[#0c2340] hover:bg-[#14325a] text-white shadow-2xl border-2 border-amber-400/40 flex items-center gap-2 hover:scale-105 transition-all text-xs font-bold group"
-            title="Preview Live Graph without moving the Report Matrix"
-          >
-            <div className="w-6 h-6 rounded-full bg-amber-400 text-slate-950 flex items-center justify-center font-bold">
-              {config.chartType.startsWith("3d_") ? <Box size={13} /> : <BarChart3 size={13} />}
-            </div>
-            <span>Preview Graph</span>
-            <span className="text-[10px] text-amber-300 font-normal">
-              ({config.chartType.replace("_", " ")})
-            </span>
-          </Button>
-        </div>
-      )}
-
-      {/* Floating Quick Graph Drawer / Dialog */}
-      <Dialog open={floatingChartOpen} onOpenChange={setFloatingChartOpen}>
-        <DialogContent className="max-w-4xl p-0 overflow-hidden bg-card border border-border shadow-2xl rounded-2xl">
-          <div className="p-3 bg-muted/40 border-b border-border flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="p-1 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400">
-                <BarChart3 size={15} />
-              </div>
-              <span className="text-xs font-bold text-foreground uppercase tracking-wide">
-                Quick Visual Graph Preview
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => {
-                  setCanvasViewMode("split");
-                  setFloatingChartOpen(false);
-                }}
-                className="h-7 text-xs font-semibold gap-1"
-              >
-                <Columns size={12} />
-                <span>Dock in Split View</span>
-              </Button>
-              <Button
-                size="sm"
-                onClick={() => {
-                  setCanvasViewMode("chart");
-                  setFloatingChartOpen(false);
-                }}
-                className="h-7 text-xs font-semibold gap-1 bg-primary text-primary-foreground"
-              >
-                <Maximize2 size={12} />
-                <span>Full Canvas</span>
-              </Button>
-            </div>
-          </div>
-          <div className="p-4 max-h-[80vh] overflow-y-auto">
-            <PivotChartPreview
-              matrix={matrixResult}
-              config={config}
-              onChartTypeChange={(chartType) => setConfig({ ...config, chartType })}
-              onConfigChange={setConfig}
-              rawRecords={rawRecords}
-            />
-          </div>
-        </DialogContent>
-      </Dialog>
 
       {/* Save Report Modal */}
       <SaveReportModal
