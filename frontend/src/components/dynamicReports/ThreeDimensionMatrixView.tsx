@@ -1750,85 +1750,98 @@ export default function ThreeDimensionMatrixView({
         </div>
       )}
 
-      {/* Interactive Series Legend Bar at Bottom */}
-      {chartSeriesKeys.length > 1 && activeMode !== "3d_donut" && (
-        <div className="px-4 py-3 bg-slate-100/95 border-t border-slate-300 flex flex-wrap items-center justify-between gap-3 text-sm">
-          <div className="flex items-center gap-2 text-slate-800 font-bold text-xs sm:text-sm">
-            <Filter size={15} className="text-primary" />
-            <span>Click a category below to isolate:</span>
-          </div>
+      {/* Unified Professional Bottom Toolbar: Category Isolation, Height Scale & Gesture Hints */}
+      <div className="bg-slate-50 border-t border-slate-200 px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 text-xs sm:text-sm">
+        {/* Left Side: Category Slicers (if multiple series) or View Context */}
+        {chartSeriesKeys.length > 1 && activeMode !== "3d_donut" ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-1.5 text-slate-700 font-bold text-xs uppercase tracking-wider">
+              <Filter size={13} className="text-primary" />
+              <span>Isolate:</span>
+            </div>
 
-          <div className="flex flex-wrap items-center gap-2.5">
-            {chartSeriesKeys.map((key, i) => {
-              const isSelected = activeSeriesFilter === key;
-              return (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => {
-                    setActiveSeriesFilter(isSelected ? null : key);
-                    toast.info(
-                      isSelected ? "Showing all categories" : `Showing only: ${key}`
-                    );
-                  }}
-                  className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all shadow-2xs ${
-                    isSelected
-                      ? "bg-slate-950 text-white shadow-xs scale-105 ring-2 ring-slate-900"
-                      : activeSeriesFilter
-                      ? "opacity-40 hover:opacity-100 bg-white border border-slate-300 text-slate-700"
-                      : "bg-white border border-slate-300 text-slate-800 hover:border-slate-400 hover:bg-slate-50"
-                  }`}
+            <div className="flex flex-wrap items-center gap-1.5">
+              {chartSeriesKeys.map((key, i) => {
+                const isSelected = activeSeriesFilter === key;
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => {
+                      setActiveSeriesFilter(isSelected ? null : key);
+                      toast.info(
+                        isSelected ? "Showing all categories" : `Showing only: ${key}`
+                      );
+                    }}
+                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold transition-all shadow-2xs ${
+                      isSelected
+                        ? "bg-slate-900 text-white ring-2 ring-slate-900 font-bold"
+                        : activeSeriesFilter
+                        ? "opacity-40 hover:opacity-100 bg-white border border-slate-200 text-slate-600"
+                        : "bg-white border border-slate-300 text-slate-700 hover:border-slate-400 hover:bg-slate-100"
+                    }`}
+                  >
+                    <span
+                      className="w-2.5 h-2.5 rounded-full inline-block shrink-0 shadow-2xs"
+                      style={{ backgroundColor: CSS_PALETTE[i % CSS_PALETTE.length] }}
+                    />
+                    <span>{key}</span>
+                    {isSelected && <Check size={12} className="text-emerald-400 ml-0.5" />}
+                  </button>
+                );
+              })}
+
+              {activeSeriesFilter && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setActiveSeriesFilter(null)}
+                  className="h-6 px-2 text-[11px] font-bold text-muted-foreground hover:text-foreground"
                 >
-                  <span
-                    className="w-3.5 h-3.5 rounded-full inline-block shrink-0 shadow-2xs"
-                    style={{ backgroundColor: CSS_PALETTE[i % CSS_PALETTE.length] }}
-                  />
-                  <span>{key}</span>
-                  {isSelected && <Check size={14} className="text-emerald-400" />}
-                </button>
-              );
-            })}
+                  Reset
+                </Button>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 text-slate-600 text-xs font-medium">
+            <span className="font-bold text-slate-800">3D Interactive Mode:</span>
+            <span>{activeMode === "3d_donut" ? "Donut Distribution" : activeMode === "3d_line" ? "Elevation Ribbons" : "Tower Matrix"}</span>
+          </div>
+        )}
 
-            {activeSeriesFilter && (
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => setActiveSeriesFilter(null)}
-                className="h-7 px-2.5 text-xs font-bold text-muted-foreground hover:text-foreground"
-              >
-                Reset
-              </Button>
-            )}
+        {/* Right Side: Height Slider & Gesture Guide Hint */}
+        <div className="flex flex-wrap items-center gap-3 ml-auto">
+          {/* Height Scale Elevation Slider */}
+          {activeMode !== "3d_donut" && (
+            <div className="flex items-center gap-2 bg-white px-2.5 py-1 rounded-md border border-slate-200 shadow-2xs text-xs text-slate-700">
+              <Sliders size={13} className="text-primary" />
+              <span className="font-semibold text-slate-600 text-[11px] uppercase tracking-wide">
+                Height:
+              </span>
+              <Slider
+                value={[heightScale]}
+                min={0.4}
+                max={2.5}
+                step={0.1}
+                onValueChange={([val]) => setHeightScale(val)}
+                className="w-20 sm:w-24"
+              />
+              <span className="font-mono font-bold text-primary text-[11px] min-w-[28px] text-right">
+                {heightScale.toFixed(1)}x
+              </span>
+            </div>
+          )}
+
+          {/* Gesture Guide Hint */}
+          <div className="hidden sm:flex items-center gap-2 bg-white px-2.5 py-1 rounded-md border border-slate-200 text-slate-500 text-[11px] font-medium shadow-2xs">
+            <span className="text-slate-700 font-semibold">Left-Click:</span> Rotate
+            <span>•</span>
+            <span className="text-slate-700 font-semibold">Right-Click:</span> Pan
+            <span>•</span>
+            <span className="text-slate-700 font-semibold">Click:</span> Details
           </div>
         </div>
-      )}
-
-      {/* Height Scale Elevation Slider Overlay */}
-      {activeMode !== "3d_donut" && (
-        <div className="absolute bottom-12 left-4 bg-white/98 backdrop-blur-md border border-slate-300 px-4 py-2.5 rounded-lg flex items-center gap-3 text-slate-800 shadow-md z-10 text-xs sm:text-sm">
-          <Sliders size={15} className="text-primary" />
-          <span className="text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-700">
-            Bar Height:
-          </span>
-          <Slider
-            value={[heightScale]}
-            min={0.4}
-            max={2.5}
-            step={0.1}
-            onValueChange={([val]) => setHeightScale(val)}
-            className="w-28"
-          />
-          <span className="text-xs sm:text-sm font-mono font-bold text-primary">{heightScale.toFixed(1)}x</span>
-        </div>
-      )}
-
-      {/* Gesture Guide Hint Overlay */}
-      <div className="absolute bottom-12 right-4 hidden sm:flex items-center gap-2.5 bg-white/95 backdrop-blur-md border border-slate-300 px-3.5 py-2 rounded-lg text-xs sm:text-sm font-bold text-slate-700 shadow-md pointer-events-none z-10">
-        <span>Click: Details</span>
-        <span>•</span>
-        <span>Left-Click: Rotate</span>
-        <span>•</span>
-        <span>Right-Click: Move</span>
       </div>
 
       {/* FEATURE 1: Selection Drilldown Inspector HUD Card */}
