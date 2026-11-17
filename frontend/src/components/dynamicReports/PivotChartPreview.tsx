@@ -248,12 +248,12 @@ export default function PivotChartPreview({
         <ResponsiveContainer width="100%" height="100%">
           {/* 1. Clustered Column (Vertical Bar) */}
           {config.chartType === "bar" ? (
-            <BarChart data={chartData} margin={{ top: 12, right: 20, left: 10, bottom: 28 }}>
+            <BarChart data={chartData} margin={{ top: 12, right: 20, left: 10, bottom: 65 }}>
               {showGrid && <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.3} />}
-              <XAxis dataKey="name" tick={{ fontSize: 12, fill: "#334155", fontWeight: 600 }} angle={-15} textAnchor="end" />
+              <XAxis dataKey="name" tick={{ fontSize: 11, fill: "#334155", fontWeight: 600 }} angle={-25} textAnchor="end" height={60} interval={0} />
               <YAxis tick={{ fontSize: 12, fill: "#334155", fontWeight: 600 }} />
               <Tooltip contentStyle={{ borderRadius: 8, fontSize: 12, fontWeight: 600, backgroundColor: "var(--card)" }} />
-              {showLegend && <Legend wrapperStyle={{ fontSize: 12, fontWeight: 600 }} />}
+              {showLegend && <Legend verticalAlign="top" align="right" wrapperStyle={{ paddingBottom: 10, fontSize: 11, fontWeight: 600 }} />}
               {chartSeriesKeys.map((seriesKey, i) => (
                 <Bar
                   key={seriesKey}
@@ -266,12 +266,12 @@ export default function PivotChartPreview({
             </BarChart>
           ) : /* 2. Stacked Column */
           config.chartType === "stacked_bar" ? (
-            <BarChart data={chartData} margin={{ top: 12, right: 20, left: 10, bottom: 28 }}>
+            <BarChart data={chartData} margin={{ top: 12, right: 20, left: 10, bottom: 65 }}>
               {showGrid && <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.3} />}
-              <XAxis dataKey="name" tick={{ fontSize: 12, fill: "#334155", fontWeight: 600 }} angle={-15} textAnchor="end" />
+              <XAxis dataKey="name" tick={{ fontSize: 11, fill: "#334155", fontWeight: 600 }} angle={-25} textAnchor="end" height={60} interval={0} />
               <YAxis tick={{ fontSize: 12, fill: "#334155", fontWeight: 600 }} />
               <Tooltip contentStyle={{ borderRadius: 8, fontSize: 12, fontWeight: 600, backgroundColor: "var(--card)" }} />
-              {showLegend && <Legend wrapperStyle={{ fontSize: 12, fontWeight: 600 }} />}
+              {showLegend && <Legend verticalAlign="top" align="right" wrapperStyle={{ paddingBottom: 10, fontSize: 11, fontWeight: 600 }} />}
               {chartSeriesKeys.map((seriesKey, i) => (
                 <Bar
                   key={seriesKey}
@@ -318,15 +318,15 @@ export default function PivotChartPreview({
             </BarChart>
           ) : /* 5. 100% Stacked Column */
           config.chartType === "percent_stacked_bar" ? (
-            <BarChart data={percentStackedData} margin={{ top: 12, right: 20, left: 10, bottom: 28 }}>
+            <BarChart data={percentStackedData} margin={{ top: 12, right: 20, left: 10, bottom: 65 }}>
               {showGrid && <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.3} />}
-              <XAxis dataKey="name" tick={{ fontSize: 12, fill: "#334155", fontWeight: 600 }} angle={-15} textAnchor="end" />
+              <XAxis dataKey="name" tick={{ fontSize: 11, fill: "#334155", fontWeight: 600 }} angle={-25} textAnchor="end" height={60} interval={0} />
               <YAxis tickFormatter={(val) => `${val}%`} domain={[0, 100]} tick={{ fontSize: 12, fill: "#334155", fontWeight: 600 }} />
               <Tooltip
                 formatter={(val: any) => `${val}%`}
                 contentStyle={{ borderRadius: 8, fontSize: 12, fontWeight: 600, backgroundColor: "var(--card)" }}
               />
-              {showLegend && <Legend wrapperStyle={{ fontSize: 12, fontWeight: 600 }} />}
+              {showLegend && <Legend verticalAlign="top" align="right" wrapperStyle={{ paddingBottom: 10, fontSize: 11, fontWeight: 600 }} />}
               {chartSeriesKeys.map((seriesKey, i) => (
                 <Bar
                   key={seriesKey}
@@ -338,12 +338,12 @@ export default function PivotChartPreview({
             </BarChart>
           ) : /* 6. Line Chart */
           config.chartType === "line" ? (
-            <LineChart data={chartData} margin={{ top: 12, right: 20, left: 10, bottom: 28 }}>
+            <LineChart data={chartData} margin={{ top: 12, right: 20, left: 10, bottom: 65 }}>
               {showGrid && <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.3} />}
-              <XAxis dataKey="name" tick={{ fontSize: 12, fill: "#334155", fontWeight: 600 }} angle={-15} textAnchor="end" />
+              <XAxis dataKey="name" tick={{ fontSize: 11, fill: "#334155", fontWeight: 600 }} angle={-25} textAnchor="end" height={60} interval={0} />
               <YAxis tick={{ fontSize: 12, fill: "#334155", fontWeight: 600 }} />
               <Tooltip contentStyle={{ borderRadius: 8, fontSize: 12, fontWeight: 600, backgroundColor: "var(--card)" }} />
-              {showLegend && <Legend wrapperStyle={{ fontSize: 12, fontWeight: 600 }} />}
+              {showLegend && <Legend verticalAlign="top" align="right" wrapperStyle={{ paddingBottom: 10, fontSize: 11, fontWeight: 600 }} />}
               {chartSeriesKeys.map((seriesKey, i) => (
                 <Line
                   key={seriesKey}
@@ -358,7 +358,7 @@ export default function PivotChartPreview({
             </LineChart>
           ) : /* 7. Area Chart */
           config.chartType === "area" ? (
-            <AreaChart data={chartData} margin={{ top: 12, right: 20, left: 10, bottom: 28 }}>
+            <AreaChart data={chartData} margin={{ top: 12, right: 20, left: 10, bottom: 65 }}>
               <defs>
                 {chartSeriesKeys.map((k, i) => (
                   <linearGradient key={k} id={`colorArea-${i}`} x1="0" y1="0" x2="0" y2="1">
@@ -368,10 +368,10 @@ export default function PivotChartPreview({
                 ))}
               </defs>
               {showGrid && <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.3} />}
-              <XAxis dataKey="name" tick={{ fontSize: 12, fill: "#334155", fontWeight: 600 }} angle={-15} textAnchor="end" />
+              <XAxis dataKey="name" tick={{ fontSize: 11, fill: "#334155", fontWeight: 600 }} angle={-25} textAnchor="end" height={60} interval={0} />
               <YAxis tick={{ fontSize: 12, fill: "#334155", fontWeight: 600 }} />
               <Tooltip contentStyle={{ borderRadius: 8, fontSize: 12, fontWeight: 600, backgroundColor: "var(--card)" }} />
-              {showLegend && <Legend wrapperStyle={{ fontSize: 12, fontWeight: 600 }} />}
+              {showLegend && <Legend verticalAlign="top" align="right" wrapperStyle={{ paddingBottom: 10, fontSize: 11, fontWeight: 600 }} />}
               {chartSeriesKeys.map((seriesKey, i) => (
                 <Area
                   key={seriesKey}
@@ -386,7 +386,7 @@ export default function PivotChartPreview({
             </AreaChart>
           ) : /* 8. Stacked Area Chart */
           config.chartType === "stacked_area" ? (
-            <AreaChart data={chartData} margin={{ top: 12, right: 20, left: 10, bottom: 28 }}>
+            <AreaChart data={chartData} margin={{ top: 12, right: 20, left: 10, bottom: 65 }}>
               <defs>
                 {chartSeriesKeys.map((k, i) => (
                   <linearGradient key={k} id={`colorAreaStacked-${i}`} x1="0" y1="0" x2="0" y2="1">
@@ -396,10 +396,10 @@ export default function PivotChartPreview({
                 ))}
               </defs>
               {showGrid && <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.3} />}
-              <XAxis dataKey="name" tick={{ fontSize: 12, fill: "#334155", fontWeight: 600 }} angle={-15} textAnchor="end" />
+              <XAxis dataKey="name" tick={{ fontSize: 11, fill: "#334155", fontWeight: 600 }} angle={-25} textAnchor="end" height={60} interval={0} />
               <YAxis tick={{ fontSize: 12, fill: "#334155", fontWeight: 600 }} />
               <Tooltip contentStyle={{ borderRadius: 8, fontSize: 12, fontWeight: 600, backgroundColor: "var(--card)" }} />
-              {showLegend && <Legend wrapperStyle={{ fontSize: 12, fontWeight: 600 }} />}
+              {showLegend && <Legend verticalAlign="top" align="right" wrapperStyle={{ paddingBottom: 10, fontSize: 11, fontWeight: 600 }} />}
               {chartSeriesKeys.map((seriesKey, i) => (
                 <Area
                   key={seriesKey}
@@ -415,12 +415,12 @@ export default function PivotChartPreview({
             </AreaChart>
           ) : /* 9. Combo Chart (Line + Column) */
           config.chartType === "combo" ? (
-            <ComposedChart data={chartData} margin={{ top: 12, right: 20, left: 10, bottom: 28 }}>
+            <ComposedChart data={chartData} margin={{ top: 12, right: 20, left: 10, bottom: 65 }}>
               {showGrid && <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.3} />}
-              <XAxis dataKey="name" tick={{ fontSize: 12, fill: "#334155", fontWeight: 600 }} angle={-15} textAnchor="end" />
+              <XAxis dataKey="name" tick={{ fontSize: 11, fill: "#334155", fontWeight: 600 }} angle={-25} textAnchor="end" height={60} interval={0} />
               <YAxis tick={{ fontSize: 12, fill: "#334155", fontWeight: 600 }} />
               <Tooltip contentStyle={{ borderRadius: 8, fontSize: 12, fontWeight: 600, backgroundColor: "var(--card)" }} />
-              {showLegend && <Legend wrapperStyle={{ fontSize: 12, fontWeight: 600 }} />}
+              {showLegend && <Legend verticalAlign="top" align="right" wrapperStyle={{ paddingBottom: 10, fontSize: 11, fontWeight: 600 }} />}
               {chartSeriesKeys.map((seriesKey, i) =>
                 i === 0 ? (
                   <Bar

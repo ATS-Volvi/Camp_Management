@@ -43,9 +43,13 @@ import {
   Minimize2,
   ChevronUp,
   ChevronDown,
+  Table,
+  Columns,
+  BarChart3,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { toast } from "sonner";
 
 export default function DynamicReports() {
@@ -62,6 +66,8 @@ export default function DynamicReports() {
   const [fieldsCollapsed, setFieldsCollapsed] = useState(false);
   const [visualsCollapsed, setVisualsCollapsed] = useState(false);
   const [wellsCollapsed, setWellsCollapsed] = useState(false);
+  const [canvasViewMode, setCanvasViewMode] = useState<"table" | "chart" | "split">("table");
+  const [floatingChartOpen, setFloatingChartOpen] = useState(false);
 
   // Active dataset definition & field map
   const activeDatasetDef = DATASET_DEFINITIONS[config.dataset] || DATASET_DEFINITIONS.inmates;
@@ -460,7 +466,7 @@ export default function DynamicReports() {
         <div className="flex-1 min-w-0 w-full space-y-3.5">
           {/* Unified Field Wells Container Card */}
           <div className="bg-card border border-border rounded-xl shadow-xs overflow-hidden">
-            <div className="px-3.5 py-2.5 bg-muted/30 border-b border-border/80 flex items-center justify-between">
+            <div className="px-3.5 py-2.5 bg-muted/30 border-b border-border/80 flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 <div className="p-1 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400">
                   <SlidersHorizontal size={13} />
@@ -473,25 +479,70 @@ export default function DynamicReports() {
                 </Badge>
               </div>
 
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setWellsCollapsed(!wellsCollapsed)}
-                className="h-6 text-[11px] font-medium text-muted-foreground hover:text-foreground gap-1 px-2 hover:bg-muted"
-                title="Toggle Drop Wells to maximize vertical space"
-              >
-                {wellsCollapsed ? (
-                  <>
-                    <ChevronDown size={13} />
-                    <span>Show Field Wells</span>
-                  </>
-                ) : (
-                  <>
-                    <ChevronUp size={13} />
-                    <span>Minimize Wells (Expand Height)</span>
-                  </>
-                )}
-              </Button>
+              {/* View Switcher: Table (Prominent Report) / Chart / Split */}
+              <div className="flex items-center gap-1.5">
+                <div className="flex items-center bg-background rounded-lg p-0.5 border border-border shadow-2xs">
+                  <button
+                    type="button"
+                    onClick={() => setCanvasViewMode("table")}
+                    className={`flex items-center gap-1 px-2.5 py-1 rounded text-xs font-semibold transition-all ${
+                      canvasViewMode === "table"
+                        ? "bg-primary text-primary-foreground font-bold shadow-xs"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                    title="Prominent Data Report (Default)"
+                  >
+                    <Table size={12} />
+                    <span>Report Matrix</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCanvasViewMode("chart")}
+                    className={`flex items-center gap-1 px-2.5 py-1 rounded text-xs font-semibold transition-all ${
+                      canvasViewMode === "chart"
+                        ? "bg-primary text-primary-foreground font-bold shadow-xs"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                    title="Visual Chart Canvas"
+                  >
+                    <BarChart3 size={12} />
+                    <span>Visual Graph</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCanvasViewMode("split")}
+                    className={`flex items-center gap-1 px-2.5 py-1 rounded text-xs font-semibold transition-all ${
+                      canvasViewMode === "split"
+                        ? "bg-primary text-primary-foreground font-bold shadow-xs"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                    title="Split View (Chart + Table)"
+                  >
+                    <Columns size={12} />
+                    <span>Split View</span>
+                  </button>
+                </div>
+
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setWellsCollapsed(!wellsCollapsed)}
+                  className="h-6 text-[11px] font-medium text-muted-foreground hover:text-foreground gap-1 px-2 hover:bg-muted"
+                  title="Toggle Drop Wells to maximize vertical space"
+                >
+                  {wellsCollapsed ? (
+                    <>
+                      <ChevronDown size={13} />
+                      <span>Show Wells</span>
+                    </>
+                  ) : (
+                    <>
+                      <ChevronUp size={13} />
+                      <span>Minimize Wells</span>
+                    </>
+                  )}
+                </Button>
+              </div>
             </div>
 
             {/* Magnetic Drop Wells Grid */}
@@ -506,20 +557,38 @@ export default function DynamicReports() {
             )}
           </div>
 
-          {/* Dynamic Linked Chart Visualizer */}
-          <PivotChartPreview
-            matrix={matrixResult}
-            config={config}
-            onChartTypeChange={(chartType) => setConfig({ ...config, chartType })}
-            onConfigChange={setConfig}
-            rawRecords={rawRecords}
-          />
-
-          {/* High-Density Pivot Matrix Table */}
-          <PivotMatrixTable
-            matrix={matrixResult}
-            config={config}
-          />
+          {/* Canvas Main Body based on canvasViewMode */}
+          {canvasViewMode === "chart" ? (
+            /* Visual Chart View */
+            <PivotChartPreview
+              matrix={matrixResult}
+              config={config}
+              onChartTypeChange={(chartType) => setConfig({ ...config, chartType })}
+              onConfigChange={setConfig}
+              rawRecords={rawRecords}
+            />
+          ) : canvasViewMode === "split" ? (
+            /* Split View: Chart + Matrix */
+            <>
+              <PivotChartPreview
+                matrix={matrixResult}
+                config={config}
+                onChartTypeChange={(chartType) => setConfig({ ...config, chartType })}
+                onConfigChange={setConfig}
+                rawRecords={rawRecords}
+              />
+              <PivotMatrixTable
+                matrix={matrixResult}
+                config={config}
+              />
+            </>
+          ) : (
+            /* Table Mode (Default): Pivot Matrix Table Prominent on Page */
+            <PivotMatrixTable
+              matrix={matrixResult}
+              config={config}
+            />
+          )}
         </div>
 
         {/* Right Pane: Power BI Visualizations Selector & Format Controls */}
@@ -530,12 +599,88 @@ export default function DynamicReports() {
         >
           <VisualizationsPane
             config={config}
-            onConfigChange={setConfig}
+            onConfigChange={(newConfig) => {
+              // When user selects a chart and is in table mode, switch to split view so they immediately see it
+              if (newConfig.chartType !== config.chartType && canvasViewMode === "table" && newConfig.chartType !== "none") {
+                setCanvasViewMode("split");
+                toast.info(`Switched to Split View to show "${newConfig.chartType.replace("_", " ")}" visual`);
+              }
+              setConfig(newConfig);
+            }}
             collapsed={visualsCollapsed}
             onToggleCollapse={() => setVisualsCollapsed(!visualsCollapsed)}
           />
         </div>
       </div>
+
+      {/* Floating Hovering Action Button (FAB) for Quick Graph Preview */}
+      {canvasViewMode === "table" && config.chartType !== "none" && (
+        <div className="fixed bottom-6 right-6 z-40">
+          <Button
+            onClick={() => setFloatingChartOpen(true)}
+            className="h-11 px-4 rounded-full bg-[#0c2340] hover:bg-[#14325a] text-white shadow-2xl border-2 border-amber-400/40 flex items-center gap-2 hover:scale-105 transition-all text-xs font-bold group"
+            title="Preview Live Graph without moving the Report Matrix"
+          >
+            <div className="w-6 h-6 rounded-full bg-amber-400 text-slate-950 flex items-center justify-center font-bold">
+              {config.chartType.startsWith("3d_") ? <Box size={13} /> : <BarChart3 size={13} />}
+            </div>
+            <span>Preview Graph</span>
+            <span className="text-[10px] text-amber-300 font-normal">
+              ({config.chartType.replace("_", " ")})
+            </span>
+          </Button>
+        </div>
+      )}
+
+      {/* Floating Quick Graph Drawer / Dialog */}
+      <Dialog open={floatingChartOpen} onOpenChange={setFloatingChartOpen}>
+        <DialogContent className="max-w-4xl p-0 overflow-hidden bg-card border border-border shadow-2xl rounded-2xl">
+          <div className="p-3 bg-muted/40 border-b border-border flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="p-1 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                <BarChart3 size={15} />
+              </div>
+              <span className="text-xs font-bold text-foreground uppercase tracking-wide">
+                Quick Visual Graph Preview
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  setCanvasViewMode("split");
+                  setFloatingChartOpen(false);
+                }}
+                className="h-7 text-xs font-semibold gap-1"
+              >
+                <Columns size={12} />
+                <span>Dock in Split View</span>
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => {
+                  setCanvasViewMode("chart");
+                  setFloatingChartOpen(false);
+                }}
+                className="h-7 text-xs font-semibold gap-1 bg-primary text-primary-foreground"
+              >
+                <Maximize2 size={12} />
+                <span>Full Canvas</span>
+              </Button>
+            </div>
+          </div>
+          <div className="p-4 max-h-[80vh] overflow-y-auto">
+            <PivotChartPreview
+              matrix={matrixResult}
+              config={config}
+              onChartTypeChange={(chartType) => setConfig({ ...config, chartType })}
+              onConfigChange={setConfig}
+              rawRecords={rawRecords}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Save Report Modal */}
       <SaveReportModal
