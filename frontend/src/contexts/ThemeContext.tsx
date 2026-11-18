@@ -1,15 +1,17 @@
 import React, { createContext, useContext, useEffect, useState, useMemo } from "react";
 
 export type StitchPalette =
-  | "volvitech"     // Google Stitch Volvitech Slate & Steel (Default)
+  | "original"      // Original CampMan Blue (Default)
+  | "volvitech"     // Google Stitch Volvitech Slate & Steel
   | "powerbi"       // Google Stitch Executive PowerBI Deep Navy & Amber
-  | "aramco"        // Google Stitch Industrial Energy Bronze & Petroleum Cyan
+  | "aramco"        // Google Stitch Industrial Desert Gold & Petroleum Cyan
   | "emerald"       // Google Stitch Emerald Oasis & Clean Mint
   | "indigo"        // Google Stitch Nexus Modern Electric Violet
   | "luxury"        // Google Stitch Monochrome Obsidian & Champagne Gold
   | "cyber";        // Google Stitch Flow Obsidian & Neon Violet
 
 export type UiStyle =
+  | "original"      // Original Clean Standard (Default 8px radius, standard layout)
   | "modern"        // Stitch Modern BI (Balanced curves, subtle elevation)
   | "compact"       // Enterprise High-Density Grid (Sharp 4px, compact table rows, mono data)
   | "flat"          // Minimalist Clean Flat (Zero elevation, crisp 1px borders)
@@ -39,6 +41,17 @@ export interface UiStyleInfo {
 }
 
 export const STITCH_PALETTES: PaletteInfo[] = [
+  {
+    id: "original",
+    name: "CampMan Blue (Original Default)",
+    tagline: "The original clean enterprise blue interface and default styling",
+    stitchOrigin: "CampMan Core System",
+    primaryHex: "#2563eb",
+    secondaryHex: "#3b82f6",
+    accentHex: "#f59e0b",
+    surfaceHex: "#ffffff",
+    darkSurfaceHex: "#0f172a",
+  },
   {
     id: "volvitech",
     name: "Volvitech Slate & Steel",
@@ -120,6 +133,14 @@ export const STITCH_PALETTES: PaletteInfo[] = [
 
 export const UI_STYLES: UiStyleInfo[] = [
   {
+    id: "original",
+    name: "Original Standard (Default)",
+    description: "The original clean 8px layout, standard table padding, and default card styles",
+    radius: "0.5rem",
+    density: "Standard",
+    shadow: "Default",
+  },
+  {
     id: "modern",
     name: "Stitch Modern BI",
     description: "Balanced curves (12px), smooth elevations, comfortable padding",
@@ -177,14 +198,16 @@ interface ThemeContextType {
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
+  // Default to original CampMan palette
   const [palette, setPaletteState] = useState<StitchPalette>(() => {
     const saved = localStorage.getItem(STORAGE_PALETTE_KEY) as StitchPalette;
-    return STITCH_PALETTES.some((p) => p.id === saved) ? saved : "volvitech";
+    return saved && STITCH_PALETTES.some((p) => p.id === saved) ? saved : "original";
   });
 
+  // Default to original UI style
   const [uiStyle, setUiStyleState] = useState<UiStyle>(() => {
     const saved = localStorage.getItem(STORAGE_UISTYLE_KEY) as UiStyle;
-    return UI_STYLES.some((s) => s.id === saved) ? saved : "modern";
+    return saved && UI_STYLES.some((s) => s.id === saved) ? saved : "original";
   });
 
   const [mode, setModeState] = useState<ThemeMode>(() => {
