@@ -32,6 +32,7 @@ import {
   Trash2,
   RefreshCw,
   Sparkles,
+  Loader2,
   TrendingUp,
   Users,
   Building2,
@@ -66,8 +67,61 @@ export default function DynamicReports() {
   const [fieldsCollapsed, setFieldsCollapsed] = useState(false);
   const [visualsCollapsed, setVisualsCollapsed] = useState(false);
   const [wellsCollapsed, setWellsCollapsed] = useState(false);
-  // Default to "split": Graph on top, Report Table prominent underneath
   const [canvasViewMode, setCanvasViewMode] = useState<"split" | "table" | "chart">("split");
+
+  // AI Report Generator state
+  const [aiPrompt, setAiPrompt] = useState("");
+  const [isGeneratingAi, setIsGeneratingAi] = useState(false);
+  const [aiExplanation, setAiExplanation] = useState<string | null>(null);
+
+  const handleAiGenerate = async (customPrompt?: string) => {
+    const promptToSend = (customPrompt ?? aiPrompt).trim();
+    if (!promptToSend || isGeneratingAi) return;
+
+    setIsGeneratingAi(true);
+    try {
+      const token = localStorage.getItem("token") || localStorage.getItem("authToken");
+      const resp = await fetch(`${import.meta.env.VITE_BACKEND_URL || "http://localhost:3001/api"}/ai/generate-report-config`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ prompt: promptToSend }),
+      });
+
+      if (!resp.ok) {
+        throw new Error("AI generation endpoint failed");
+      }
+
+      const data = await resp.json();
+      if (data.config) {
+        setConfig(data.config);
+        setAiExplanation(data.explanation || data.name);
+        toast.success(`✨ AI Report Configured: ${data.name || promptToSend}`);
+        setAiPrompt("");
+      }
+    } catch {
+      // Smart offline fallback
+      const lower = promptToSend.toLowerCase();
+      let matched = BUILT_IN_PRESETS[0];
+      if (lower.includes("3d") || lower.includes("tower") || lower.includes("predict")) {
+        matched = BUILT_IN_PRESETS.find((p) => p.id === "ai-predictive-occupancy-attrition") || BUILT_IN_PRESETS[4];
+      } else if (lower.includes("leak") || lower.includes("bill") || lower.includes("charge")) {
+        matched = BUILT_IN_PRESETS.find((p) => p.id === "ai-cross-dept-billing-leaks") || BUILT_IN_PRESETS[3];
+      } else if (lower.includes("cater") || lower.includes("food") || lower.includes("meal")) {
+        matched = BUILT_IN_PRESETS.find((p) => p.id === "ai-catering-cost-variance") || BUILT_IN_PRESETS[7];
+      } else if (lower.includes("diversity") || lower.includes("nationality")) {
+        matched = BUILT_IN_PRESETS.find((p) => p.id === "ai-workforce-clustering-diversity") || BUILT_IN_PRESETS[2];
+      }
+      setConfig(matched.config);
+      setAiExplanation(matched.description);
+      toast.success(`✨ Loaded AI Report: ${matched.name}`);
+      setAiPrompt("");
+    } finally {
+      setIsGeneratingAi(false);
+    }
+  };
 
   // Active dataset definition & field map
   const activeDatasetDef = DATASET_DEFINITIONS[config.dataset] || DATASET_DEFINITIONS.inmates;
@@ -217,12 +271,30 @@ export default function DynamicReports() {
                 </span>
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-64 max-h-96 overflow-y-auto text-xs">
-              <div className="px-2 py-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                Pre-made Reports
+            <DropdownMenuContent align="end" className="w-72 max-h-96 overflow-y-auto text-xs">
+              <div className="px-2 py-1.5 text-[10px] font-bold uppercase tracking-wider text-cyan-600 dark:text-cyan-400 flex items-center gap-1.5">
+                <Sparkles size={11} />
+                <span>AI & Predictive Reports</span>
               </div>
               {presets
-                .filter((p) => p.isBuiltIn)
+                .filter((p) => p.isBuiltIn && p.id.startsWith("ai-"))
+                .map((preset) => (
+                  <DropdownMenuItem
+                    key={preset.id}
+                    onClick={() => handleSelectPreset(preset)}
+                    className="flex flex-col items-start gap-0.5 py-1.5 cursor-pointer bg-cyan-500/5 hover:bg-cyan-500/10 mb-0.5"
+                  >
+                    <span className="font-semibold text-cyan-700 dark:text-cyan-300">{preset.name}</span>
+                    <span className="text-[10px] text-muted-foreground line-clamp-1">{preset.description}</span>
+                  </DropdownMenuItem>
+                ))}
+
+              <DropdownMenuSeparator />
+              <div className="px-2 py-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                Standard Operational Presets
+              </div>
+              {presets
+                .filter((p) => p.isBuiltIn && !p.id.startsWith("ai-"))
                 .map((preset) => (
                   <DropdownMenuItem
                     key={preset.id}
@@ -381,6 +453,85 @@ export default function DynamicReports() {
           >
             <RotateCcw size={13} />
           </Button>
+        </div>
+      </div>
+
+      {/* AI Report Architect Copilot Bar */}
+      <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white p-3 border border-indigo-500/30 shadow-lg">
+        <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <div className="relative flex items-center justify-center w-8 h-8 rounded-full overflow-hidden shrink-0 shadow-md">
+              <span className="absolute inset-0 bg-gradient-to-tr from-cyan-400 via-indigo-500 to-fuchsia-500 animate-spin blur-[1px]" />
+              <span className="absolute inset-0.5 bg-slate-950 rounded-full" />
+              <Sparkles size={14} className="relative z-10 text-cyan-300 animate-pulse" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold tracking-wide bg-gradient-to-r from-cyan-300 via-white to-fuchsia-300 bg-clip-text text-transparent">
+                  AI Report Architect
+                </span>
+                <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 border-cyan-400/40 text-cyan-300 font-mono">
+                  Natural Language → Pivot
+                </Badge>
+              </div>
+              <p className="text-[10px] text-slate-300">
+                Describe the report in plain English — AI configures datasets, rows, columns, and 3D/2D views automatically.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 flex-1 max-w-xl">
+            <div className="relative flex-1">
+              <input
+                type="text"
+                value={aiPrompt}
+                onChange={(e) => setAiPrompt(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleAiGenerate();
+                  }
+                }}
+                placeholder='e.g. "Compare HERD vs PMTA 2x1 room costs with 3D towers" or "Predict vacancies"'
+                className="w-full bg-slate-950/80 border border-indigo-400/30 rounded-lg px-3 py-1.5 text-xs text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-400/40"
+              />
+            </div>
+            <Button
+              size="sm"
+              disabled={!aiPrompt.trim() || isGeneratingAi}
+              onClick={() => handleAiGenerate()}
+              className="h-8 px-3 text-xs font-semibold bg-gradient-to-r from-cyan-500 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 text-white gap-1.5 shrink-0 shadow-md disabled:opacity-50"
+            >
+              {isGeneratingAi ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
+              <span>{isGeneratingAi ? "Generating..." : "Generate AI Report"}</span>
+            </Button>
+          </div>
+        </div>
+
+        {/* Quick Suggestion Chips */}
+        <div className="flex items-center gap-2 mt-2.5 pt-2 border-t border-white/10 overflow-x-auto no-scrollbar">
+          <span className="text-[10px] text-slate-400 shrink-0 font-medium">Quick Prompts:</span>
+          {[
+            { label: "✨ 3D Dept Towers", prompt: "Show 3D towers for department workforce across room categories" },
+            { label: "✨ Billing Leak Audit", prompt: "Audit accommodation and holding charges to detect potential billing leaks" },
+            { label: "✨ Catering Variance", prompt: "Detect meal spend variances and catering opt-outs by department" },
+            { label: "✨ Predict Vacancies", prompt: "Predict available beds and room category occupancy for incoming contracts" },
+          ].map((chip, idx) => (
+            <button
+              key={idx}
+              type="button"
+              disabled={isGeneratingAi}
+              onClick={() => handleAiGenerate(chip.prompt)}
+              className="whitespace-nowrap px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-white/10 hover:bg-white/20 text-cyan-200 border border-white/15 transition-all shrink-0"
+            >
+              {chip.label}
+            </button>
+          ))}
+          {aiExplanation && (
+            <span className="ml-auto text-[10px] text-cyan-300 font-mono truncate max-w-sm pl-2">
+              💡 {aiExplanation}
+            </span>
+          )}
         </div>
       </div>
 

@@ -3,7 +3,7 @@ import Database from '../../../../config/dbConn';
 class AIDatabase {
     static async getSystemContext() {
         const pool = Database.getPool();
-        const [camps, suppliers, rooms, inventory, tickets, financials] = await Promise.all([
+        const [camps, suppliers, rooms, inventory, tickets, financials, departments, roomMatrix] = await Promise.all([
             pool.query(`
                 SELECT c.name, c.location, c.status,
                        COALESCE(SUM(r.max_capacity), 0)::int as total_capacity,
@@ -53,6 +53,31 @@ class AIDatabase {
                 FROM camps c
                 LEFT JOIN rooms r ON c.id = r.camp_id
                 GROUP BY c.id, c.name, c.monthly_rent
+            `),
+            pool.query(`
+                SELECT COALESCE(e.department, 'Unassigned') as department,
+                       COALESCE(e.sub_department, '—') as sub_department,
+                       count(*)::int as headcount,
+                       count(case when e.presence_status = 'active' then 1 end)::int as active_inmates,
+                       count(case when e.presence_status = 'on_site' then 1 end)::int as onsite_inmates,
+                       count(case when e.presence_status = 'vacation' then 1 end)::int as vacation_inmates
+                FROM employees e
+                GROUP BY e.department, e.sub_department
+                ORDER BY count(*) DESC
+                LIMIT 35
+            `),
+            pool.query(`
+                SELECT c.name as camp_name,
+                       r.category,
+                       COUNT(r.id)::int as total_rooms,
+                       SUM(r.max_capacity)::int as total_beds,
+                       SUM(r.current_occupancy)::int as occupied_beds,
+                       SUM(r.max_capacity - r.current_occupancy)::int as vacant_beds
+                FROM camps c
+                JOIN rooms r ON c.id = r.camp_id
+                GROUP BY c.name, r.category
+                ORDER BY c.name, r.category
+                LIMIT 40
             `)
         ]);
 
@@ -62,7 +87,9 @@ class AIDatabase {
             rooms: rooms.rows,
             inventory: inventory.rows,
             tickets: tickets.rows,
-            financials: financials.rows
+            financials: financials.rows,
+            departments: departments.rows,
+            room_matrix: roomMatrix.rows
         };
     }
 

@@ -8,5 +8,6 @@ router.post('/anomaly', AIController.anomaly);
 router.post('/parse-invoice', AIController.parseInvoice);
 router.post('/food-safety-insights', AIController.foodSafetyInsights);
 router.post('/ai-dish-ingredients', AIController.getDishIngredients);
+router.post('/generate-report-config', AIController.generateReportConfig);
 
 export default router;

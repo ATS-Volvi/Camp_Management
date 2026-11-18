@@ -93,7 +93,7 @@ class AIController {
             return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ error: 'AI API key not configured' });
         }
 
-        const context = await AIService.getSystemContext();
+        const context = await AIService.getSystemContext(prompt);
 
         const systemPrompt = `You are LodgiX AI (Camp-365 AI), the senior operational analyst and reporting engine for an industrial camp management platform.
 
@@ -309,6 +309,126 @@ ${context}`;
             console.warn('AI error, falling back to culinary generator:', err.message);
             const fallbackIngs = getFallbackIngredients(dishName, availableIngredients);
             return res.status(StatusCodes.OK).json({ ingredients: fallbackIngs });
+        }
+    }
+
+    static async generateReportConfig(req: Request, res: Response, next: NextFunction) {
+        const { prompt } = req.body;
+        if (!prompt) {
+            return res.status(StatusCodes.BAD_REQUEST).json({ error: 'Prompt is required' });
+        }
+
+        const validChartTypes = ['bar', 'stacked_bar', 'horizontal_bar', 'line', 'pie', 'donut', 'heatmap', 'radar', '3d_bar', '3d_line', '3d_donut'];
+
+        const systemPrompt = `You are the Dynamic Reports AI Architect for Camp-365.
+Convert user natural language into an optimal JSON ReportConfig for our multi-dimensional pivot engine.
+
+Available Datasets & Fields:
+1. inmates:
+   Dimensions: department, sub_department, camp, block, floor, room_number, room_category, nationality, company, designation, presence_status, food_required, check_in_date
+   Measures: inmates_count (count), bed_capacity (sum)
+
+2. billing:
+   Dimensions: department, sub_department, camp, room_category, presence_status, service_month
+   Measures: mandays (sum), accommodation_charges (sum), catering_charges (sum), holding_charges (sum), lunch_charges (sum), grand_total (sum)
+
+3. movements:
+   Dimensions: movement_type, camp, department, sub_department, nationality, room_category, reason, date
+   Measures: movement_count (count), damage_deduction (sum)
+
+4. catering:
+   Dimensions: camp, department, meal_type, service_month, status
+   Measures: meal_count (sum), unit_price (avg), total_cost (sum)
+
+Chart Types: ${validChartTypes.join(', ')}
+
+OUTPUT FORMAT: Strict JSON only with no markdown or fences:
+{
+  "name": "Brief Title",
+  "explanation": "1-sentence description of what this report analyzes",
+  "config": {
+    "dataset": "inmates" | "billing" | "movements" | "catering",
+    "rows": ["dimensionField1", "dimensionField2"],
+    "columns": ["dimensionField3"],
+    "values": [{ "fieldId": "measureField", "aggregation": "count" | "sum" | "avg", "customLabel": "Label" }],
+    "filters": {},
+    "showSubtotals": true,
+    "showGrandTotals": true,
+    "chartType": "bar" | "stacked_bar" | "3d_bar" | "3d_line" | "3d_donut" | "pie" | "line"
+  }
+}`;
+
+        try {
+            if (!OPENROUTER_API_KEY) {
+                const lower = String(prompt).toLowerCase();
+                let dataset = 'inmates';
+                let rows = ['department'];
+                let columns = ['camp'];
+                let chartType = lower.includes('3d') ? '3d_bar' : 'bar';
+                let values = [{ fieldId: 'inmates_count', aggregation: 'count', customLabel: 'Inmate Headcount' }];
+
+                if (lower.includes('bill') || lower.includes('charge') || lower.includes('cost') || lower.includes('revenue') || lower.includes('tariff')) {
+                    dataset = 'billing';
+                    rows = ['department'];
+                    columns = ['room_category'];
+                    chartType = lower.includes('3d') ? '3d_line' : 'bar';
+                    values = [{ fieldId: 'grand_total', aggregation: 'sum', customLabel: 'Total Charges (SAR)' }];
+                } else if (lower.includes('cater') || lower.includes('meal') || lower.includes('lunch') || lower.includes('food')) {
+                    dataset = 'catering';
+                    rows = ['meal_type'];
+                    columns = ['camp'];
+                    chartType = lower.includes('3d') ? '3d_donut' : 'pie';
+                    values = [{ fieldId: 'total_cost', aggregation: 'sum', customLabel: 'Meal Cost (SAR)' }];
+                } else if (lower.includes('movement') || lower.includes('check-in') || lower.includes('checkout') || lower.includes('departure')) {
+                    dataset = 'movements';
+                    rows = ['movement_type'];
+                    columns = ['camp'];
+                    values = [{ fieldId: 'movement_count', aggregation: 'count', customLabel: 'Movements' }];
+                }
+
+                return res.json({
+                    name: `AI: ${prompt.slice(0, 40)}`,
+                    explanation: 'Generated report layout based on natural language analysis.',
+                    config: {
+                        dataset,
+                        rows,
+                        columns,
+                        values,
+                        filters: {},
+                        showSubtotals: true,
+                        showGrandTotals: true,
+                        chartType
+                    }
+                });
+            }
+
+            const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+                    'HTTP-Referer': 'http://localhost:8082',
+                    'X-Title': 'Camp-365'
+                },
+                body: JSON.stringify({
+                    model: 'openai/gpt-4o-mini',
+                    messages: [
+                        { role: 'system', content: systemPrompt },
+                        { role: 'user', content: prompt }
+                    ],
+                    temperature: 0.1
+                })
+            });
+
+            const data = await response.json();
+            const text = data?.choices?.[0]?.message?.content || '{}';
+            const cleaned = text.replace(/```json/g, '').replace(/```/g, '').trim();
+            const parsed = JSON.parse(cleaned);
+
+            return res.json(parsed);
+        } catch (err: any) {
+            console.error('AI Report Config Gen Error:', err);
+            return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ error: err.message });
         }
     }
 }

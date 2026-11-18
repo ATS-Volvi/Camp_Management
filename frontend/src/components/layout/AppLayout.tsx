@@ -6,6 +6,7 @@ import AppSidebar from "./AppSidebar";
 import TopBar from "./TopBar";
 
 import GlobalCommandPalette from "./GlobalCommandPalette";
+import SiriFloatingCopilot from "@/components/ai/SiriFloatingCopilot";
 
 export default function AppLayout() {
   const { pathname } = useLocation();
@@ -25,6 +26,7 @@ export default function AppLayout() {
         </main>
       </div>
       <GlobalCommandPalette />
+      <SiriFloatingCopilot />
     </div>
   );
 }
