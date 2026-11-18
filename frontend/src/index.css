@@ -797,8 +797,13 @@
   .ui-style-modern {
     --radius: 0.75rem;
   }
+  .ui-style-modern .stat-card,
+  .ui-style-modern .card,
+  .ui-style-modern [class*="bg-card"] {
+    box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.02) !important;
+  }
 
-  /* UI Style 2: Enterprise High-Density (Sharp 4px, compact table rows) */
+  /* UI Style 2: Enterprise High-Density (Sharp 4px, compact table rows & tight cards) */
   .ui-style-compact {
     --radius: 0.25rem;
   }
@@ -809,28 +814,55 @@
     font-size: 0.8125rem !important;
   }
   .ui-style-compact .stat-card {
-    padding: 0.875rem !important;
+    padding: 0.75rem !important;
     gap: 0.25rem !important;
   }
+  .ui-style-compact .sidebar-link {
+    padding-top: 0.35rem !important;
+    padding-bottom: 0.35rem !important;
+    font-size: 0.8125rem !important;
+  }
+  .ui-style-compact [class*="p-6"] {
+    padding: 1rem !important;
+  }
+  .ui-style-compact [class*="p-5"] {
+    padding: 0.75rem !important;
+  }
+  .ui-style-compact [class*="p-4"] {
+    padding: 0.625rem !important;
+  }
 
-  /* UI Style 3: Minimalist Clean Flat (Zero elevation, 8px, pure flat) */
+  /* UI Style 3: Minimalist Clean Flat (Zero elevation, 4px, pure flat border) */
   .ui-style-flat {
-    --radius: 0.5rem;
+    --radius: 0.25rem;
+  }
+  .ui-style-flat .stat-card,
+  .ui-style-flat .card,
+  .ui-style-flat [class*="bg-card"],
+  .ui-style-flat [class*="shadow"] {
+    box-shadow: none !important;
   }
   .ui-style-flat .stat-card,
   .ui-style-flat .card,
   .ui-style-flat [class*="bg-card"] {
-    box-shadow: none !important;
+    border-width: 1px !important;
   }
 
-  /* UI Style 4: Neo-Modern Rounded Glass (Pill 18px, soft diffused glow) */
+  /* UI Style 4: Neo-Modern Rounded Glass (Pill 18px, soft diffused glow, spacious) */
   .ui-style-soft {
     --radius: 1.125rem;
   }
   .ui-style-soft .stat-card,
   .ui-style-soft .card,
   .ui-style-soft [class*="bg-card"] {
-    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.02) !important;
+    box-shadow: 0 12px 30px -8px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.02) !important;
+  }
+  .ui-style-soft [class*="badge"],
+  .ui-style-soft .status-badge {
+    border-radius: 9999px !important;
+  }
+  .ui-style-soft .stat-card {
+    padding: 1.5rem !important;
   }
 }
 

@@ -160,7 +160,7 @@ export const UI_STYLES: UiStyleInfo[] = [
     id: "flat",
     name: "Minimalist Clean Flat",
     description: "Zero drop-shadows, pure flat surfaces, sharp clean lines",
-    radius: "0.5rem",
+    radius: "0.25rem",
     density: "Balanced",
     shadow: "None",
   },
@@ -173,6 +173,55 @@ export const UI_STYLES: UiStyleInfo[] = [
     shadow: "Soft Diffused",
   },
 ];
+
+const UI_RADIUS_MAP: Record<UiStyle, string> = {
+  original: "0.5rem",
+  modern: "0.75rem",
+  compact: "0.25rem",
+  flat: "0.25rem",
+  soft: "1.125rem",
+};
+
+const PALETTE_TOKENS: Record<
+  StitchPalette,
+  {
+    light: { primary: string; ring: string };
+    dark: { primary: string; ring: string };
+  }
+> = {
+  original: {
+    light: { primary: "217 91% 60%", ring: "217 91% 60%" },
+    dark: { primary: "217 91% 60%", ring: "217 91% 60%" },
+  },
+  volvitech: {
+    light: { primary: "215 56% 23%", ring: "215 56% 23%" },
+    dark: { primary: "212 90% 65%", ring: "212 90% 65%" },
+  },
+  powerbi: {
+    light: { primary: "213 68% 15%", ring: "38 92% 44%" },
+    dark: { primary: "38 92% 50%", ring: "38 92% 50%" },
+  },
+  aramco: {
+    light: { primary: "38 72% 43%", ring: "38 72% 43%" },
+    dark: { primary: "38 80% 55%", ring: "38 80% 55%" },
+  },
+  emerald: {
+    light: { primary: "175 100% 21%", ring: "175 100% 21%" },
+    dark: { primary: "175 75% 45%", ring: "175 75% 45%" },
+  },
+  indigo: {
+    light: { primary: "221 83% 53%", ring: "221 83% 53%" },
+    dark: { primary: "221 90% 65%", ring: "221 90% 65%" },
+  },
+  luxury: {
+    light: { primary: "240 6% 10%", ring: "40 48% 56%" },
+    dark: { primary: "40 55% 62%", ring: "40 55% 62%" },
+  },
+  cyber: {
+    light: { primary: "258 90% 66%", ring: "258 90% 66%" },
+    dark: { primary: "258 90% 70%", ring: "258 90% 70%" },
+  },
+};
 
 const STORAGE_PALETTE_KEY = "campman_stitch_palette";
 const STORAGE_UISTYLE_KEY = "campman_stitch_uistyle";
@@ -221,7 +270,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     return getSystemDark();
   }, [mode]);
 
-  // Apply classes to document.documentElement
+  // Apply classes and direct inline variables to document.documentElement
   useEffect(() => {
     const root = document.documentElement;
 
@@ -246,6 +295,15 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     } else {
       root.classList.remove("dark");
     }
+
+    // Direct inline styles for 100% instant reactivity without specificity delay
+    const targetRadius = UI_RADIUS_MAP[uiStyle] || "0.5rem";
+    root.style.setProperty("--radius", targetRadius);
+
+    const tokenGroup = PALETTE_TOKENS[palette] || PALETTE_TOKENS.original;
+    const activeTokens = isDark ? tokenGroup.dark : tokenGroup.light;
+    root.style.setProperty("--primary", activeTokens.primary);
+    root.style.setProperty("--ring", activeTokens.ring);
 
     // Persist
     localStorage.setItem(STORAGE_PALETTE_KEY, palette);
