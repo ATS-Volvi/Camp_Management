@@ -61,14 +61,14 @@
 
     /* Sidebar */
     --sidebar-background: 0 0% 100%;
-    --sidebar-foreground: 220 9% 46%;
+    --sidebar-foreground: 220 15% 30%;
     --sidebar-primary: 217 91% 60%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 217 91% 97%;
-    --sidebar-accent-foreground: 217 91% 60%;
+    --sidebar-accent: 217 91% 96%;
+    --sidebar-accent-foreground: 217 91% 50%;
     --sidebar-border: 220 13% 91%;
     --sidebar-ring: 217 91% 60%;
-    --sidebar-active-bg: 217 91% 97%;
+    --sidebar-active-bg: 217 91% 96%;
 
     /* Chart colors */
     --chart-1: 217 91% 60%;
@@ -127,16 +127,16 @@
     --priority-medium: 38 92% 50%;
     --priority-low: 142 76% 36%;
 
-    /* Dark navy sidebar */
-    --sidebar-background: 215 50% 12%;
-    --sidebar-foreground: 40 100% 97%;
-    --sidebar-primary: 38 92% 50%;
-    --sidebar-primary-foreground: 215 50% 12%;
-    --sidebar-accent: 215 40% 20%;
-    --sidebar-accent-foreground: 40 100% 97%;
-    --sidebar-border: 215 40% 25%;
+    /* Clean high-contrast sidebar */
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 215 28% 28%;
+    --sidebar-primary: 215 50% 12%;
+    --sidebar-primary-foreground: 40 100% 97%;
+    --sidebar-accent: 215 50% 95%;
+    --sidebar-accent-foreground: 215 50% 12%;
+    --sidebar-border: 214 20% 90%;
     --sidebar-ring: 38 92% 50%;
-    --sidebar-active-bg: 215 40% 20%;
+    --sidebar-active-bg: 215 50% 95%;
 
     /* Chart colors */
     --chart-1: 217 91% 60%;
@@ -187,15 +187,15 @@
     --priority-medium: 42 95% 52%;
     --priority-low: 152 65% 38%;
 
-    --sidebar-background: 232 52% 14%;
-    --sidebar-foreground: 225 30% 92%;
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 230 35% 28%;
     --sidebar-primary: 25 95% 53%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 232 40% 22%;
-    --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 232 35% 24%;
+    --sidebar-accent: 232 40% 95%;
+    --sidebar-accent-foreground: 232 52% 14%;
+    --sidebar-border: 232 20% 90%;
     --sidebar-ring: 25 95% 53%;
-    --sidebar-active-bg: 232 40% 22%;
+    --sidebar-active-bg: 232 40% 95%;
   }
 
   .dark.theme-expertise {
@@ -964,10 +964,17 @@
     @apply bg-amber/10 border-amber;
   }
   .sidebar-link {
-    @apply flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-sidebar-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground;
+    @apply flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors;
+    color: hsl(var(--sidebar-foreground));
+  }
+  .sidebar-link:hover {
+    background-color: hsl(var(--sidebar-accent));
+    color: hsl(var(--sidebar-accent-foreground));
   }
   .sidebar-link-active {
-    @apply bg-sidebar-accent text-sidebar-accent-foreground;
+    background-color: hsl(var(--sidebar-accent)) !important;
+    color: hsl(var(--sidebar-accent-foreground)) !important;
+    font-weight: 600;
   }
   .data-table {
     @apply w-full text-sm;

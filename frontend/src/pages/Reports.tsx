@@ -23,6 +23,7 @@ import EmployeeStaysView from "@/components/reports/EmployeeStaysView";
 import ExpertiseOccupancyStatementTab from "@/components/reports/ExpertiseOccupancyStatementTab";
 import { exportAllReportsToExcel } from "@/lib/exportAllReportsToExcel";
 import { TablePager, usePaged } from "@/components/TablePager";
+import { resolveEmployeeHierarchy } from "@/lib/departmentLabels";
 
 function useEmployeeReport(type?: string) {
   return useQuery({
@@ -240,7 +241,8 @@ function EmployeeReportTab() {
       if (supplierFilter !== "all" && e.supplier_name !== supplierFilter) return false;
       if (search) {
         const s = search.toLowerCase();
-        return e.name.toLowerCase().includes(s) || e.employee_id.toLowerCase().includes(s) || (e.department || "").toLowerCase().includes(s) || ((e as any).sub_department || "").toLowerCase().includes(s) || (e.supplier_name || "").toLowerCase().includes(s);
+        const h = resolveEmployeeHierarchy(e);
+        return e.name.toLowerCase().includes(s) || e.employee_id.toLowerCase().includes(s) || (h.department || "").toLowerCase().includes(s) || (h.sub_department || "").toLowerCase().includes(s) || (h.project || "").toLowerCase().includes(s) || (e.supplier_name || "").toLowerCase().includes(s);
       }
       return true;
     });
@@ -256,7 +258,10 @@ function EmployeeReportTab() {
 
   const handleExport = () => {
     const headers = ["Employee ID", "Name", "Type", "Designation", "Department", "Sub Department", "Supplier", "Nationality", "Status", "Phone", "Project"];
-    const rows = filtered.map(e => [e.employee_id, e.name, e.employee_type, e.designation || "", e.department || "", (e as any).sub_department || "", e.supplier_name || "", e.nationality || "", e.status, e.phone || "", e.project || ""]);
+    const rows = filtered.map(e => {
+      const h = resolveEmployeeHierarchy(e);
+      return [e.employee_id, e.name, e.employee_type, e.designation || "", h.department || "—", h.sub_department || "—", e.supplier_name || "", e.nationality || "", e.status, e.phone || "", h.project || "—"];
+    });
     const csv = [headers.join(","), ...rows.map(r => r.map(c => `"${c}"`).join(","))].join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
@@ -328,26 +333,29 @@ function EmployeeReportTab() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {paged.rows.map(e => (
-                <TableRow key={e.id}>
-                  <TableCell className="font-mono text-xs">{e.employee_id}</TableCell>
-                  <TableCell className="font-medium">{e.name}</TableCell>
-                  <TableCell><Badge variant="outline">{e.employee_type}</Badge></TableCell>
-                  <TableCell>{e.designation || "—"}</TableCell>
-                  <TableCell>{e.department || "—"}</TableCell>
-                  <TableCell>{(e as any).sub_department || "—"}</TableCell>
-                  <TableCell>{e.supplier_name || "—"}</TableCell>
-                  <TableCell>{e.nationality || "—"}</TableCell>
-                  <TableCell>{e.project || "—"}</TableCell>
-                  <TableCell>
-                    <Badge className={
-                      e.status === "active" ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" :
-                      e.status === "inactive" ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400" :
-                      "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400"
-                    } variant="secondary">{e.status}</Badge>
-                  </TableCell>
-                </TableRow>
-              ))}
+              {paged.rows.map(e => {
+                const h = resolveEmployeeHierarchy(e);
+                return (
+                  <TableRow key={e.id}>
+                    <TableCell className="font-mono text-xs">{e.employee_id}</TableCell>
+                    <TableCell className="font-medium">{e.name}</TableCell>
+                    <TableCell><Badge variant="outline">{e.employee_type}</Badge></TableCell>
+                    <TableCell>{e.designation || "—"}</TableCell>
+                    <TableCell className="font-semibold text-primary">{h.department}</TableCell>
+                    <TableCell>{h.sub_department}</TableCell>
+                    <TableCell>{e.supplier_name || "—"}</TableCell>
+                    <TableCell>{e.nationality || "—"}</TableCell>
+                    <TableCell>{h.project}</TableCell>
+                    <TableCell>
+                      <Badge className={
+                        e.status === "active" ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" :
+                        e.status === "inactive" ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400" :
+                        "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400"
+                      } variant="secondary">{e.status}</Badge>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </div>
@@ -561,21 +569,31 @@ function CheckInReportTab() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {paged.rows.map((ci: any) => (
-                <TableRow key={ci.id}>
-                  <TableCell className="text-xs">{format(new Date(ci.check_in_date), "dd MMM yyyy, HH:mm")}</TableCell>
-                  <TableCell className="font-mono text-xs">{ci.employees?.employee_id || "—"}</TableCell>
-                  <TableCell className="font-medium">{ci.employees?.name || "—"}</TableCell>
-                  <TableCell><Badge variant="outline">{ci.employees?.employee_type || "—"}</Badge></TableCell>
-                  <TableCell>{ci.employees?.supplier_name || "—"}</TableCell>
-                  <TableCell>{ci.employees?.designation || "—"}</TableCell>
-                  <TableCell>{ci.rooms?.room_number || "—"}</TableCell>
-                  <TableCell className="text-xs">{getRoomCategoryLabel(ci.rooms?.category || "")}</TableCell>
-                  <TableCell>{ci.camps?.name || "—"}</TableCell>
-                  <TableCell>{ci.employees?.department || "—"}<div className="text-xs text-muted-foreground">{ci.project || ci.employees?.project || "—"}</div></TableCell>
-                  <TableCell>{ci.food_required === false ? "Not required" : "Required"}</TableCell>
-                </TableRow>
-              ))}
+              {paged.rows.map((ci: any) => {
+                const h = resolveEmployeeHierarchy({
+                  department: ci.employees?.department,
+                  sub_department: ci.employees?.sub_department,
+                  project: ci.project || ci.employees?.project,
+                });
+                return (
+                  <TableRow key={ci.id}>
+                    <TableCell className="text-xs">{format(new Date(ci.check_in_date), "dd MMM yyyy, HH:mm")}</TableCell>
+                    <TableCell className="font-mono text-xs">{ci.employees?.employee_id || "—"}</TableCell>
+                    <TableCell className="font-medium">{ci.employees?.name || "—"}</TableCell>
+                    <TableCell><Badge variant="outline">{ci.employees?.employee_type || "—"}</Badge></TableCell>
+                    <TableCell>{ci.employees?.supplier_name || "—"}</TableCell>
+                    <TableCell>{ci.employees?.designation || "—"}</TableCell>
+                    <TableCell>{ci.rooms?.room_number || "—"}</TableCell>
+                    <TableCell className="text-xs">{getRoomCategoryLabel(ci.rooms?.category || "")}</TableCell>
+                    <TableCell>{ci.camps?.name || "—"}</TableCell>
+                    <TableCell>
+                      <span className="font-medium">{h.department}</span>
+                      <div className="text-xs text-muted-foreground">{h.sub_department !== "—" ? h.sub_department : h.project !== "—" ? h.project : "—"}</div>
+                    </TableCell>
+                    <TableCell>{ci.food_required === false ? "Not required" : "Required"}</TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </div>

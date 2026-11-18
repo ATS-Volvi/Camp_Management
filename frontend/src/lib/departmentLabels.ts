@@ -140,3 +140,77 @@ export function matchesDepartment(
   }
   return dept.includes(target) || proj.includes(target);
 }
+
+const KNOWN_DEPT_CODES = new Set([
+  "HERD", "PMTA", "EMBS", "MBS", "VSD", "RSD", "T&L", "IF", "TSSD", "PSD",
+  "HR", "OPS", "EI", "MAINT", "F&C", "C&A", "IT", "BD", "CCD", "HSE",
+  "WHSE", "ENG", "FIN", "CONST", "MGMT", "QAQC", "ADMIN", "PROJ", "FAB",
+  "LEGAL", "AUDIT", "SCM"
+]);
+
+export function isDepartmentCode(val: string | null | undefined): boolean {
+  if (!val) return false;
+  const upper = val.toUpperCase().trim();
+  return KNOWN_DEPT_CODES.has(upper) || /^(HERD|PMTA|EMBS|MBS|VSD|RSD|FIN|HR|IT|HSE|T&L)$/i.test(upper);
+}
+
+export interface EmployeeHierarchy {
+  department: string;
+  sub_department: string;
+  project: string;
+}
+
+/**
+ * Resolves the true Department, Sub-Department, and Project hierarchy for an employee.
+ * In legacy/SAP workforce imports, division codes ("HERD", "PMTA", "MBS", "VSD", "RSD")
+ * were mistakenly placed in the 'project' field, while sub-departments ("Waste Management",
+ * "Rigging", etc.) were placed in 'department'. This helper rectifies that structure and
+ * ensures real projects are preserved while preventing synthetic placeholder values.
+ */
+export function resolveEmployeeHierarchy(emp: {
+  department?: string | null;
+  sub_department?: string | null;
+  project?: string | null;
+}): EmployeeHierarchy {
+  const rawDept = (emp.department || "").trim();
+  const rawSubDept = (emp.sub_department || "").trim();
+  const rawProj = (emp.project || "").trim();
+
+  let dept = rawDept;
+  let subDept = rawSubDept;
+  let proj = rawProj;
+
+  // Case 1: project field contains a department code (e.g. "HERD", "PMTA", "MBS", "VSD", "RSD")
+  if (isDepartmentCode(rawProj)) {
+    dept = rawProj.toUpperCase();
+    if (!subDept || subDept === "—") {
+      subDept = rawDept !== rawProj && rawDept ? rawDept : "—";
+    }
+    proj = ""; // The project field was holding the department code, not a real project
+  }
+  // Case 2: rawDept is a sub-department like "Waste Management" or "Rigging"
+  else if (rawDept.toLowerCase().includes("waste management") || rawDept.toLowerCase().includes("rigging")) {
+    subDept = rawDept;
+    dept = "HERD";
+    if (rawProj.toLowerCase() === rawDept.toLowerCase() || isDepartmentCode(rawProj)) {
+      proj = "";
+    }
+  }
+  // Case 3: rawProj is identical to rawDept (e.g. dept="PMTA", proj="PMTA" or dept="Rigging", proj="Rigging")
+  else if (rawProj && rawProj.toLowerCase() === rawDept.toLowerCase()) {
+    if (isDepartmentCode(rawDept)) {
+      dept = rawDept.toUpperCase();
+      subDept = rawSubDept || "—";
+      proj = "";
+    } else {
+      subDept = rawDept;
+      proj = "";
+    }
+  }
+
+  return {
+    department: dept || "—",
+    sub_department: subDept || "—",
+    project: proj || "—",
+  };
+}

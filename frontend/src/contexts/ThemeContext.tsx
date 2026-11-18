@@ -247,6 +247,12 @@ interface ThemeContextType {
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
+  // Purge legacy conflicting keys from earlier theme switcher
+  if (typeof window !== "undefined") {
+    localStorage.removeItem("campman-theme-color");
+    localStorage.removeItem("campman-theme-mode");
+  }
+
   // Default to original CampMan palette
   const [palette, setPaletteState] = useState<StitchPalette>(() => {
     const saved = localStorage.getItem(STORAGE_PALETTE_KEY) as StitchPalette;

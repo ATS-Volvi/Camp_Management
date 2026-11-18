@@ -177,7 +177,7 @@ export default function AppSidebar() {
   };
 
   return (
-    <aside className="w-[240px] h-screen bg-card border-r flex flex-col shrink-0">
+    <aside className="w-[240px] h-screen bg-sidebar text-sidebar-foreground border-r flex flex-col shrink-0">
       {/* Logo */}
       <div className="px-4 py-4 flex items-center gap-2 border-b">
         <img src={campLogo} alt="Camp-365 Logo" className="w-8 h-8 rounded" />

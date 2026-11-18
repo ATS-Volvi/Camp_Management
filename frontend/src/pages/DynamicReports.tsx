@@ -64,6 +64,7 @@ export default function DynamicReports() {
 
   const [saveModalOpen, setSaveModalOpen] = useState(false);
   const [fieldsCollapsed, setFieldsCollapsed] = useState(false);
+  const [visualsCollapsed, setVisualsCollapsed] = useState(false);
   const [wellsCollapsed, setWellsCollapsed] = useState(false);
   // Default to "split": Graph on top, Report Table prominent underneath
   const [canvasViewMode, setCanvasViewMode] = useState<"split" | "table" | "chart">("split");

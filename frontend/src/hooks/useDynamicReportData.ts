@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { DatasetId } from "@/lib/dynamicReports/types";
 import { format } from "date-fns";
+import { resolveEmployeeHierarchy } from "@/lib/departmentLabels";
 
 export function useDynamicReportData(dataset: DatasetId) {
   return useQuery({
@@ -22,25 +23,33 @@ export function useDynamicReportData(dataset: DatasetId) {
 
           if (error) throw error;
 
-          return (data || []).map((r: any) => ({
-            id: r.id,
-            camp: r.camps?.name || "Unassigned Camp",
-            block: r.rooms?.room_number?.split("-")[0] || "Block A",
-            floor: r.rooms?.floor ? `Floor ${r.rooms.floor}` : "Floor G",
-            room_number: r.rooms?.room_number || "N/A",
-            room_category: r.rooms?.category || "4x1",
-            department: r.employees?.department || "Unassigned",
-            sub_department: r.employees?.sub_department || r.employees?.department || "Unassigned",
-            project: r.employees?.project || "General",
-            company: r.employees?.company || "Expertise",
-            nationality: r.employees?.nationality || "Indian",
-            designation: r.employees?.designation || "Staff",
-            presence_status: r.employees?.presence_status || "active",
-            food_required: r.food_required ? "Catering Included" : "Accommodation Only",
-            check_in_date: r.check_in_date ? format(new Date(r.check_in_date), "yyyy-MM-dd") : "",
-            inmates_count: 1,
-            bed_capacity: r.rooms?.max_capacity || 4,
-          }));
+          return (data || []).map((r: any) => {
+            const h = resolveEmployeeHierarchy({
+              department: r.employees?.department,
+              sub_department: r.employees?.sub_department,
+              project: r.employees?.project,
+            });
+
+            return {
+              id: r.id,
+              camp: r.camps?.name || "Unassigned Camp",
+              block: r.rooms?.room_number?.split("-")[0] || "Block A",
+              floor: r.rooms?.floor ? `Floor ${r.rooms.floor}` : "Floor G",
+              room_number: r.rooms?.room_number || "N/A",
+              room_category: r.rooms?.category || "4x1",
+              department: h.department !== "—" ? h.department : "Unassigned",
+              sub_department: h.sub_department !== "—" ? h.sub_department : "Unassigned",
+              project: h.project !== "—" ? h.project : "—",
+              company: r.employees?.company || "Expertise",
+              nationality: r.employees?.nationality || "Indian",
+              designation: r.employees?.designation || "Staff",
+              presence_status: r.employees?.presence_status || "active",
+              food_required: r.food_required ? "Catering Included" : "Accommodation Only",
+              check_in_date: r.check_in_date ? format(new Date(r.check_in_date), "yyyy-MM-dd") : "",
+              inmates_count: 1,
+              bed_capacity: r.rooms?.max_capacity || 4,
+            };
+          });
         }
 
         case "billing": {
@@ -78,11 +87,17 @@ export function useDynamicReportData(dataset: DatasetId) {
             const lunchCharges = cat === "1x1" ? 156 : 0;
             const grandTotal = accCharges + catCharges + holdingCharges + lunchCharges;
 
+            const h = resolveEmployeeHierarchy({
+              department: r.employees?.department,
+              sub_department: r.employees?.sub_department,
+              project: r.employees?.project,
+            });
+
             return {
               id: r.id,
-              department: r.employees?.department || "EMBS",
-              sub_department: r.employees?.sub_department || r.employees?.department || "EMBS",
-              project: r.employees?.project || "General",
+              department: h.department !== "—" ? h.department : "EMBS",
+              sub_department: h.sub_department !== "—" ? h.sub_department : "EMBS",
+              project: h.project !== "—" ? h.project : "—",
               camp: r.camps?.name || "Main Camp",
               room_category: r.rooms?.category || "4x1",
               presence_status: status,
@@ -114,13 +129,19 @@ export function useDynamicReportData(dataset: DatasetId) {
           const records: any[] = [];
 
           (checkInsRes.data || []).forEach((ci: any) => {
+            const h = resolveEmployeeHierarchy({
+              department: ci.employees?.department,
+              sub_department: ci.employees?.sub_department,
+              project: ci.employees?.project,
+            });
+
             records.push({
               id: `ci_${ci.id}`,
               movement_type: "Check-In (Arrival)",
               camp: ci.camps?.name || "Main Camp",
-              department: ci.employees?.department || "Unassigned",
-              sub_department: ci.employees?.sub_department || ci.employees?.department || "Unassigned",
-              project: ci.employees?.project || "General",
+              department: h.department !== "—" ? h.department : "Unassigned",
+              sub_department: h.sub_department !== "—" ? h.sub_department : "Unassigned",
+              project: h.project !== "—" ? h.project : "—",
               nationality: ci.employees?.nationality || "Indian",
               room_category: ci.rooms?.category || "4x1",
               reason: "New Deployment",
@@ -131,13 +152,19 @@ export function useDynamicReportData(dataset: DatasetId) {
           });
 
           (checkOutsRes.data || []).forEach((co: any) => {
+            const h = resolveEmployeeHierarchy({
+              department: co.employees?.department,
+              sub_department: co.employees?.sub_department,
+              project: co.employees?.project,
+            });
+
             records.push({
               id: `co_${co.id}`,
               movement_type: "Check-Out (Departure)",
               camp: co.camps?.name || "Main Camp",
-              department: co.employees?.department || "Unassigned",
-              sub_department: co.employees?.sub_department || co.employees?.department || "Unassigned",
-              project: co.employees?.project || "General",
+              department: h.department !== "—" ? h.department : "Unassigned",
+              sub_department: h.sub_department !== "—" ? h.sub_department : "Unassigned",
+              project: h.project !== "—" ? h.project : "—",
               nationality: co.employees?.nationality || "Indian",
               room_category: co.rooms?.category || "4x1",
               reason: co.checkout_reason || "Completed Project",

@@ -18,6 +18,7 @@ import { useEmployeeStays } from "@/hooks/useEmployeeStays";
 import { employeePresence, employeeCampMap, matchesEmployeeCamp } from "@/lib/employeePresence";
 import { useEmployees } from "@/hooks/useEmployees";
 import { useDepartments } from "@/hooks/useDepartments";
+import { resolveEmployeeHierarchy } from "@/lib/departmentLabels";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import AddEmployeeDialog from "@/components/employees/AddEmployeeDialog";
@@ -51,16 +52,21 @@ export default function EmployeeMaster() {
   const toggleSel = (id: string) => setSelected((p) => { const n = new Set(p); n.has(id) ? n.delete(id) : n.add(id); return n; });
   const toggleAll = (ids: string[], on: boolean) => setSelected((p) => { const n = new Set(p); ids.forEach((i) => on ? n.add(i) : n.delete(i)); return n; });
   const doExport = () => {
-    const rows = (selected.size ? filtered.filter((e) => selected.has(e.id)) : filtered).map((e: any) => ({
-      "Employee ID": e.employee_id, Name: e.name, Type: e.employee_type,
-      Designation: e.designation || "", Department: e.department || "", "Sub Department": e.sub_department || e.sap_department || "",
-      "Employee Group": e.employee_group || "", Company: e.company || "", Supplier: e.supplier_name || "",
-      Project: e.project || "", "Staff Role": e.staff_role || "",
-      "Current Location": e.current_location || "", Remarks: e.remarks || "",
-      "Camp Name": locationMap[e.id]?.camp || "", "Block No": locationMap[e.id]?.block || "", "Room No": locationMap[e.id]?.room || "",
-      "Passport No": e.passport_number || "", "Iqama No": e.iqama_number || "", Phone: e.phone || "",
-      Nationality: e.nationality || "", Status: presenceMap[e.id] || "",
-    }));
+    const rows = (selected.size ? filtered.filter((e) => selected.has(e.id)) : filtered).map((e: any) => {
+      const h = resolveEmployeeHierarchy(e);
+      return {
+        "Employee ID": e.employee_id, Name: e.name, Type: e.employee_type,
+        Designation: e.designation || "",
+        Department: h.department !== "—" ? h.department : "",
+        "Sub Department": h.sub_department !== "—" ? h.sub_department : "",
+        "Employee Group": e.employee_group || "", Company: e.company || "", Supplier: e.supplier_name || "",
+        Project: h.project !== "—" ? h.project : "", "Staff Role": e.staff_role || "",
+        "Current Location": e.current_location || "", Remarks: e.remarks || "",
+        "Camp Name": locationMap[e.id]?.camp || "", "Block No": locationMap[e.id]?.block || "", "Room No": locationMap[e.id]?.room || "",
+        "Passport No": e.passport_number || "", "Iqama No": e.iqama_number || "", Phone: e.phone || "",
+        Nationality: e.nationality || "", Status: presenceMap[e.id] || "",
+      };
+    });
     if (!rows.length) { toast.error("No employees to export"); return; }
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), "Employees");
@@ -413,26 +419,29 @@ function EmployeeTable({
                   </TableCell>
                   <TableCell>{emp.camp_id ? campMap[emp.camp_id] || "—" : "—"}</TableCell>
                 </>
-              ) : (
-                <>
-                  <TableCell>{emp.designation || "—"}</TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className="font-mono text-xs">
-                    {emp.department ? (deptCodeMap[emp.department] || emp.department) : "—"}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>{emp.sub_department || emp.sap_department || "—"}</TableCell>
-                  <TableCell>
-                    {emp.employee_group ? <Badge variant="outline" className="text-xs">{emp.employee_group}</Badge> : "—"}
-                  </TableCell>
-                  <TableCell>{type === "supplier" ? emp.supplier_name || "—" : emp.company || "—"}</TableCell>
-                  <TableCell>
-                    {emp.project ? <Badge variant="secondary" className="text-xs">{emp.project}</Badge> : "—"}
-                  </TableCell>
-                  <TableCell>{emp.current_location || "—"}</TableCell>
-                  <TableCell className="max-w-[200px] truncate" title={emp.remarks || ""}>{emp.remarks || "—"}</TableCell>
-                </>
-              )}
+              ) : (() => {
+                const h = resolveEmployeeHierarchy(emp);
+                return (
+                  <>
+                    <TableCell>{emp.designation || "—"}</TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className="font-mono text-xs font-semibold text-primary">
+                        {h.department !== "—" ? (deptCodeMap[h.department] || h.department) : "—"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>{h.sub_department}</TableCell>
+                    <TableCell>
+                      {emp.employee_group ? <Badge variant="outline" className="text-xs">{emp.employee_group}</Badge> : "—"}
+                    </TableCell>
+                    <TableCell>{type === "supplier" ? emp.supplier_name || "—" : emp.company || "—"}</TableCell>
+                    <TableCell>
+                      {h.project !== "—" ? <Badge variant="secondary" className="text-xs">{h.project}</Badge> : "—"}
+                    </TableCell>
+                    <TableCell>{emp.current_location || "—"}</TableCell>
+                    <TableCell className="max-w-[200px] truncate" title={emp.remarks || ""}>{emp.remarks || "—"}</TableCell>
+                  </>
+                );
+              })()}
               <TableCell>{locationMap[emp.id]?.camp || ""}</TableCell>
               <TableCell>{locationMap[emp.id]?.block || ""}</TableCell>
               <TableCell>{locationMap[emp.id]?.room || ""}</TableCell>
