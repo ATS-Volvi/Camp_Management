@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { ThemeProvider } from "@/contexts/ThemeContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import AppLayout from "./components/layout/AppLayout";
 import Launchpad from "./pages/Launchpad";
@@ -54,6 +55,7 @@ import DesignationRoomMapping from "./pages/DesignationRoomMapping";
 import ProjectMaster from "./pages/ProjectMaster";
 import EmployeeMasterData from "./pages/EmployeeMasterData";
 import CampMasterData from "./pages/CampMasterData";
+import Settings from "./pages/Settings";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 
@@ -67,94 +69,97 @@ const queryClient = new QueryClient({
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <Routes>
-            <Route path="/login" element={<Login />} />
-            <Route
-              path="/"
-              element={
-                <ProtectedRoute>
-                  <ErrorBoundary fallbackTitle="Error loading Launchpad">
-                    <Launchpad />
-                  </ErrorBoundary>
-                </ProtectedRoute>
-              }
-            />
-            <Route path="/camp-hub" element={<ProtectedRoute><CampHub /></ProtectedRoute>} />
-            <Route
-              element={
-                <ProtectedRoute>
-                  <ErrorBoundary fallbackTitle="Application Error">
-                    <AppLayout />
-                  </ErrorBoundary>
-                </ProtectedRoute>
-              }
-            >
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/dashboards/board" element={<CommandDashboard key="board" view="board" />} />
-              <Route path="/dashboards/utilization" element={<CommandDashboard key="utilization" view="utilization" />} />
-              <Route path="/dashboards/monthly" element={<CommandDashboard key="snapshot" view="snapshot" />} />
-              <Route path="/dashboards/contracts" element={<CommandDashboard key="contracts" view="contracts" />} />
-              <Route path="/dashboards/expertise" element={<CommandDashboard key="expertise" view="expertise" />} />
-              <Route path="/home" element={<HomeDashboard />} />
-              <Route path="/camps" element={<CampsList />} />
-              <Route path="/camps/:campId" element={<CampDetails />} />
-              <Route path="/maintenance" element={<RepairMaintenance />} />
-              <Route path="/staff-kpi" element={<StaffKPI />} />
-              <Route path="/assets" element={<AssetManagement />} />
-              <Route path="/assets/:id" element={<AssetDetails />} />
-              <Route path="/check-in-out" element={<CheckInOut />} />
-              <Route path="/check-in/bulk" element={<BulkCheckInOut key="checkin" mode="checkin" />} />
-              <Route path="/check-out/bulk" element={<BulkCheckInOut key="checkout" mode="checkout" />} />
-              <Route path="/check-in-out/bulk" element={<Navigate to="/check-in/bulk" replace />} />
-              <Route path="/temporary-absence/bulk" element={<Navigate to="/check-out/bulk" replace />} />
-              <Route path="/lockers" element={<LockerManagement />} />
-              <Route path="/inmates-report" element={<InmatesReport />} />
-              <Route path="/employee-stays" element={<EmployeeStays />} />
-              <Route path="/inventory" element={<InventoryManagement />} />
-              <Route path="/employees" element={<EmployeeMaster />} />
-              <Route path="/item-assignments" element={<ItemAssignments />} />
-              <Route path="/reports" element={<Reports />} />
-              <Route path="/dynamic-reports" element={<DynamicReports />} />
-              <Route path="/activities" element={<Activities />} />
-              <Route path="/alerts" element={<AlertsNotifications />} />
-              <Route path="/attendance" element={<Attendance />} />
-              <Route path="/ai-reports" element={<AIReports />} />
-              <Route path="/anomaly-report" element={<AnomalyReport />} />
-              <Route path="/mess-catering" element={<MessCatering />} />
-              <Route path="/cook-requests" element={<CookRequests />} />
-              <Route path="/visitors" element={<VisitorManagement />} />
-              <Route path="/admin/users" element={<UserManagement />} />
-              <Route path="/admin/permissions" element={<PermissionMatrix />} />
-              <Route path="/admin/audit-logs" element={<AuditLogs />} />
-              <Route path="/change-password" element={<ChangePassword />} />
-              <Route path="/food-safety" element={<FoodSafetyAudit />} />
-              <Route path="/bottomline" element={<BottomlineReport />} />
-              <Route path="/grocery-inventory" element={<GroceryInventory />} />
-              <Route path="/preventive-maintenance" element={<PreventiveMaintenance />} />
-              <Route path="/meal-management" element={<MealManagement />} />
-              <Route path="/food-cancellation" element={<FoodCancellation />} />
-              <Route path="/department-lunch" element={<DepartmentLunch />} />
-              <Route path="/admin/department-lunch-rates" element={<DepartmentLunchRates />} />
-              <Route path="/admin/room-categories" element={<RoomCategoryMaster />} />
-              <Route path="/admin/suppliers" element={<SupplierMaster />} />
-              <Route path="/admin/camp-food-rates" element={<CampFoodRates />} />
-              <Route path="/admin/clients" element={<Navigate to="/admin/suppliers" replace />} />
-              <Route path="/admin/designation-mapping" element={<DesignationRoomMapping />} />
-              <Route path="/admin/projects" element={<ProjectMaster />} />
-              <Route path="/admin/project-master-data" element={<ProjectMaster />} />
-              <Route path="/admin/employees" element={<EmployeeMasterData />} />
-              <Route path="/admin/employee-master-data" element={<EmployeeMasterData />} />
-              <Route path="/admin/camps" element={<CampMasterData />} />
-              <Route path="/admin/camp-master-data" element={<CampMasterData />} />
-            </Route>
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </TooltipProvider>
+      <ThemeProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <Routes>
+              <Route path="/login" element={<Login />} />
+              <Route
+                path="/"
+                element={
+                  <ProtectedRoute>
+                    <ErrorBoundary fallbackTitle="Error loading Launchpad">
+                      <Launchpad />
+                    </ErrorBoundary>
+                  </ProtectedRoute>
+                }
+              />
+              <Route path="/camp-hub" element={<ProtectedRoute><CampHub /></ProtectedRoute>} />
+              <Route
+                element={
+                  <ProtectedRoute>
+                    <ErrorBoundary fallbackTitle="Application Error">
+                      <AppLayout />
+                    </ErrorBoundary>
+                  </ProtectedRoute>
+                }
+              >
+                <Route path="/dashboard" element={<Dashboard />} />
+                <Route path="/dashboards/board" element={<CommandDashboard key="board" view="board" />} />
+                <Route path="/dashboards/utilization" element={<CommandDashboard key="utilization" view="utilization" />} />
+                <Route path="/dashboards/monthly" element={<CommandDashboard key="snapshot" view="snapshot" />} />
+                <Route path="/dashboards/contracts" element={<CommandDashboard key="contracts" view="contracts" />} />
+                <Route path="/dashboards/expertise" element={<CommandDashboard key="expertise" view="expertise" />} />
+                <Route path="/home" element={<HomeDashboard />} />
+                <Route path="/camps" element={<CampsList />} />
+                <Route path="/camps/:campId" element={<CampDetails />} />
+                <Route path="/maintenance" element={<RepairMaintenance />} />
+                <Route path="/staff-kpi" element={<StaffKPI />} />
+                <Route path="/assets" element={<AssetManagement />} />
+                <Route path="/assets/:id" element={<AssetDetails />} />
+                <Route path="/check-in-out" element={<CheckInOut />} />
+                <Route path="/check-in/bulk" element={<BulkCheckInOut key="checkin" mode="checkin" />} />
+                <Route path="/check-out/bulk" element={<BulkCheckInOut key="checkout" mode="checkout" />} />
+                <Route path="/check-in-out/bulk" element={<Navigate to="/check-in/bulk" replace />} />
+                <Route path="/temporary-absence/bulk" element={<Navigate to="/check-out/bulk" replace />} />
+                <Route path="/lockers" element={<LockerManagement />} />
+                <Route path="/inmates-report" element={<InmatesReport />} />
+                <Route path="/employee-stays" element={<EmployeeStays />} />
+                <Route path="/inventory" element={<InventoryManagement />} />
+                <Route path="/employees" element={<EmployeeMaster />} />
+                <Route path="/item-assignments" element={<ItemAssignments />} />
+                <Route path="/reports" element={<Reports />} />
+                <Route path="/dynamic-reports" element={<DynamicReports />} />
+                <Route path="/activities" element={<Activities />} />
+                <Route path="/alerts" element={<AlertsNotifications />} />
+                <Route path="/attendance" element={<Attendance />} />
+                <Route path="/ai-reports" element={<AIReports />} />
+                <Route path="/anomaly-report" element={<AnomalyReport />} />
+                <Route path="/mess-catering" element={<MessCatering />} />
+                <Route path="/cook-requests" element={<CookRequests />} />
+                <Route path="/visitors" element={<VisitorManagement />} />
+                <Route path="/admin/users" element={<UserManagement />} />
+                <Route path="/admin/permissions" element={<PermissionMatrix />} />
+                <Route path="/admin/audit-logs" element={<AuditLogs />} />
+                <Route path="/change-password" element={<ChangePassword />} />
+                <Route path="/food-safety" element={<FoodSafetyAudit />} />
+                <Route path="/bottomline" element={<BottomlineReport />} />
+                <Route path="/grocery-inventory" element={<GroceryInventory />} />
+                <Route path="/preventive-maintenance" element={<PreventiveMaintenance />} />
+                <Route path="/meal-management" element={<MealManagement />} />
+                <Route path="/food-cancellation" element={<FoodCancellation />} />
+                <Route path="/department-lunch" element={<DepartmentLunch />} />
+                <Route path="/admin/department-lunch-rates" element={<DepartmentLunchRates />} />
+                <Route path="/admin/room-categories" element={<RoomCategoryMaster />} />
+                <Route path="/admin/suppliers" element={<SupplierMaster />} />
+                <Route path="/admin/camp-food-rates" element={<CampFoodRates />} />
+                <Route path="/admin/clients" element={<Navigate to="/admin/suppliers" replace />} />
+                <Route path="/admin/designation-mapping" element={<DesignationRoomMapping />} />
+                <Route path="/admin/projects" element={<ProjectMaster />} />
+                <Route path="/admin/project-master-data" element={<ProjectMaster />} />
+                <Route path="/admin/employees" element={<EmployeeMasterData />} />
+                <Route path="/admin/employee-master-data" element={<EmployeeMasterData />} />
+                <Route path="/admin/camps" element={<CampMasterData />} />
+                <Route path="/admin/camp-master-data" element={<CampMasterData />} />
+                <Route path="/settings" element={<Settings />} />
+              </Route>
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </TooltipProvider>
+      </ThemeProvider>
     </AuthProvider>
   </QueryClientProvider>
 );
