@@ -50,7 +50,6 @@ const navGroups: {
     label: "Catering Division",
     icon: UtensilsCrossed,
     items: [
-      { label: "Visual Menu & AI Planner", icon: Sparkles, path: "/catering/menu-planner" },
       { label: "Mess & Catering", icon: UtensilsCrossed, path: "/mess-catering" },
       { label: "Smart Meal Management", icon: UtensilsCrossed, path: "/meal-management" },
       { label: "Grocery Inventory", icon: Package, path: "/grocery-inventory" },
