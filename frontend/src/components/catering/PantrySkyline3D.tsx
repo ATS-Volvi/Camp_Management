@@ -478,4 +478,5 @@ export default function PantrySkyline3D({
       )}
     </div>
   );
+  );
 }

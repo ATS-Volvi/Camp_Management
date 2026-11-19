@@ -6,7 +6,6 @@ import {
   WhatIfState,
   ComputedIngredientStatus,
 } from "@/data/pantryCommandData";
-import PantrySkyline3D from "@/components/catering/PantrySkyline3D";
 import PantrySkyline2D from "@/components/catering/PantrySkyline2D";
 import DishHealthRings from "@/components/catering/DishHealthRings";
 import PantrySmartBuyList from "@/components/catering/PantrySmartBuyList";
@@ -14,7 +13,7 @@ import IngredientDetailCard from "@/components/catering/IngredientDetailCard";
 import {
   ShoppingCart, AlertTriangle, CheckCircle2, Play, Pause, RotateCcw,
   SlidersHorizontal, Calendar, Sparkles, ArrowLeft, Users, Moon, Truck,
-  ShieldCheck, Clock, BarChart3, Box, HelpCircle
+  ShieldCheck, Clock, Layers, HelpCircle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -26,7 +25,6 @@ export default function PantryCommandCenter() {
   // 1. Interactive States
   const [daysAhead, setDaysAhead] = useState<number>(0);
   const [whatIfs, setWhatIfs] = useState<WhatIfState>(INITIAL_WHAT_IF_STATE);
-  const [viewMode, setViewMode] = useState<"3D" | "2D">("3D");
   const [selectedIngredient, setSelectedIngredient] = useState<ComputedIngredientStatus | null>(null);
 
   // 2. Demo Mode Guided Tour State
@@ -52,16 +50,15 @@ export default function PantryCommandCenter() {
   const demoCaptions = [
     {
       title: "Step 1: Welcome to the Pantry Command Center",
-      text: "This dashboard shows your camp's food stock measured in simple 'Days of Food Remaining'. Towers taller than the line have enough food.",
+      text: "This dashboard displays camp food inventory in simple 'Days of Supply Remaining'. Any item below the 5-day safety line is flagged for purchase.",
       action: () => {
         setDaysAhead(0);
         setWhatIfs(INITIAL_WHAT_IF_STATE);
-        setViewMode("3D");
       },
     },
     {
       title: "Step 2: The Safety Line (5 Days)",
-      text: "Any item that falls below the orange safety line pulses in RED (Cooking Oil, Onions, Eggs). This tells camp managers to buy them today.",
+      text: "Items falling below the orange safety line are flagged with red 'Buy Today' badges (Cooking Oil, Onions, Eggs). Click any card to inspect suppliers.",
       action: () => {
         const oil = simulation.ingredients.find((i) => i.item.id === "cooking_oil");
         if (oil) setSelectedIngredient(oil);
@@ -69,26 +66,26 @@ export default function PantryCommandCenter() {
     },
     {
       title: "Step 3: Fast-Forward 4 Days",
-      text: "Drag the slider to see what food remains after 4 days. Basmati Rice and Fresh Chicken now dip below the safety line.",
+      text: "Fast forward 4 days using the timeline. As kitchen meals are cooked, Basmati Rice and Fresh Chicken also fall below the safety line.",
       action: () => {
         setDaysAhead(4);
       },
     },
     {
       title: "Step 4: Simulating a 3-Day Supplier Delay",
-      text: "What if the delivery truck is delayed? Toggling this adds 3 extra safety days, showing you need to order earlier to protect meals.",
+      text: "What if the delivery truck is delayed? Toggling this adds 3 extra safety buffer days, immediately adjusting required order volumes.",
       action: () => {
         setWhatIfs((prev) => ({ ...prev, delayDelivery3Days: true }));
       },
     },
     {
       title: "Step 5: How Menu Dishes are Impacted",
-      text: "Scroll to see upcoming dishes. Chicken Dum Biryani and Shakshuka are marked RED because essential ingredients have run out.",
+      text: "Upcoming menu items update automatically. Dishes like Chicken Dum Biryani and Shakshuka are marked RED because ingredients have run low.",
       action: () => {},
     },
     {
       title: "Step 6: One-Click Purchase Order",
-      text: "All items that need buying are automatically grouped by supplier. Click 'Send to Purchase' to dispatch the order instantly.",
+      text: "All items that need buying are automatically grouped by approved camp supplier. Click 'Send to Purchase' to dispatch the purchase order.",
       action: () => {},
     },
   ];
@@ -158,27 +155,12 @@ export default function PantryCommandCenter() {
             </span>
           </div>
           <p className="text-slate-300 text-xs mt-1">
-            Tracks food stock in simple <strong>Days of Supply</strong> against safety limits. Visual 3D towers show what is safe, low, or needs urgent buying.
+            Tracks food stock in simple <strong>Days of Supply</strong> against safety limits. Visual progress indicators show what is safe, low, or needs urgent buying.
           </p>
         </div>
 
         {/* Global Toolbar Commands */}
         <div className="flex flex-wrap items-center gap-2">
-          {/* 3D / 2D Studio Toggle (Matching Dynamic Reports 3D button) */}
-          <Button
-            size="sm"
-            onClick={() => setViewMode(viewMode === "3D" ? "2D" : "3D")}
-            className={`h-8 text-xs font-semibold gap-1.5 transition-all shadow-xs ${
-              viewMode === "3D"
-                ? "bg-sky-400 hover:bg-sky-300 text-slate-950 font-bold border border-sky-300 ring-2 ring-sky-400/30"
-                : "bg-white/10 hover:bg-white/20 text-white border border-white/20"
-            }`}
-            title="Toggle between 3D Towers and 2D Bar View"
-          >
-            <Box size={13} className={viewMode === "3D" ? "text-slate-950" : "text-sky-400"} />
-            <span>{viewMode === "3D" ? "← Switch to 2D View" : "Switch to 3D View"}</span>
-          </Button>
-
           {/* Guided Demo Tour Button */}
           {isDemoMode ? (
             <Button
@@ -397,25 +379,17 @@ export default function PantryCommandCenter() {
         </div>
       </div>
 
-      {/* 4. Visualizer Area: 3D Skyline (or 2D) + Side Drawer Card */}
+      {/* 4. Visualizer Area: 2D Inventory Monitor + Side Details Card */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
         <div className={selectedIngredient ? "lg:col-span-8" : "lg:col-span-12"}>
-          {viewMode === "3D" ? (
-            <PantrySkyline3D
-              ingredients={simulation.ingredients}
-              onSelectIngredient={(ing) => setSelectedIngredient(ing)}
-              selectedIngredientId={selectedIngredient?.item.id}
-            />
-          ) : (
-            <PantrySkyline2D
-              ingredients={simulation.ingredients}
-              onSelectIngredient={(ing) => setSelectedIngredient(ing)}
-              selectedIngredientId={selectedIngredient?.item.id}
-            />
-          )}
+          <PantrySkyline2D
+            ingredients={simulation.ingredients}
+            onSelectIngredient={(ing) => setSelectedIngredient(ing)}
+            selectedIngredientId={selectedIngredient?.item.id}
+          />
         </div>
 
-        {/* Selected Tower Side Card */}
+        {/* Selected Item Side Card */}
         {selectedIngredient && (
           <div className="lg:col-span-4">
             <IngredientDetailCard
@@ -429,10 +403,7 @@ export default function PantryCommandCenter() {
       {/* 5. Upcoming Menu Dish Health Cards */}
       <DishHealthRings
         dishes={simulation.dishes}
-        onSelectIngredient={(ing) => {
-          setSelectedIngredient(ing);
-          setViewMode("3D");
-        }}
+        onSelectIngredient={(ing) => setSelectedIngredient(ing)}
       />
 
       {/* 6. Smart Buy List Panel */}
