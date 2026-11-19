@@ -13,8 +13,8 @@ import PantrySmartBuyList from "@/components/catering/PantrySmartBuyList";
 import IngredientDetailCard from "@/components/catering/IngredientDetailCard";
 import {
   ShoppingCart, AlertTriangle, CheckCircle2, Play, Pause, RotateCcw,
-  Layers, Sliders, Calendar, Sparkles, ArrowLeft, Users, Moon, Truck,
-  ShieldCheck, Clock, Eye, BarChart3, Box, Compass
+  SlidersHorizontal, Calendar, Sparkles, ArrowLeft, Users, Moon, Truck,
+  ShieldCheck, Clock, BarChart3, Box, HelpCircle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -48,11 +48,11 @@ export default function PantryCommandCenter() {
     }
   }, [simulation, selectedIngredient]);
 
-  // Demo Mode Choreography Steps
+  // Layman-friendly Demo Mode Steps
   const demoCaptions = [
     {
-      title: "Step 1 of 6: Welcome to Pantry Command Center",
-      text: "Real-time 3D inventory skyline tracking ingredient stock in 'days of cover' across remote workforce dining facilities.",
+      title: "Step 1: Welcome to the Pantry Command Center",
+      text: "This dashboard shows your camp's food stock measured in simple 'Days of Food Remaining'. Towers taller than the line have enough food.",
       action: () => {
         setDaysAhead(0);
         setWhatIfs(INITIAL_WHAT_IF_STATE);
@@ -60,40 +60,36 @@ export default function PantryCommandCenter() {
       },
     },
     {
-      title: "Step 2 of 6: Translucent Safety Threshold Plane",
-      text: "The floating plane marks the 5-day safety threshold. Towers submerged beneath it (Cooking Oil, Onions, Eggs) pulse in red — immediate stockout hazard.",
+      title: "Step 2: The Safety Line (5 Days)",
+      text: "Any item that falls below the orange safety line pulses in RED (Cooking Oil, Onions, Eggs). This tells camp managers to buy them today.",
       action: () => {
         const oil = simulation.ingredients.find((i) => i.item.id === "cooking_oil");
         if (oil) setSelectedIngredient(oil);
       },
     },
     {
-      title: "Step 3 of 6: Time Machine Forecast (Day +4)",
-      text: "Dragging the date forward animates stock consumption. Notice how Basmati Rice and Fresh Chicken breach threshold by Day +4.",
+      title: "Step 3: Fast-Forward 4 Days",
+      text: "Drag the slider to see what food remains after 4 days. Basmati Rice and Fresh Chicken now dip below the safety line.",
       action: () => {
         setDaysAhead(4);
       },
     },
     {
-      title: "Step 4 of 6: Stress Testing 'Delivery Delayed 3 Days'",
-      text: "Activating the delivery delay simulation expands the required safety buffer, instantly flagging 8 ingredients at risk.",
+      title: "Step 4: Simulating a 3-Day Supplier Delay",
+      text: "What if the delivery truck is delayed? Toggling this adds 3 extra safety days, showing you need to order earlier to protect meals.",
       action: () => {
         setWhatIfs((prev) => ({ ...prev, delayDelivery3Days: true }));
       },
     },
     {
-      title: "Step 5 of 6: Dish Impact Analysis",
-      text: "Menu items evaluate in real-time. 'Chicken Biryani' and 'Shakshuka' glow red because their critical key ingredients are depleted.",
-      action: () => {
-        // scroll or highlight dishes
-      },
+      title: "Step 5: How Menu Dishes are Impacted",
+      text: "Scroll to see upcoming dishes. Chicken Dum Biryani and Shakshuka are marked RED because essential ingredients have run out.",
+      action: () => {},
     },
     {
-      title: "Step 6 of 6: Smart Buy List & Instant Requisition",
-      text: "At-risk ingredients are automatically grouped by supplier. One-click 'Send to Purchase' secures camp catering operations.",
-      action: () => {
-        // focus smart buy list
-      },
+      title: "Step 6: One-Click Purchase Order",
+      text: "All items that need buying are automatically grouped by supplier. Click 'Send to Purchase' to dispatch the order instantly.",
+      action: () => {},
     },
   ];
 
@@ -109,7 +105,7 @@ export default function PantryCommandCenter() {
         setIsDemoMode(false);
         setDemoStep(0);
       }
-    }, 7000); // 7 seconds per slide
+    }, 7000);
 
     return () => clearTimeout(timer);
   }, [isDemoMode, demoStep]);
@@ -135,254 +131,197 @@ export default function PantryCommandCenter() {
     month: "short",
   });
 
+  // Calculate average days of food remaining across all items
+  const avgDaysLeft = useMemo(() => {
+    const sum = simulation.ingredients.reduce((acc, i) => acc + i.daysOfCoverLeft, 0);
+    return Number((sum / simulation.ingredients.length).toFixed(1));
+  }, [simulation]);
+
   return (
-    <div className="min-h-screen bg-[#070b14] text-slate-100 p-4 md:p-6 space-y-5 max-w-[1700px] mx-auto font-sans selection:bg-cyan-500 selection:text-black">
-      {/* 1. Header Toolbar */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-4 rounded-2xl bg-slate-900/80 border border-cyan-500/30 backdrop-blur-xl shadow-2xl">
-        <div className="flex items-center gap-3">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => navigate("/mess-catering")}
-            className="h-8 text-xs text-slate-400 hover:text-white hover:bg-slate-800 gap-1.5"
-          >
-            <ArrowLeft className="h-3.5 w-3.5" />
-            Back to Catering
-          </Button>
-
-          <div className="h-5 w-[1px] bg-white/10" />
-
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="p-1.5 rounded-lg bg-cyan-500/20 text-cyan-400 border border-cyan-500/40">
-                <Box className="h-4 w-4" />
-              </span>
-              <h1 className="text-xl md:text-2xl font-black tracking-tight text-white flex items-center gap-2">
-                Pantry Command Center
-                <Badge variant="outline" className="border-cyan-500/40 text-cyan-300 font-mono text-[10px] bg-cyan-500/10">
-                  Camp-365 Industrial
-                </Badge>
-              </h1>
-            </div>
-            <p className="text-xs text-slate-400 mt-0.5">
-              3D threshold cover monitor & predictive purchase intelligence for 1,000+ worker facilities.
-            </p>
+    <div className="space-y-5 max-w-[1600px] mx-auto p-4 md:p-6 text-foreground">
+      {/* 1. Dynamic Reports Signature Navy Command Ribbon */}
+      <div className="bg-[#0c2340] text-white rounded-xl p-4 shadow-sm flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => navigate("/mess-catering")}
+              className="h-7 text-xs text-slate-300 hover:text-white hover:bg-white/10 px-2 gap-1 mr-1"
+            >
+              <ArrowLeft size={13} /> Back
+            </Button>
+            <SlidersHorizontal size={20} className="text-[#fe932c]" />
+            <h1 className="text-xl font-bold tracking-tight">Pantry Command Center</h1>
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#fe932c]/20 text-[#fe932c] border border-[#fe932c]/30">
+              <Sparkles size={10} /> Food Stock Intelligence
+            </span>
           </div>
+          <p className="text-slate-300 text-xs mt-1">
+            Tracks food stock in simple <strong>Days of Supply</strong> against safety limits. Visual 3D towers show what is safe, low, or needs urgent buying.
+          </p>
         </div>
 
-        {/* Action Controls: 3D/2D toggle + Demo Mode */}
-        <div className="flex items-center gap-2.5 flex-wrap">
-          {/* 3D / 2D Toggle Switch */}
-          <div className="p-1 rounded-xl bg-slate-950 border border-white/10 flex items-center gap-1 text-xs font-mono">
-            <button
-              onClick={() => setViewMode("3D")}
-              className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all ${
-                viewMode === "3D"
-                  ? "bg-cyan-500 text-slate-950 font-bold shadow-[0_0_12px_#06b6d4]"
-                  : "text-slate-400 hover:text-white"
-              }`}
-            >
-              <Compass className="h-3.5 w-3.5" />
-              3D Skyline
-            </button>
-            <button
-              onClick={() => setViewMode("2D")}
-              className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all ${
-                viewMode === "2D"
-                  ? "bg-cyan-500 text-slate-950 font-bold shadow-[0_0_12px_#06b6d4]"
-                  : "text-slate-400 hover:text-white"
-              }`}
-            >
-              <BarChart3 className="h-3.5 w-3.5" />
-              2D Charts
-            </button>
-          </div>
+        {/* Global Toolbar Commands */}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* 3D / 2D Studio Toggle (Matching Dynamic Reports 3D button) */}
+          <Button
+            size="sm"
+            onClick={() => setViewMode(viewMode === "3D" ? "2D" : "3D")}
+            className={`h-8 text-xs font-semibold gap-1.5 transition-all shadow-xs ${
+              viewMode === "3D"
+                ? "bg-sky-400 hover:bg-sky-300 text-slate-950 font-bold border border-sky-300 ring-2 ring-sky-400/30"
+                : "bg-white/10 hover:bg-white/20 text-white border border-white/20"
+            }`}
+            title="Toggle between 3D Towers and 2D Bar View"
+          >
+            <Box size={13} className={viewMode === "3D" ? "text-slate-950" : "text-sky-400"} />
+            <span>{viewMode === "3D" ? "← Switch to 2D View" : "Switch to 3D View"}</span>
+          </Button>
 
-          {/* Guided Tour Demo Button */}
+          {/* Guided Demo Tour Button */}
           {isDemoMode ? (
             <Button
-              onClick={stopDemo}
               size="sm"
-              className="bg-rose-600 hover:bg-rose-500 text-white font-mono text-xs gap-1.5 shadow-[0_0_15px_rgba(239,68,68,0.5)]"
+              onClick={stopDemo}
+              className="h-8 text-xs font-semibold gap-1.5 bg-rose-600 hover:bg-rose-700 text-white shadow-xs"
             >
-              <Pause className="h-3.5 w-3.5" />
-              Exit Demo Mode
+              <Pause size={13} />
+              <span>Stop Tour</span>
             </Button>
           ) : (
             <Button
-              onClick={startDemo}
               size="sm"
-              className="bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-mono text-xs gap-1.5 shadow-[0_0_15px_rgba(6,182,212,0.4)]"
+              onClick={startDemo}
+              className="h-8 text-xs font-semibold gap-1.5 bg-[#fe932c] hover:bg-[#e68222] text-slate-950 font-bold shadow-xs"
             >
-              <Play className="h-3.5 w-3.5" />
-              Guided Demo Tour
+              <Play size={13} />
+              <span>Guided Demo Tour (3 Min)</span>
             </Button>
           )}
         </div>
       </div>
 
-      {/* 2. Executive KPI Strip (Control-Room Dark Cards) */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
-        {/* KPI 1: Items to Buy Today */}
-        <div className="p-4 rounded-2xl border border-rose-500/30 bg-slate-900/80 backdrop-blur-md relative overflow-hidden group">
-          <div className="flex items-center justify-between text-xs font-mono text-slate-400">
-            <span>ITEMS TO BUY TODAY</span>
-            <AlertTriangle className="h-4 w-4 text-rose-400 animate-pulse" />
+      {/* 2. Layman-Friendly KPI Cards (Clean Dynamic Reports Theme) */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* KPI 1: Needs Buy Today */}
+        <div className="p-4 rounded-xl border border-rose-500/30 bg-card shadow-sm hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground">
+            <span>BUY TODAY</span>
+            <AlertTriangle className="h-4 w-4 text-rose-500" />
           </div>
           <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-3xl font-black text-rose-400 font-mono tracking-tight drop-shadow-[0_0_10px_rgba(239,68,68,0.5)]">
+            <span className="text-3xl font-bold text-rose-600 dark:text-rose-400 font-mono">
               {simulation.kpis.itemsToBuyToday}
             </span>
-            <span className="text-xs text-rose-300 font-mono">below threshold</span>
+            <span className="text-xs text-rose-600 font-medium">items low</span>
           </div>
-          <p className="text-[11px] text-slate-400 mt-1">
-            Immediate reorder required to avert stockout
+          <p className="text-xs text-muted-foreground mt-1">
+            Below 5-day safety line: Cooking Oil, Onions, Eggs
           </p>
         </div>
 
-        {/* KPI 2: Dishes At Risk */}
-        <div className="p-4 rounded-2xl border border-amber-500/30 bg-slate-900/80 backdrop-blur-md relative overflow-hidden group">
-          <div className="flex items-center justify-between text-xs font-mono text-slate-400">
-            <span>DISHES AT RISK (THIS WEEK)</span>
-            <Clock className="h-4 w-4 text-amber-400" />
+        {/* KPI 2: Dishes Affected */}
+        <div className="p-4 rounded-xl border border-amber-500/30 bg-card shadow-sm hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground">
+            <span>MEALS AT RISK</span>
+            <Clock className="h-4 w-4 text-amber-500" />
           </div>
           <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-3xl font-black text-amber-400 font-mono tracking-tight drop-shadow-[0_0_10px_rgba(245,158,11,0.5)]">
+            <span className="text-3xl font-bold text-amber-600 dark:text-amber-400 font-mono">
               {simulation.kpis.dishesAtRiskThisWeek}
             </span>
-            <span className="text-xs text-amber-300 font-mono">of 10 planned</span>
+            <span className="text-xs text-amber-600 font-medium">of 10 planned</span>
           </div>
-          <p className="text-[11px] text-slate-400 mt-1">
-            Menu items missing key safety ingredient buffer
+          <p className="text-xs text-muted-foreground mt-1">
+            Dishes needing restocked ingredients
           </p>
         </div>
 
         {/* KPI 3: Reorder Estimate SAR */}
-        <div className="p-4 rounded-2xl border border-cyan-500/30 bg-slate-900/80 backdrop-blur-md relative overflow-hidden group">
-          <div className="flex items-center justify-between text-xs font-mono text-slate-400">
-            <span>EST. REORDER VALUE</span>
-            <ShoppingCart className="h-4 w-4 text-cyan-400" />
+        <div className="p-4 rounded-xl border border-blue-500/30 bg-card shadow-sm hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground">
+            <span>ESTIMATED REORDER COST</span>
+            <ShoppingCart className="h-4 w-4 text-blue-500" />
           </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl font-black text-cyan-300 font-mono tracking-tight drop-shadow-[0_0_10px_rgba(6,182,212,0.4)]">
+          <div className="mt-2 flex items-baseline gap-1">
+            <span className="text-2xl font-bold text-primary font-mono">
               SAR {simulation.kpis.estimatedPurchaseValueSAR.toLocaleString()}
             </span>
           </div>
-          <p className="text-[11px] text-slate-400 mt-1">
-            Consolidated PO across {simulation.supplierGroups.length} vendors
+          <p className="text-xs text-muted-foreground mt-1">
+            Grouped across {simulation.supplierGroups.length} approved vendors
           </p>
         </div>
 
-        {/* KPI 4: Stockouts Avoided */}
-        <div className="p-4 rounded-2xl border border-emerald-500/30 bg-slate-900/80 backdrop-blur-md relative overflow-hidden group">
-          <div className="flex items-center justify-between text-xs font-mono text-slate-400">
-            <span>STOCKOUTS AVOIDED</span>
-            <ShieldCheck className="h-4 w-4 text-emerald-400" />
+        {/* KPI 4: Average Camp Food Supply */}
+        <div className="p-4 rounded-xl border border-emerald-500/30 bg-card shadow-sm hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground">
+            <span>AVERAGE FOOD SUPPLY</span>
+            <ShieldCheck className="h-4 w-4 text-emerald-500" />
           </div>
           <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-3xl font-black text-emerald-400 font-mono tracking-tight drop-shadow-[0_0_10px_rgba(16,185,129,0.5)]">
-              {simulation.kpis.stockoutsAvoidedThisMonth}
+            <span className="text-3xl font-bold text-emerald-600 dark:text-emerald-400 font-mono">
+              {avgDaysLeft}
             </span>
-            <span className="text-xs text-emerald-300 font-mono">this month</span>
+            <span className="text-xs text-emerald-600 font-medium">days overall</span>
           </div>
-          <p className="text-[11px] text-slate-400 mt-1">
-            Aramco SLA dining uptime 100% maintained
+          <p className="text-xs text-muted-foreground mt-1">
+            Healthy baseline for 1,000+ workers
           </p>
         </div>
       </div>
 
-      {/* 3. What-If Scenario Toggles & Time Machine Slider */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5 p-4 rounded-2xl bg-slate-900/80 border border-white/10 backdrop-blur-xl">
-        {/* Left: What-If Chips (5 Cols) */}
-        <div className="lg:col-span-5 space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-mono uppercase font-bold text-slate-400 flex items-center gap-1.5">
-              <Sparkles className="h-3.5 w-3.5 text-cyan-400" />
-              What-If Stress Simulation:
-            </span>
-            {(whatIfs.extraWorkers200 || whatIfs.ramadanMode || whatIfs.delayDelivery3Days) && (
-              <button
-                onClick={() => setWhatIfs(INITIAL_WHAT_IF_STATE)}
-                className="text-[10px] text-cyan-400 hover:underline font-mono"
-              >
-                Reset Scenarios
-              </button>
-            )}
+      {/* 3. Layman-Friendly Time Slider & What-If Controls */}
+      <div className="p-4 rounded-xl border border-border/70 bg-card shadow-sm space-y-3">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-border/50 pb-3">
+          <div>
+            <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
+              <Calendar className="h-4 w-4 text-primary" />
+              <span>Forecast Food Supply Over Time</span>
+            </h3>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Select a future day to see how much food remains after daily meals are served.
+            </p>
           </div>
 
-          <div className="flex flex-wrap gap-2 pt-1">
-            {/* Chip 1: +200 Workers */}
-            <button
-              onClick={() =>
-                setWhatIfs((prev) => ({ ...prev, extraWorkers200: !prev.extraWorkers200 }))
-              }
-              className={`px-3 py-1.5 rounded-xl text-xs font-mono transition-all flex items-center gap-1.5 border ${
-                whatIfs.extraWorkers200
-                  ? "bg-cyan-500/20 text-cyan-300 border-cyan-400 shadow-[0_0_12px_rgba(6,182,212,0.3)] font-bold"
-                  : "bg-slate-950/60 text-slate-400 border-white/10 hover:border-white/20"
-              }`}
-            >
-              <Users className="h-3.5 w-3.5" />
-              +200 Workers (+20% Burn)
-            </button>
-
-            {/* Chip 2: Ramadan Mode */}
-            <button
-              onClick={() =>
-                setWhatIfs((prev) => ({ ...prev, ramadanMode: !prev.ramadanMode }))
-              }
-              className={`px-3 py-1.5 rounded-xl text-xs font-mono transition-all flex items-center gap-1.5 border ${
-                whatIfs.ramadanMode
-                  ? "bg-amber-500/20 text-amber-300 border-amber-400 shadow-[0_0_12px_rgba(245,158,11,0.3)] font-bold"
-                  : "bg-slate-950/60 text-slate-400 border-white/10 hover:border-white/20"
-              }`}
-            >
-              <Moon className="h-3.5 w-3.5" />
-              🌙 Ramadan Mode
-            </button>
-
-            {/* Chip 3: Delivery Delayed 3 Days */}
-            <button
-              onClick={() =>
-                setWhatIfs((prev) => ({
-                  ...prev,
-                  delayDelivery3Days: !prev.delayDelivery3Days,
-                }))
-              }
-              className={`px-3 py-1.5 rounded-xl text-xs font-mono transition-all flex items-center gap-1.5 border ${
-                whatIfs.delayDelivery3Days
-                  ? "bg-rose-500/20 text-rose-300 border-rose-400 shadow-[0_0_12px_rgba(239,68,68,0.3)] font-bold"
-                  : "bg-slate-950/60 text-slate-400 border-white/10 hover:border-white/20"
-              }`}
-            >
-              <Truck className="h-3.5 w-3.5" />
-              🚚 Delivery Delayed 3 Days
-            </button>
+          {/* Quick Date Presets */}
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-xs text-muted-foreground mr-1">Quick Jump:</span>
+            {[
+              { label: "Today (Live)", days: 0 },
+              { label: "In 3 Days", days: 3 },
+              { label: "In 7 Days (1 Wk)", days: 7 },
+              { label: "In 14 Days (2 Wks)", days: 14 },
+            ].map((preset) => (
+              <button
+                key={preset.days}
+                onClick={() => setDaysAhead(preset.days)}
+                className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
+                  daysAhead === preset.days
+                    ? "bg-primary text-primary-foreground font-bold shadow-xs"
+                    : "bg-muted text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {preset.label}
+              </button>
+            ))}
           </div>
         </div>
 
-        {/* Right: Time Machine Date Slider (7 Cols) */}
-        <div className="lg:col-span-7 space-y-2 border-t lg:border-t-0 lg:border-l border-white/10 lg:pl-4 pt-3 lg:pt-0">
-          <div className="flex items-center justify-between text-xs font-mono">
-            <span className="text-slate-400 flex items-center gap-1.5">
-              <Calendar className="h-3.5 w-3.5 text-cyan-400" />
-              Time Machine Forecast Timeline:
-            </span>
-            <div className="flex items-center gap-2">
-              <span className="text-cyan-300 font-bold">
-                {daysAhead === 0 ? "Today (Live)" : `Day +${daysAhead} (${formattedForecastDate})`}
+        {/* Date Slider */}
+        <div className="space-y-1 pt-1">
+          <div className="flex items-center justify-between text-xs">
+            <span className="font-semibold text-foreground">
+              Timeline:{" "}
+              <span className="text-primary font-bold">
+                {daysAhead === 0 ? "Today" : `Day +${daysAhead} (${formattedForecastDate})`}
               </span>
-              {daysAhead > 0 && (
-                <button
-                  onClick={() => setDaysAhead(0)}
-                  className="text-[10px] text-slate-400 hover:text-white"
-                >
-                  Reset to Today
-                </button>
-              )}
-            </div>
+            </span>
+            <span className="text-xs text-muted-foreground font-mono">
+              {daysAhead === 0 ? "Current physical pantry inventory" : `${daysAhead} days of kitchen consumption deducted`}
+            </span>
           </div>
-
           <div className="pt-2 px-1">
             <Slider
               min={0}
@@ -393,20 +332,73 @@ export default function PantryCommandCenter() {
               className="cursor-pointer"
             />
           </div>
+          <div className="flex justify-between text-[11px] text-muted-foreground pt-1">
+            <span>Today</span>
+            <span>Day +3</span>
+            <span>Day +7 (Week 1)</span>
+            <span>Day +10</span>
+            <span>Day +14 (Week 2)</span>
+          </div>
+        </div>
 
-          <div className="flex justify-between text-[10px] font-mono text-slate-500 pt-1">
-            <span>Today (Live)</span>
-            <span>+3 Days</span>
-            <span>+7 Days (Week 1)</span>
-            <span>+10 Days</span>
-            <span>+14 Days (Week 2)</span>
+        {/* What-If Scenarios (Plain English) */}
+        <div className="pt-2 border-t border-border/50 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+          <span className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
+            <Sparkles className="h-3.5 w-3.5 text-[#fe932c]" />
+            What-If Scenarios (Test Operational Changes):
+          </span>
+
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() =>
+                setWhatIfs((prev) => ({ ...prev, extraWorkers200: !prev.extraWorkers200 }))
+              }
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 border ${
+                whatIfs.extraWorkers200
+                  ? "bg-primary/15 text-primary border-primary font-bold shadow-xs"
+                  : "bg-muted/40 text-muted-foreground border-border hover:text-foreground"
+              }`}
+            >
+              <Users className="h-3.5 w-3.5" />
+              +200 Workers (+20% More Food)
+            </button>
+
+            <button
+              onClick={() =>
+                setWhatIfs((prev) => ({ ...prev, ramadanMode: !prev.ramadanMode }))
+              }
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 border ${
+                whatIfs.ramadanMode
+                  ? "bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500 font-bold shadow-xs"
+                  : "bg-muted/40 text-muted-foreground border-border hover:text-foreground"
+              }`}
+            >
+              <Moon className="h-3.5 w-3.5" />
+              🌙 Ramadan Meals
+            </button>
+
+            <button
+              onClick={() =>
+                setWhatIfs((prev) => ({
+                  ...prev,
+                  delayDelivery3Days: !prev.delayDelivery3Days,
+                }))
+              }
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 border ${
+                whatIfs.delayDelivery3Days
+                  ? "bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500 font-bold shadow-xs"
+                  : "bg-muted/40 text-muted-foreground border-border hover:text-foreground"
+              }`}
+            >
+              <Truck className="h-3.5 w-3.5" />
+              🚚 Delivery Delayed 3 Days
+            </button>
           </div>
         </div>
       </div>
 
-      {/* 4. Hero Visualizer Area: 3D Skyline (or 2D) + Interactive Side Card */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
-        {/* Visualizer (8 or 12 Cols) */}
+      {/* 4. Visualizer Area: 3D Skyline (or 2D) + Side Drawer Card */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
         <div className={selectedIngredient ? "lg:col-span-8" : "lg:col-span-12"}>
           {viewMode === "3D" ? (
             <PantrySkyline3D
@@ -423,7 +415,7 @@ export default function PantryCommandCenter() {
           )}
         </div>
 
-        {/* Selected Tower Side Card (4 Cols if opened) */}
+        {/* Selected Tower Side Card */}
         {selectedIngredient && (
           <div className="lg:col-span-4">
             <IngredientDetailCard
@@ -434,7 +426,7 @@ export default function PantryCommandCenter() {
         )}
       </div>
 
-      {/* 5. Upcoming Menu Dish Health Rings */}
+      {/* 5. Upcoming Menu Dish Health Cards */}
       <DishHealthRings
         dishes={simulation.dishes}
         onSelectIngredient={(ing) => {
@@ -451,44 +443,44 @@ export default function PantryCommandCenter() {
 
       {/* 7. Demo Mode Guided Tour Floating Banner (When Active) */}
       {isDemoMode && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-[95%] max-w-[700px] p-4 rounded-2xl bg-slate-900/95 border-2 border-cyan-400 shadow-[0_0_40px_rgba(6,182,212,0.5)] backdrop-blur-2xl animate-in slide-in-from-bottom-6">
-          <div className="flex items-center justify-between pb-1 border-b border-white/10 text-xs font-mono">
-            <span className="text-cyan-400 font-bold flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-full bg-cyan-400 animate-ping" />
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-[95%] max-w-[680px] p-4 rounded-xl bg-[#0c2340] border-2 border-[#fe932c] shadow-2xl text-white animate-in slide-in-from-bottom-6">
+          <div className="flex items-center justify-between pb-1.5 border-b border-white/15 text-xs font-semibold">
+            <span className="text-[#fe932c] flex items-center gap-1.5">
+              <span className="h-2 w-2 rounded-full bg-[#fe932c] animate-ping" />
               {demoCaptions[demoStep]?.title}
             </span>
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setDemoStep((p) => Math.max(0, p - 1))}
                 disabled={demoStep === 0}
-                className="px-2 py-0.5 rounded bg-slate-800 text-[10px] text-slate-300 disabled:opacity-40"
+                className="px-2.5 py-1 rounded bg-white/10 hover:bg-white/20 text-xs text-white disabled:opacity-40"
               >
                 &larr; Prev
               </button>
               <button
                 onClick={() => setDemoStep((p) => Math.min(demoCaptions.length - 1, p + 1))}
                 disabled={demoStep === demoCaptions.length - 1}
-                className="px-2 py-0.5 rounded bg-slate-800 text-[10px] text-slate-300 disabled:opacity-40"
+                className="px-2.5 py-1 rounded bg-[#fe932c] hover:bg-[#e68222] text-xs font-bold text-slate-950 disabled:opacity-40"
               >
                 Next &rarr;
               </button>
               <button
                 onClick={stopDemo}
-                className="px-2 py-0.5 rounded bg-rose-900/60 text-rose-300 text-[10px] font-bold"
+                className="px-2.5 py-1 rounded bg-rose-600 hover:bg-rose-700 text-xs font-bold text-white"
               >
-                Exit
+                ✕ Exit Tour
               </button>
             </div>
           </div>
 
-          <p className="text-sm font-medium text-white mt-2 leading-relaxed">
+          <p className="text-sm text-slate-100 mt-2 leading-relaxed">
             {demoCaptions[demoStep]?.text}
           </p>
 
           {/* Progress bar */}
-          <div className="w-full bg-slate-800 h-1 rounded-full mt-3 overflow-hidden">
+          <div className="w-full bg-white/10 h-1.5 rounded-full mt-3 overflow-hidden">
             <div
-              className="bg-cyan-400 h-full transition-all duration-300"
+              className="bg-[#fe932c] h-full transition-all duration-300"
               style={{ width: `${((demoStep + 1) / demoCaptions.length) * 100}%` }}
             />
           </div>

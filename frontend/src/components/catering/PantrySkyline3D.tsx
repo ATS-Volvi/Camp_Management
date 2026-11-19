@@ -39,8 +39,8 @@ export default function PantrySkyline3D({
 
     // --- 1. Scene, Camera, Renderer ---
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color("#080c16");
-    scene.fog = new THREE.FogExp2("#080c16", 0.018);
+    scene.background = new THREE.Color("#0c2340");
+    scene.fog = new THREE.FogExp2("#0c2340", 0.015);
 
     const width = container.clientWidth || 800;
     const height = container.clientHeight || 500;
@@ -96,7 +96,7 @@ export default function PantrySkyline3D({
     // --- 4. Futuristic Floor Platform ---
     const floorGeo = new THREE.CylinderGeometry(24, 25, 0.8, 64);
     const floorMat = new THREE.MeshStandardMaterial({
-      color: "#0f172a",
+      color: "#08192e",
       roughness: 0.6,
       metalness: 0.4,
     });
@@ -107,14 +107,14 @@ export default function PantrySkyline3D({
 
     // Glowing Platform Rim Ring
     const rimGeo = new THREE.TorusGeometry(24.2, 0.15, 16, 100);
-    const rimMat = new THREE.MeshBasicMaterial({ color: "#06b6d4" });
+    const rimMat = new THREE.MeshBasicMaterial({ color: "#fe932c" });
     const rim = new THREE.Mesh(rimGeo, rimMat);
     rim.rotation.x = Math.PI / 2;
     rim.position.y = 0.05;
     scene.add(rim);
 
     // Cyber Grid
-    const grid = new THREE.GridHelper(44, 44, "#06b6d4", "#1e293b");
+    const grid = new THREE.GridHelper(44, 44, "#38bdf8", "#15305b");
     grid.position.y = 0.02;
     scene.add(grid);
 
@@ -122,9 +122,9 @@ export default function PantrySkyline3D({
     const THRESHOLD_HEIGHT_Y = 5.0 * 1.1; // ~5 days of cover scaled
     const planeGeo = new THREE.PlaneGeometry(36, 18);
     const planeMat = new THREE.MeshStandardMaterial({
-      color: "#38bdf8",
+      color: "#fe932c",
       transparent: true,
-      opacity: 0.28,
+      opacity: 0.24,
       roughness: 0.1,
       metalness: 0.2,
       side: THREE.DoubleSide,
@@ -137,7 +137,7 @@ export default function PantrySkyline3D({
 
     // Edge Line for Threshold Plane
     const edgeGeo = new THREE.EdgesGeometry(planeGeo);
-    const edgeMat = new THREE.LineBasicMaterial({ color: "#38bdf8", linewidth: 2 });
+    const edgeMat = new THREE.LineBasicMaterial({ color: "#fe932c", linewidth: 2 });
     const planeEdges = new THREE.LineSegments(edgeGeo, edgeMat);
     planeEdges.rotation.x = Math.PI / 2;
     planeEdges.position.set(0, THRESHOLD_HEIGHT_Y, 0);
@@ -384,58 +384,58 @@ export default function PantrySkyline3D({
   }, [onSelectIngredient]);
 
   return (
-    <div className="relative w-full h-[460px] md:h-[540px] rounded-2xl overflow-hidden border border-cyan-500/20 bg-slate-950/80 shadow-2xl backdrop-blur-xl">
+    <div className="relative w-full h-[460px] md:h-[520px] rounded-xl overflow-hidden border border-slate-700/60 bg-[#0c2340] shadow-sm">
       {/* 3D Canvas Mount */}
       <div ref={mountRef} className="w-full h-full" />
 
       {/* Interactive HUD Overlay */}
       <div className="absolute top-3 left-3 flex items-center gap-2 z-10">
-        <div className="px-3 py-1.5 rounded-lg bg-slate-900/80 backdrop-blur-md border border-cyan-500/30 text-xs font-mono text-cyan-300 flex items-center gap-2">
-          <Compass className="h-3.5 w-3.5 text-cyan-400 animate-spin" style={{ animationDuration: "12s" }} />
-          <span>3D PANTRY SKYLINE</span>
-          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-ping" />
+        <div className="px-3 py-1.5 rounded-lg bg-[#091b32]/90 backdrop-blur-md border border-[#fe932c]/40 text-xs font-semibold text-white flex items-center gap-2 shadow-sm">
+          <Compass className="h-3.5 w-3.5 text-[#fe932c] animate-spin" style={{ animationDuration: "14s" }} />
+          <span>3D Pantry View</span>
+          <span className="text-[11px] text-slate-300 font-normal">· Click or rotate to inspect</span>
         </div>
 
         <Button
           variant="outline"
           size="sm"
           onClick={() => resetCameraRef.current()}
-          className="h-8 text-xs bg-slate-900/80 backdrop-blur-md border-white/10 hover:border-cyan-500/40 text-slate-300 gap-1.5"
+          className="h-8 text-xs bg-[#091b32]/90 backdrop-blur-md border-white/20 hover:border-[#fe932c]/50 text-white gap-1.5 shadow-sm"
           title="Reset Camera View"
         >
-          <RotateCcw className="h-3.5 w-3.5" />
+          <RotateCcw className="h-3 w-3" />
           Reset View
         </Button>
       </div>
 
-      {/* Legend & Threshold Plane Indicator */}
-      <div className="absolute bottom-3 left-3 flex flex-wrap items-center gap-2 z-10 text-[11px] font-mono bg-slate-900/85 backdrop-blur-md px-3 py-2 rounded-xl border border-white/10">
-        <span className="text-slate-400 font-semibold mr-1">STATUS:</span>
-        <span className="flex items-center gap-1.5 text-emerald-400">
-          <span className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981]" />
-          &gt; Safe Buffer
+      {/* Legend & Threshold Plane Indicator (Layman friendly) */}
+      <div className="absolute bottom-3 left-3 flex flex-wrap items-center gap-2.5 z-10 text-xs bg-[#091b32]/90 backdrop-blur-md px-3.5 py-2 rounded-xl border border-white/15 text-white shadow-sm">
+        <span className="text-slate-300 font-semibold text-[11px] uppercase mr-1">Status:</span>
+        <span className="flex items-center gap-1.5 text-emerald-300 font-medium">
+          <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 shadow-[0_0_6px_#10b981]" />
+          Plenty (&gt; 7 Days)
         </span>
-        <span className="flex items-center gap-1.5 text-amber-400 ml-2">
-          <span className="h-2 w-2 rounded-full bg-amber-500 shadow-[0_0_8px_#f59e0b]" />
-          Near Threshold
+        <span className="flex items-center gap-1.5 text-amber-300 font-medium ml-2">
+          <span className="h-2.5 w-2.5 rounded-full bg-amber-500 shadow-[0_0_6px_#f59e0b]" />
+          Running Low (5–7 Days)
         </span>
-        <span className="flex items-center gap-1.5 text-rose-400 ml-2">
-          <span className="h-2 w-2 rounded-full bg-rose-500 animate-pulse shadow-[0_0_10px_#ef4444]" />
-          Below Threshold (Buy Today)
+        <span className="flex items-center gap-1.5 text-rose-300 font-medium ml-2">
+          <span className="h-2.5 w-2.5 rounded-full bg-rose-500 animate-pulse shadow-[0_0_8px_#ef4444]" />
+          Buy Urgently (&lt; 5 Days)
         </span>
-        <span className="border-l border-white/20 pl-2 ml-2 flex items-center gap-1.5 text-cyan-300">
-          <span className="w-3 h-0.5 bg-cyan-400 shadow-[0_0_6px_#38bdf8]" />
-          Threshold Plane (5d)
+        <span className="border-l border-white/20 pl-2.5 ml-2 flex items-center gap-1.5 text-[#fe932c] font-medium">
+          <span className="w-3.5 h-0.5 bg-[#fe932c] shadow-[0_0_6px_#fe932c]" />
+          Safety Line (5 Days)
         </span>
       </div>
 
       {/* Mouse Hover Glass Tooltip */}
       {hoveredItem && (
         <div
-          className="pointer-events-none absolute z-20 px-3 py-2 rounded-xl bg-slate-900/90 backdrop-blur-md border border-cyan-500/40 text-xs shadow-2xl transition-transform"
+          className="pointer-events-none absolute z-20 px-3.5 py-2.5 rounded-xl bg-[#091b32]/95 backdrop-blur-md border border-[#fe932c]/50 text-xs shadow-xl transition-transform text-white"
           style={{
-            left: `${Math.min(hoveredItem.x + 15, (mountRef.current?.clientWidth || 800) - 210)}px`,
-            top: `${Math.max(hoveredItem.y - 70, 15)}px`,
+            left: `${Math.min(hoveredItem.x + 15, (mountRef.current?.clientWidth || 800) - 230)}px`,
+            top: `${Math.max(hoveredItem.y - 75, 15)}px`,
           }}
         >
           <div className="flex items-center justify-between gap-3">
@@ -444,35 +444,35 @@ export default function PantrySkyline3D({
               {hoveredItem.item.item.name}
             </span>
             <span
-              className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-bold uppercase ${
+              className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
                 hoveredItem.item.status === "red"
-                  ? "bg-rose-500/20 text-rose-300 border border-rose-500/40"
+                  ? "bg-rose-500/25 text-rose-300 border border-rose-500/40"
                   : hoveredItem.item.status === "amber"
-                  ? "bg-amber-500/20 text-amber-300 border border-amber-500/40"
-                  : "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
+                  ? "bg-amber-500/25 text-amber-300 border border-amber-500/40"
+                  : "bg-emerald-500/25 text-emerald-300 border border-emerald-500/40"
               }`}
             >
-              {hoveredItem.item.status === "red" ? "CRITICAL" : hoveredItem.item.status === "amber" ? "LOW" : "OPTIMAL"}
+              {hoveredItem.item.status === "red" ? "BUY TODAY" : hoveredItem.item.status === "amber" ? "RUNNING LOW" : "PLENTY"}
             </span>
           </div>
 
-          <div className="mt-1.5 grid grid-cols-2 gap-x-3 gap-y-0.5 font-mono text-[11px]">
-            <span className="text-slate-400">Stock Cover:</span>
-            <span className="text-right font-bold text-cyan-300">{hoveredItem.item.daysOfCoverLeft} Days</span>
+          <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+            <span className="text-slate-300">Food Left:</span>
+            <span className="text-right font-bold text-amber-300">{hoveredItem.item.daysOfCoverLeft} Days</span>
 
-            <span className="text-slate-400">Threshold:</span>
-            <span className="text-right text-slate-300">{hoveredItem.item.effectiveThreshold} Days</span>
+            <span className="text-slate-300">Safety Target:</span>
+            <span className="text-right text-slate-200">{hoveredItem.item.effectiveThreshold} Days</span>
 
-            <span className="text-slate-400">Burn Rate:</span>
-            <span className="text-right text-slate-300">{hoveredItem.item.effectiveDailyUsage} {hoveredItem.item.item.unit}/day</span>
+            <span className="text-slate-300">Daily Usage:</span>
+            <span className="text-right text-slate-200">{hoveredItem.item.effectiveDailyUsage} {hoveredItem.item.item.unit}/day</span>
 
-            <span className="text-slate-400">Supplier:</span>
-            <span className="text-right text-slate-300 truncate max-w-[100px]">{hoveredItem.item.item.supplierName}</span>
+            <span className="text-slate-300">Supplier:</span>
+            <span className="text-right text-slate-200 truncate max-w-[110px]">{hoveredItem.item.item.supplierName}</span>
           </div>
 
-          <div className="mt-1 pt-1 border-t border-white/10 text-[10px] text-cyan-400 flex items-center justify-between">
-            <span>{hoveredItem.item.urgencyLabel}</span>
-            <span className="text-slate-400">Click for details &rarr;</span>
+          <div className="mt-2 pt-1.5 border-t border-white/15 text-[11px] text-[#fe932c] flex items-center justify-between">
+            <span className="font-medium">{hoveredItem.item.urgencyLabel}</span>
+            <span className="text-slate-300">Click to view &rarr;</span>
           </div>
         </div>
       )}

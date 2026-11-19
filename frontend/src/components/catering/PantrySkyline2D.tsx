@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { ComputedIngredientStatus } from "@/data/pantryCommandData";
 import { Badge } from "@/components/ui/badge";
-import { ArrowUpDown, AlertTriangle, CheckCircle2, Clock } from "lucide-react";
+import { ArrowUpDown, AlertTriangle, CheckCircle2, Clock, BarChart3 } from "lucide-react";
 
 interface PantrySkyline2DProps {
   ingredients: ComputedIngredientStatus[];
@@ -25,34 +25,39 @@ export default function PantrySkyline2D({
   });
 
   return (
-    <div className="w-full rounded-2xl border border-cyan-500/20 bg-slate-950/80 p-4 md:p-6 shadow-2xl backdrop-blur-xl space-y-4">
+    <div className="w-full rounded-xl border border-border/70 bg-card p-4 md:p-6 shadow-sm space-y-4 text-foreground">
       {/* 2D Header & Sorter */}
-      <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-white/10">
+      <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-border/60">
         <div>
-          <h3 className="text-sm font-bold text-white flex items-center gap-2">
-            <span>2D Inventory Cover Skyline</span>
-            <Badge variant="outline" className="text-[10px] border-cyan-500/30 text-cyan-300">
-              Mobile & Export Mode
+          <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
+            <BarChart3 className="h-4 w-4 text-[#fe932c]" />
+            <span>2D Food Supply Overview (Bar View)</span>
+            <Badge variant="outline" className="text-[10px] bg-muted text-muted-foreground border-border">
+              Quick Mobile & Print View
             </Badge>
           </h3>
-          <p className="text-xs text-slate-400 mt-0.5">
-            Days of cover compared against safety threshold line (5-6 days).
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Compares days of food remaining against the 5-day safety line for each kitchen ingredient.
           </p>
         </div>
 
         <div className="flex items-center gap-1.5 text-xs">
-          <span className="text-slate-400">Sort by:</span>
-          {(["cover", "status", "name"] as const).map((mode) => (
+          <span className="text-muted-foreground">Sort by:</span>
+          {[
+            { id: "cover", label: "Lowest Food First" },
+            { id: "status", label: "Urgency" },
+            { id: "name", label: "Name" },
+          ].map((mode) => (
             <button
-              key={mode}
-              onClick={() => setSortBy(mode)}
-              className={`px-2.5 py-1 rounded-lg text-xs font-mono capitalize transition-all ${
-                sortBy === mode
-                  ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-bold"
-                  : "bg-slate-900 text-slate-400 hover:text-slate-200 border border-white/5"
+              key={mode.id}
+              onClick={() => setSortBy(mode.id as any)}
+              className={`px-2.5 py-1 rounded-lg text-xs transition-all ${
+                sortBy === mode.id
+                  ? "bg-primary text-primary-foreground font-semibold shadow-xs"
+                  : "bg-muted text-muted-foreground hover:text-foreground"
               }`}
             >
-              {mode}
+              {mode.label}
             </button>
           ))}
         </div>
@@ -72,62 +77,61 @@ export default function PantrySkyline2D({
               onClick={() => onSelectIngredient(ing)}
               className={`p-3.5 rounded-xl border transition-all cursor-pointer ${
                 isSelected
-                  ? "border-cyan-400 bg-cyan-950/30 shadow-[0_0_15px_rgba(6,182,212,0.15)]"
-                  : "border-white/10 bg-slate-900/60 hover:bg-slate-900 hover:border-white/20"
+                  ? "border-primary bg-primary/5 shadow-sm ring-1 ring-primary/40"
+                  : "border-border/70 bg-muted/20 hover:bg-muted/40 hover:border-border"
               }`}
             >
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
-                  <span className="text-xl">{ing.item.icon}</span>
+                  <span className="text-2xl">{ing.item.icon}</span>
                   <div>
-                    <h4 className="text-xs font-bold text-white group-hover:text-cyan-300 transition-colors">
+                    <h4 className="text-xs font-bold text-foreground group-hover:text-primary transition-colors">
                       {ing.item.name}
                     </h4>
-                    <span className="text-[10px] text-slate-400 font-mono">
-                      {ing.remainingStock} {ing.item.unit} ({ing.effectiveDailyUsage}/day)
+                    <span className="text-[11px] text-muted-foreground">
+                      {ing.remainingStock} {ing.item.unit} in pantry ({ing.effectiveDailyUsage}/day)
                     </span>
                   </div>
                 </div>
 
                 <div className="text-right">
-                  <div className="flex items-center justify-end gap-1.5">
+                  <div className="flex items-center justify-end gap-1">
                     <span
                       className={`text-sm font-bold font-mono ${
                         ing.status === "red"
-                          ? "text-rose-400"
+                          ? "text-rose-600 dark:text-rose-400"
                           : ing.status === "amber"
-                          ? "text-amber-400"
-                          : "text-emerald-400"
+                          ? "text-amber-600 dark:text-amber-400"
+                          : "text-emerald-600 dark:text-emerald-400"
                       }`}
                     >
-                      {ing.daysOfCoverLeft}d
+                      {ing.daysOfCoverLeft} Days
                     </span>
-                    <span className="text-[10px] text-slate-400 font-mono">cover</span>
                   </div>
                   <span
-                    className={`inline-block text-[9px] px-1.5 py-0.2 rounded font-mono uppercase font-bold ${
+                    className={`inline-block text-[10px] px-1.5 py-0.5 rounded font-semibold uppercase ${
                       ing.status === "red"
-                        ? "bg-rose-500/20 text-rose-300 border border-rose-500/40"
+                        ? "bg-rose-500/15 text-rose-700 dark:text-rose-300 border border-rose-500/30"
                         : ing.status === "amber"
-                        ? "bg-amber-500/20 text-amber-300 border border-amber-500/40"
-                        : "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
+                        ? "bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30"
+                        : "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30"
                     }`}
                   >
-                    {ing.status === "red" ? "CRITICAL BUY" : ing.status === "amber" ? "NEAR THRESHOLD" : "OPTIMAL"}
+                    {ing.status === "red" ? "Buy Today" : ing.status === "amber" ? "Running Low" : "Plenty"}
                   </span>
                 </div>
               </div>
 
               {/* Bar Comparison with Threshold Marker */}
               <div className="mt-3 relative pt-1">
-                <div className="h-2.5 w-full bg-slate-800 rounded-full overflow-hidden relative">
+                <div className="h-3 w-full bg-muted rounded-full overflow-hidden relative">
                   <div
                     className={`h-full rounded-full transition-all duration-500 ${
                       ing.status === "red"
-                        ? "bg-rose-500 shadow-[0_0_8px_#ef4444]"
+                        ? "bg-rose-500"
                         : ing.status === "amber"
-                        ? "bg-amber-500 shadow-[0_0_8px_#f59e0b]"
-                        : "bg-emerald-500 shadow-[0_0_8px_#10b981]"
+                        ? "bg-amber-500"
+                        : "bg-emerald-500"
                     }`}
                     style={{ width: `${coverPct}%` }}
                   />
@@ -135,18 +139,18 @@ export default function PantrySkyline2D({
 
                 {/* Vertical Floating Threshold Line */}
                 <div
-                  className="absolute top-0 bottom-0 w-0.5 bg-cyan-400 z-10 shadow-[0_0_6px_#38bdf8]"
+                  className="absolute top-0 bottom-0 w-0.5 bg-[#fe932c] z-10"
                   style={{ left: `${thresholdPct}%` }}
-                  title={`Safety Threshold: ${ing.effectiveThreshold} days`}
+                  title={`Safety Line: ${ing.effectiveThreshold} days`}
                 >
-                  <div className="w-1.5 h-1.5 rounded-full bg-cyan-300 -translate-x-[2px] -translate-y-[2px]" />
+                  <div className="w-2 h-2 rounded-full bg-[#fe932c] -translate-x-[3px] -translate-y-[2px]" />
                 </div>
               </div>
 
               {/* Sub-label */}
-              <div className="mt-2 flex items-center justify-between text-[10px] text-slate-400 font-mono">
-                <span>{ing.urgencyLabel}</span>
-                <span className="text-slate-500">Threshold: {ing.effectiveThreshold}d</span>
+              <div className="mt-2 flex items-center justify-between text-[11px] text-muted-foreground">
+                <span className="font-medium text-foreground">{ing.urgencyLabel}</span>
+                <span>Safety Line: {ing.effectiveThreshold} Days</span>
               </div>
             </div>
           );

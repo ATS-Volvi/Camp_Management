@@ -1,6 +1,6 @@
 import React from "react";
 import { ComputedIngredientStatus } from "@/data/pantryCommandData";
-import { X, Building2, Clock, AlertTriangle, CheckCircle2, DollarSign, Package, Calendar, Flame } from "lucide-react";
+import { X, Building2, Clock, AlertTriangle, CheckCircle2, ShoppingCart, Calendar, Flame, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
@@ -14,30 +14,30 @@ export default function IngredientDetailCard({ ingredient, onClose }: Ingredient
   const isAmber = ingredient.status === "amber";
 
   return (
-    <div className="rounded-2xl border border-cyan-500/30 bg-slate-950/95 p-4 md:p-5 shadow-2xl backdrop-blur-2xl space-y-4 animate-in slide-in-from-right-4 duration-300">
+    <div className="rounded-xl border border-border bg-card p-4 md:p-5 shadow-lg space-y-4 text-foreground animate-in slide-in-from-right-4 duration-300">
       {/* Header */}
-      <div className="flex items-start justify-between gap-3 pb-3 border-b border-white/10">
+      <div className="flex items-start justify-between gap-3 pb-3 border-b border-border/60">
         <div className="flex items-center gap-3">
-          <span className="text-3xl p-2 rounded-xl bg-slate-900 border border-white/10">
+          <span className="text-3xl p-2 rounded-xl bg-muted/50 border border-border">
             {ingredient.item.icon}
           </span>
           <div>
             <div className="flex items-center gap-2">
-              <h3 className="text-base font-bold text-white">{ingredient.item.name}</h3>
+              <h3 className="text-base font-bold text-foreground">{ingredient.item.name}</h3>
               <Badge
                 variant="outline"
-                className={`text-[9px] font-mono uppercase font-bold ${
+                className={`text-[10px] font-bold uppercase ${
                   isRed
-                    ? "border-rose-500/40 text-rose-300 bg-rose-500/20"
+                    ? "border-rose-500/40 text-rose-700 dark:text-rose-300 bg-rose-500/15"
                     : isAmber
-                    ? "border-amber-500/40 text-amber-300 bg-amber-500/20"
-                    : "border-emerald-500/40 text-emerald-300 bg-emerald-500/20"
+                    ? "border-amber-500/40 text-amber-700 dark:text-amber-300 bg-amber-500/15"
+                    : "border-emerald-500/40 text-emerald-700 dark:text-emerald-300 bg-emerald-500/15"
                 }`}
               >
-                {ingredient.status}
+                {isRed ? "Buy Urgently" : isAmber ? "Running Low" : "Plenty"}
               </Badge>
             </div>
-            <p className="text-xs text-slate-400 font-mono mt-0.5">
+            <p className="text-xs text-muted-foreground mt-0.5">
               {ingredient.item.category} · {ingredient.item.storageType}
             </p>
           </div>
@@ -45,117 +45,126 @@ export default function IngredientDetailCard({ ingredient, onClose }: Ingredient
 
         <button
           onClick={onClose}
-          className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+          className="p-1 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+          title="Close Card"
         >
           <X className="h-4 w-4" />
         </button>
       </div>
 
       {/* Hero Stock vs Threshold Metric */}
-      <div className="grid grid-cols-2 gap-3 font-mono">
+      <div className="grid grid-cols-2 gap-3">
         <div
           className={`p-3 rounded-xl border text-center ${
             isRed
-              ? "border-rose-500/40 bg-rose-950/20"
+              ? "border-rose-500/40 bg-rose-500/10"
               : isAmber
-              ? "border-amber-500/40 bg-amber-950/20"
-              : "border-emerald-500/40 bg-emerald-950/20"
+              ? "border-amber-500/40 bg-amber-500/10"
+              : "border-emerald-500/40 bg-emerald-500/10"
           }`}
         >
-          <span className="text-[10px] text-slate-400 block">DAYS OF COVER</span>
+          <span className="text-[10px] uppercase font-bold text-muted-foreground block">
+            Food Remaining
+          </span>
           <span
-            className={`text-2xl font-black block mt-0.5 ${
-              isRed ? "text-rose-400" : isAmber ? "text-amber-400" : "text-emerald-400"
+            className={`text-2xl font-black block mt-0.5 font-mono ${
+              isRed
+                ? "text-rose-600 dark:text-rose-400"
+                : isAmber
+                ? "text-amber-600 dark:text-amber-400"
+                : "text-emerald-600 dark:text-emerald-400"
             }`}
           >
-            {ingredient.daysOfCoverLeft}d
+            {ingredient.daysOfCoverLeft} Days
           </span>
-          <span className="text-[9px] text-slate-500">
-            {ingredient.remainingStock} {ingredient.item.unit} left
+          <span className="text-[10px] text-muted-foreground">
+            {ingredient.remainingStock} {ingredient.item.unit} in kitchen
           </span>
         </div>
 
-        <div className="p-3 rounded-xl border border-white/10 bg-slate-900/60 text-center">
-          <span className="text-[10px] text-slate-400 block">SAFETY THRESHOLD</span>
-          <span className="text-2xl font-black text-cyan-300 block mt-0.5">
-            {ingredient.effectiveThreshold}d
+        <div className="p-3 rounded-xl border border-border bg-muted/30 text-center">
+          <span className="text-[10px] uppercase font-bold text-muted-foreground block">
+            Safety Line
           </span>
-          <span className="text-[9px] text-slate-500">
-            Lead time: {ingredient.item.leadTimeDays}d
+          <span className="text-2xl font-black text-primary block mt-0.5 font-mono">
+            {ingredient.effectiveThreshold} Days
+          </span>
+          <span className="text-[10px] text-muted-foreground">
+            Takes {ingredient.item.leadTimeDays}d to deliver
           </span>
         </div>
       </div>
 
-      {/* Burn Rate & Run-out Countdown */}
-      <div className="p-3 rounded-xl border border-white/10 bg-slate-900/40 space-y-2 text-xs font-mono">
-        <div className="flex items-center justify-between text-slate-300">
-          <span className="flex items-center gap-1.5 text-slate-400">
-            <Flame className="h-3.5 w-3.5 text-amber-400" /> Daily Burn Rate:
+      {/* Daily Usage & Run-out Forecast */}
+      <div className="p-3 rounded-xl border border-border/70 bg-muted/20 space-y-2 text-xs">
+        <div className="flex items-center justify-between">
+          <span className="flex items-center gap-1.5 text-muted-foreground">
+            <Flame className="h-3.5 w-3.5 text-amber-500" /> Daily Kitchen Usage:
           </span>
-          <span className="font-bold text-white">
+          <span className="font-bold font-mono text-foreground">
             {ingredient.effectiveDailyUsage} {ingredient.item.unit} / day
           </span>
         </div>
 
-        <div className="flex items-center justify-between text-slate-300">
-          <span className="flex items-center gap-1.5 text-slate-400">
-            <Clock className="h-3.5 w-3.5 text-rose-400" /> Stockout Forecast:
+        <div className="flex items-center justify-between">
+          <span className="flex items-center gap-1.5 text-muted-foreground">
+            <Clock className="h-3.5 w-3.5 text-rose-500" /> Runs Out In:
           </span>
-          <span className="font-bold text-rose-400">
+          <span className="font-bold font-mono text-rose-600 dark:text-rose-400">
             {ingredient.urgencyLabel}
           </span>
         </div>
 
-        <div className="flex items-center justify-between text-slate-300">
-          <span className="flex items-center gap-1.5 text-slate-400">
-            <Calendar className="h-3.5 w-3.5 text-cyan-400" /> Exhaustion Date:
+        <div className="flex items-center justify-between">
+          <span className="flex items-center gap-1.5 text-muted-foreground">
+            <Calendar className="h-3.5 w-3.5 text-primary" /> Stockout Date:
           </span>
-          <span className="text-cyan-300">
+          <span className="font-medium text-foreground">
             {ingredient.exhaustionDateStr}
           </span>
         </div>
       </div>
 
-      {/* Procurement & Supplier Specs */}
-      <div className="p-3 rounded-xl border border-white/10 bg-slate-900/40 space-y-2 text-xs font-mono">
+      {/* Supplier & Reorder Calculation */}
+      <div className="p-3 rounded-xl border border-border/70 bg-muted/20 space-y-2 text-xs">
         <div className="flex items-center justify-between">
-          <span className="text-slate-400">Primary Supplier:</span>
-          <span className="font-bold text-white flex items-center gap-1">
-            <Building2 className="h-3.5 w-3.5 text-cyan-400" />
+          <span className="text-muted-foreground">Delivery Supplier:</span>
+          <span className="font-semibold text-foreground flex items-center gap-1">
+            <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
             {ingredient.item.supplierName}
           </span>
         </div>
 
         <div className="flex items-center justify-between">
-          <span className="text-slate-400">Unit Price:</span>
-          <span className="text-slate-200">
-            SAR {ingredient.item.unitPriceSAR.toFixed(2)} / {ingredient.item.unit}
+          <span className="text-muted-foreground">Unit Price:</span>
+          <span className="font-mono text-foreground">
+            SAR {ingredient.item.unitPriceSAR.toFixed(2)} per {ingredient.item.unit}
           </span>
         </div>
 
         <div className="flex items-center justify-between">
-          <span className="text-slate-400">Suggested Reorder:</span>
-          <span className="font-bold text-emerald-400">
+          <span className="text-muted-foreground">Recommended Order:</span>
+          <span className="font-bold font-mono text-emerald-600 dark:text-emerald-400">
             {ingredient.suggestedReorderQty} {ingredient.item.unit}
           </span>
         </div>
 
-        <div className="pt-2 border-t border-white/10 flex items-center justify-between text-xs">
-          <span className="text-slate-400">Est. Reorder Cost:</span>
-          <span className="font-bold text-cyan-300 text-sm">
+        <div className="pt-2 border-t border-border/50 flex items-center justify-between text-xs">
+          <span className="text-muted-foreground">Estimated Reorder Cost:</span>
+          <span className="font-bold text-primary text-sm font-mono">
             SAR {ingredient.reorderCostSAR.toLocaleString()}
           </span>
         </div>
       </div>
 
-      {/* Close Action */}
+      {/* Close Action Button */}
       <Button
         onClick={onClose}
         variant="outline"
         size="sm"
-        className="w-full text-xs bg-slate-900 border-white/10 hover:bg-slate-800 text-slate-300"
+        className="w-full text-xs"
       >
-        Close Card
+        Close Details
       </Button>
     </div>
   );
