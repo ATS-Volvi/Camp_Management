@@ -50,6 +50,7 @@ const navGroups: {
     label: "Catering Division",
     icon: UtensilsCrossed,
     items: [
+      { label: "Batch Cook & KDS", icon: ChefHat, path: "/catering/batch-cook" },
       { label: "Mess & Catering", icon: UtensilsCrossed, path: "/mess-catering" },
       { label: "Smart Meal Management", icon: UtensilsCrossed, path: "/meal-management" },
       { label: "Grocery Inventory", icon: Package, path: "/grocery-inventory" },

@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import {
   UtensilsCrossed, Package, ClipboardList, BarChart3, Settings2,
   Plus, Trash2, Check, X, ChevronRight, AlertTriangle, Download,
-  Coffee, Sun, Moon, Users, Calculator, FileText, Truck, Sparkles, Recycle, ShoppingBasket, Wand2
+  Coffee, Sun, Moon, Users, Calculator, FileText, Truck, Sparkles, Recycle, ShoppingBasket, Wand2, ChefHat
 } from "lucide-react";
 import { MASTER_INGREDIENTS } from "@/data/ingredientMaster";
 import GroceryConfigMaster from "@/components/catering/GroceryConfigMaster";
@@ -96,6 +96,13 @@ export default function MessCatering() {
         </select>
 
         <div className="ml-auto flex items-center gap-2">
+          <a
+            href="/catering/batch-cook"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-primary/10 text-primary hover:bg-primary/20 border border-primary/20 transition-all"
+          >
+            <ChefHat size={14} />
+            <span>Batch Cook & KDS</span>
+          </a>
           <button
             onClick={() => setRamadanMode(!ramadanMode)}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${ramadanMode
