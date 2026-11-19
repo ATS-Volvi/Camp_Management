@@ -47,6 +47,8 @@ import MealManagement from "./pages/MealManagement";
 import FoodCancellation from "./pages/FoodCancellation";
 import DepartmentLunch from "./pages/DepartmentLunch";
 import DepartmentLunchRates from "./pages/DepartmentLunchRates";
+import CateringCostControl from "./pages/CateringCostControl";
+import MealConsumptionWaste from "./pages/MealConsumptionWaste";
 import StaffKPI from "./pages/StaffKPI";
 import RoomCategoryMaster from "./pages/RoomCategoryMaster";
 import SupplierMaster from "./pages/SupplierMaster";
@@ -141,6 +143,8 @@ const App = () => (
                 <Route path="/meal-management" element={<MealManagement />} />
                 <Route path="/food-cancellation" element={<FoodCancellation />} />
                 <Route path="/department-lunch" element={<DepartmentLunch />} />
+                <Route path="/catering/cost-control" element={<CateringCostControl />} />
+                <Route path="/catering/consumption-waste" element={<MealConsumptionWaste />} />
                 <Route path="/admin/department-lunch-rates" element={<DepartmentLunchRates />} />
                 <Route path="/admin/room-categories" element={<RoomCategoryMaster />} />
                 <Route path="/admin/suppliers" element={<SupplierMaster />} />

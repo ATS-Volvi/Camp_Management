@@ -123,6 +123,48 @@ class CateringService {
             return next(createError({ status: 500, message: err.message }));
         }
     }
+
+    // Module 1: Catering Cost Control & Budget Monitor
+    static async getCostControlSummary(filters: any, next: NextFunction) {
+        try {
+            return await CateringDatabase.getCostControlSummary(filters);
+        } catch (err: any) {
+            return next(createError({ status: 500, message: err.message }));
+        }
+    }
+
+    static async getCateringBudgets(campId: string | undefined, monthYear: string | undefined, next: NextFunction) {
+        try {
+            return await CateringDatabase.getCateringBudgets(campId, monthYear);
+        } catch (err: any) {
+            return next(createError({ status: 500, message: err.message }));
+        }
+    }
+
+    static async saveCateringBudget(data: any, next: NextFunction) {
+        try {
+            return await CateringDatabase.saveCateringBudget(data);
+        } catch (err: any) {
+            return next(createError({ status: 500, message: err.message }));
+        }
+    }
+
+    // Module 2: Meal Consumption & Waste Intelligence
+    static async getConsumptionWasteSummary(filters: any, next: NextFunction) {
+        try {
+            return await CateringDatabase.getConsumptionWasteSummary(filters);
+        } catch (err: any) {
+            return next(createError({ status: 500, message: err.message }));
+        }
+    }
+
+    static async saveMealDisposition(data: any, next: NextFunction) {
+        try {
+            return await CateringDatabase.saveMealDisposition(data);
+        } catch (err: any) {
+            return next(createError({ status: 500, message: err.message }));
+        }
+    }
 }
 
 export default CateringService;

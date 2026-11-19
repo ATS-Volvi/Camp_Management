@@ -52,6 +52,8 @@ const navGroups: {
     items: [
       { label: "Mess & Catering", icon: UtensilsCrossed, path: "/mess-catering" },
       { label: "Smart Meal Management", icon: UtensilsCrossed, path: "/meal-management" },
+      { label: "Cost & Budget Monitor", icon: LineChart, path: "/catering/cost-control" },
+      { label: "Consumption & Waste", icon: BarChart3, path: "/catering/consumption-waste" },
       { label: "Grocery Inventory", icon: Package, path: "/grocery-inventory" },
       { label: "Cook Requests & PO", icon: ChefHat, path: "/cook-requests" },
       { label: "Food Cancellation", icon: Ban, path: "/food-cancellation" },
