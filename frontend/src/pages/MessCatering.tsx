@@ -67,7 +67,7 @@ export default function MessCatering() {
   const tabs: { key: Tab; label: string; icon: any }[] = [
     { key: "dashboard", label: "Dashboard", icon: BarChart3 },
     { key: "grocery-config", label: "Grocery Config", icon: ShoppingBasket },
-    { key: "weekly-menu", label: "Weekly Menu", icon: UtensilsCrossed },
+    { key: "weekly-menu", label: "✨ AI Visual Menu", icon: Sparkles },
     { key: "daily-plan", label: "Daily Plan", icon: Calculator },
     { key: "requests", label: "Requests", icon: ClipboardList },
     { key: "wastage", label: "Wastage", icon: Recycle },
