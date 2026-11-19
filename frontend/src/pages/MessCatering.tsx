@@ -1,9 +1,8 @@
 import { useState, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
 import {
   UtensilsCrossed, Package, ClipboardList, BarChart3, Settings2,
   Plus, Trash2, Check, X, ChevronRight, AlertTriangle, Download,
-  Coffee, Sun, Moon, Users, Calculator, FileText, Truck, Sparkles, Recycle, ShoppingBasket, Wand2, LineChart
+  Coffee, Sun, Moon, Users, Calculator, FileText, Truck, Sparkles, Recycle, ShoppingBasket, Wand2
 } from "lucide-react";
 import { MASTER_INGREDIENTS } from "@/data/ingredientMaster";
 import GroceryConfigMaster from "@/components/catering/GroceryConfigMaster";
@@ -50,7 +49,6 @@ export const formatDateSafe = (dateVal: any, fmt: string = "dd MMM yyyy") => {
 };
 
 export default function MessCatering() {
-  const navigate = useNavigate();
   const [tab, setTab] = useState<Tab>("dashboard");
   const [selectedCampId, setSelectedCampId] = useState("");
   const [ramadanMode, setRamadanMode] = useState(false);
@@ -97,23 +95,7 @@ export default function MessCatering() {
           {camps.map((c: any) => <option key={c.id} value={c.id}>{c.name} — {c.location}</option>)}
         </select>
 
-        <div className="ml-auto flex items-center gap-2 flex-wrap">
-          <button
-            onClick={() => navigate("/catering/cost-control")}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold bg-emerald-500/10 text-emerald-700 hover:bg-emerald-500/20 border border-emerald-500/20 transition-colors"
-            title="Open Catering Cost Control & Budget Monitor"
-          >
-            <LineChart size={14} />
-            Cost & Budget Monitor
-          </button>
-          <button
-            onClick={() => navigate("/catering/consumption-waste")}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold bg-blue-500/10 text-blue-700 hover:bg-blue-500/20 border border-blue-500/20 transition-colors"
-            title="Open Meal Consumption & Waste Intelligence"
-          >
-            <BarChart3 size={14} />
-            Consumption & Waste
-          </button>
+        <div className="ml-auto flex items-center gap-2">
           <button
             onClick={() => setRamadanMode(!ramadanMode)}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${ramadanMode

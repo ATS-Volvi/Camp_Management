@@ -108,43 +108,6 @@ class CateringController {
             res.status(StatusCodes.NO_CONTENT).send();
         }
     }
-
-    // Module 1: Catering Cost Control & Budget Monitor
-    static async getCostControlSummary(req: Request, res: Response, next: NextFunction) {
-        const result = await CateringService.getCostControlSummary(req.query, next);
-        if (result) {
-            res.status(StatusCodes.OK).json(result);
-        }
-    }
-
-    static async getCateringBudgets(req: Request, res: Response, next: NextFunction) {
-        const result = await CateringService.getCateringBudgets(req.query.camp_id as string, req.query.month_year as string, next);
-        if (result) {
-            res.status(StatusCodes.OK).json(result);
-        }
-    }
-
-    static async saveCateringBudget(req: Request, res: Response, next: NextFunction) {
-        const result = await CateringService.saveCateringBudget(req.body, next);
-        if (result) {
-            res.status(StatusCodes.OK).json(result);
-        }
-    }
-
-    // Module 2: Meal Consumption & Waste Intelligence
-    static async getConsumptionWasteSummary(req: Request, res: Response, next: NextFunction) {
-        const result = await CateringService.getConsumptionWasteSummary(req.query, next);
-        if (result) {
-            res.status(StatusCodes.OK).json(result);
-        }
-    }
-
-    static async saveMealDisposition(req: Request, res: Response, next: NextFunction) {
-        const result = await CateringService.saveMealDisposition(req.body, next);
-        if (result) {
-            res.status(StatusCodes.CREATED).json(result);
-        }
-    }
 }
 
 export default CateringController;

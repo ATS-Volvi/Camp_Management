@@ -19,13 +19,4 @@ router.post('/weekly-menu-config', CateringController.saveWeeklyMenuConfig);
 router.delete('/weekly-menu-config/:id', CateringController.deleteWeeklyMenuConfig);
 router.delete('/weekly-menu-config', CateringController.deleteWeeklyMenuConfigByDay);
 
-// Module 1: Catering Cost Control & Budget Monitor
-router.get('/cost-control-summary', CateringController.getCostControlSummary);
-router.get('/budgets', CateringController.getCateringBudgets);
-router.post('/budgets', CateringController.saveCateringBudget);
-
-// Module 2: Meal Consumption & Waste Intelligence
-router.get('/consumption-waste-summary', CateringController.getConsumptionWasteSummary);
-router.post('/dispositions', CateringController.saveMealDisposition);
-
 export default router;
