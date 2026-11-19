@@ -26,7 +26,7 @@ import {
 } from "@/hooks/useCateringCostControl";
 
 export default function MealConsumptionWaste() {
-  const [selectedCampId, setSelectedCampId] = useState<string>("");
+  const [selectedCampId, setSelectedCampId] = useState<string>("all");
   const [selectedDate, setSelectedDate] = useState<string>(format(new Date(), "yyyy-MM-dd"));
 
   // Disposition dialog states
@@ -54,7 +54,7 @@ export default function MealConsumptionWaste() {
 
   // 2. Fetch Consumption & Waste Aggregated Data from Backend
   const { data: summary, isLoading, refetch } = useConsumptionWasteSummary({
-    campId: selectedCampId || undefined,
+    campId: selectedCampId !== "all" ? selectedCampId : undefined,
     date: selectedDate,
   });
 
@@ -136,7 +136,7 @@ export default function MealConsumptionWaste() {
                   <SelectValue placeholder="All Camps" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Camps</SelectItem>
+                  <SelectItem value="all">All Camps</SelectItem>
                   {camps.map((c) => (
                     <SelectItem key={c.id} value={c.id}>
                       {c.name}

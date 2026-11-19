@@ -29,7 +29,7 @@ import {
 
 export default function CateringCostControl() {
   const currentMonthStr = new Date().toISOString().slice(0, 7);
-  const [selectedCampId, setSelectedCampId] = useState<string>("");
+  const [selectedCampId, setSelectedCampId] = useState<string>("all");
   const [selectedDept, setSelectedDept] = useState<string>("All");
   const [selectedMonth, setSelectedMonth] = useState<string>(currentMonthStr);
 
@@ -39,7 +39,7 @@ export default function CateringCostControl() {
   const [selectedDetailDept, setSelectedDetailDept] = useState<string | null>(null);
 
   // Budget form state
-  const [budgetCampId, setBudgetCampId] = useState<string>("");
+  const [budgetCampId, setBudgetCampId] = useState<string>("all");
   const [budgetDept, setBudgetDept] = useState<string>("All");
   const [budgetAmount, setBudgetAmount] = useState<number>(540000);
   const [budgetThreshold, setBudgetThreshold] = useState<number>(85);
@@ -57,7 +57,7 @@ export default function CateringCostControl() {
 
   // 2. Fetch Cost Control Aggregated Data from Backend
   const { data: summary, isLoading, refetch } = useCostControlSummary({
-    campId: selectedCampId || undefined,
+    campId: selectedCampId !== "all" ? selectedCampId : undefined,
     department: selectedDept !== "All" ? selectedDept : undefined,
     monthYear: selectedMonth,
   });
@@ -79,7 +79,7 @@ export default function CateringCostControl() {
   const handleSaveBudget = async () => {
     try {
       await saveBudget.mutateAsync({
-        camp_id: budgetCampId || null,
+        camp_id: budgetCampId !== "all" ? budgetCampId : null,
         department: budgetDept,
         month_year: selectedMonth,
         allocated_budget: budgetAmount,
@@ -148,7 +148,7 @@ export default function CateringCostControl() {
                   <SelectValue placeholder="All Camps" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Camps</SelectItem>
+                  <SelectItem value="all">All Camps</SelectItem>
                   {camps.map((c) => (
                     <SelectItem key={c.id} value={c.id}>
                       {c.name}
@@ -600,7 +600,7 @@ export default function CateringCostControl() {
                   <SelectValue placeholder="All Camps (Global)" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Camps (Global)</SelectItem>
+                  <SelectItem value="all">All Camps (Global)</SelectItem>
                   {camps.map((c) => (
                     <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                   ))}
