@@ -14,7 +14,7 @@ import IngredientDetailCard from "@/components/catering/IngredientDetailCard";
 import {
   ShoppingCart, AlertTriangle, CheckCircle2, Play, Pause, RotateCcw,
   Layers, Sliders, Calendar, Sparkles, ArrowLeft, Users, Moon, Truck,
-  ShieldCheck, Clock, Eye, BarChart3, Box
+  ShieldCheck, Clock, Eye, BarChart3, Box, Compass
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
