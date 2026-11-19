@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pantry Command Center — Camp-365 3D Prototype</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            cyan: { 400: '#22d3ee', 500: '#06b6d4', 600: '#0891b2' },
+          }
+        }
+      }
+    }
+  </script>
+  <!-- React, ReactDOM & Babel -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <!-- Three.js & OrbitControls -->
+  <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
+  <script src="https://unpkg.com/three@0.160.0/examples/js/controls/OrbitControls.js"></script>
+  <style>
+    body {
+      background-color: #070b14;
+      color: #f8fafc;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+    }
+    input[type=range] {
+      accent-color: #06b6d4;
+    }
+    /* Custom scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0f172a;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #06b6d4;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef, useMemo } = React;
+
+    // ========================================================================
+    // SAMPLE DATA: 14 INGREDIENTS & 10 UPCOMING DISHES
+    // ========================================================================
+    const PANTRY_DATA = [
+      { id: "rice", name: "Basmati Rice", category: "Grains", currentStock: 120, unit: "bags (10kg)", avgDailyUsage: 20, thresholdDays: 6, supplierName: "National Grain Co.", leadTimeDays: 3, unitPriceSAR: 165.0, icon: "🌾" },
+      { id: "chicken", name: "Fresh Chicken", category: "Meat & Poultry", currentStock: 320, unit: "kg", avgDailyUsage: 60, thresholdDays: 5, supplierName: "Al-Watania Poultry", leadTimeDays: 2, unitPriceSAR: 18.5, icon: "🍗" },
+      { id: "lamb", name: "Australian Lamb", category: "Meat & Poultry", currentStock: 450, unit: "kg", avgDailyUsage: 45, thresholdDays: 5, supplierName: "Al-Kabeer Meat Co.", leadTimeDays: 3, unitPriceSAR: 42.0, icon: "🥩" },
+      { id: "fish", name: "White Fish Fillet", category: "Meat & Poultry", currentStock: 240, unit: "kg", avgDailyUsage: 30, thresholdDays: 4, supplierName: "Arabian Gulf Fisheries", leadTimeDays: 2, unitPriceSAR: 28.0, icon: "🐟" },
+      { id: "cooking_oil", name: "Cooking Oil", category: "Oils & Spices", currentStock: 84, unit: "cans (4L)", avgDailyUsage: 40, thresholdDays: 6, supplierName: "Afia Edible Oils", leadTimeDays: 3, unitPriceSAR: 48.0, icon: "🛢️" },
+      { id: "lentils", name: "Red Lentils", category: "Grains", currentStock: 260, unit: "kg", avgDailyUsage: 25, thresholdDays: 5, supplierName: "National Grain Co.", leadTimeDays: 3, unitPriceSAR: 9.0, icon: "🥣" },
+      { id: "chickpeas", name: "Chickpeas (Kabuli)", category: "Grains", currentStock: 190, unit: "kg", avgDailyUsage: 20, thresholdDays: 5, supplierName: "National Grain Co.", leadTimeDays: 3, unitPriceSAR: 11.5, icon: "🧆" },
+      { id: "onions", name: "Yellow Onions", category: "Produce", currentStock: 88, unit: "kg", avgDailyUsage: 55, thresholdDays: 5, supplierName: "Saudi Fresh Agri", leadTimeDays: 2, unitPriceSAR: 4.8, icon: "🧅" },
+      { id: "tomatoes", name: "Vine Tomatoes", category: "Produce", currentStock: 240, unit: "kg", avgDailyUsage: 45, thresholdDays: 5, supplierName: "Saudi Fresh Agri", leadTimeDays: 2, unitPriceSAR: 6.2, icon: "🍅" },
+      { id: "potatoes", name: "Russet Potatoes", category: "Produce", currentStock: 520, unit: "kg", avgDailyUsage: 50, thresholdDays: 5, supplierName: "Saudi Fresh Agri", leadTimeDays: 2, unitPriceSAR: 3.8, icon: "🥔" },
+      { id: "flour", name: "Wheat Flour", category: "Grains", currentStock: 850, unit: "bags (10kg)", avgDailyUsage: 75, thresholdDays: 6, supplierName: "First Milling Co.", leadTimeDays: 4, unitPriceSAR: 34.0, icon: "🥖" },
+      { id: "milk", name: "Full Cream Milk", category: "Dairy & Eggs", currentStock: 360, unit: "liters", avgDailyUsage: 40, thresholdDays: 4, supplierName: "Almarai Dairy", leadTimeDays: 1, unitPriceSAR: 5.5, icon: "🥛" },
+      { id: "eggs", name: "Table Eggs Grade A", category: "Dairy & Eggs", currentStock: 27, unit: "crates (30ct)", avgDailyUsage: 18, thresholdDays: 4, supplierName: "Al-Watania Poultry", leadTimeDays: 2, unitPriceSAR: 22.0, icon: "🥚" },
+      { id: "spices", name: "Aramco Spice Mix", category: "Oils & Spices", currentStock: 75, unit: "kg", avgDailyUsage: 6, thresholdDays: 6, supplierName: "Mehran Spices KSA", leadTimeDays: 5, unitPriceSAR: 36.0, icon: "🧂" },
+    ];
+
+    const UPCOMING_DISHES = [
+      { id: "dish_biryani", name: "Chicken Dum Biryani", mealSession: "Lunch", scheduledDay: "Today", portions: 950, keyIngredientIds: ["chicken", "rice", "cooking_oil", "onions", "spices"] },
+      { id: "dish_dal_tadka", name: "Yellow Dal Tadka", mealSession: "Dinner", scheduledDay: "Today", portions: 800, keyIngredientIds: ["lentils", "cooking_oil", "onions", "tomatoes", "spices"] },
+      { id: "dish_kabsa", name: "Saudi Lamb Kabsa", mealSession: "Lunch", scheduledDay: "Tomorrow", portions: 1100, keyIngredientIds: ["lamb", "rice", "cooking_oil", "tomatoes", "spices"] },
+      { id: "dish_fish_curry", name: "Gulf Fish Curry", mealSession: "Dinner", scheduledDay: "Tomorrow", portions: 750, keyIngredientIds: ["fish", "cooking_oil", "tomatoes", "onions", "spices"] },
+      { id: "dish_shakshuka", name: "Mediterranean Shakshuka", mealSession: "Breakfast", scheduledDay: "Tomorrow", portions: 900, keyIngredientIds: ["eggs", "tomatoes", "onions", "cooking_oil", "spices"] },
+      { id: "dish_hummus", name: "Hummus & Falafel Platter", mealSession: "Breakfast", scheduledDay: "Day +2", portions: 850, keyIngredientIds: ["chickpeas", "cooking_oil", "flour", "spices"] },
+      { id: "dish_mutton_potato", name: "Aloo Gosht Stew", mealSession: "Dinner", scheduledDay: "Day +2", portions: 920, keyIngredientIds: ["lamb", "potatoes", "onions", "tomatoes", "cooking_oil"] },
+      { id: "dish_egg_fried_rice", name: "Egg Fried Rice", mealSession: "Lunch", scheduledDay: "Day +3", portions: 800, keyIngredientIds: ["eggs", "rice", "cooking_oil", "onions"] },
+      { id: "dish_sayadieh", name: "Traditional Fish Sayadieh", mealSession: "Dinner", scheduledDay: "Day +3", portions: 780, keyIngredientIds: ["fish", "rice", "onions", "spices", "cooking_oil"] },
+      { id: "dish_pancakes", name: "Camp Breakfast Pancakes", mealSession: "Breakfast", scheduledDay: "Day +3", portions: 950, keyIngredientIds: ["eggs", "milk", "flour", "cooking_oil"] },
+    ];
+
+    // ========================================================================
+    // SIMULATION ENGINE
+    // ========================================================================
+    function calculateSimulation(daysAhead, whatIfs) {
+      const workerMultiplier = whatIfs.extraWorkers200 ? 1.2 : 1.0;
+
+      const ingredients = PANTRY_DATA.map((item) => {
+        let ramadanMultiplier = 1.0;
+        if (whatIfs.ramadanMode) {
+          if (["rice", "cooking_oil", "lentils", "spices"].includes(item.id)) ramadanMultiplier = 1.35;
+          else if (["lamb", "chicken"].includes(item.id)) ramadanMultiplier = 1.25;
+        }
+
+        const effectiveUsage = Number((item.avgDailyUsage * workerMultiplier * ramadanMultiplier).toFixed(1));
+        const remainingStock = Math.max(0, Number((item.currentStock - effectiveUsage * daysAhead).toFixed(1)));
+        const daysOfCoverLeft = effectiveUsage > 0 ? Number((remainingStock / effectiveUsage).toFixed(1)) : 99;
+        const effectiveThreshold = item.thresholdDays + (whatIfs.delayDelivery3Days ? 3 : 0);
+
+        let status = "green";
+        if (daysOfCoverLeft < effectiveThreshold) status = "red";
+        else if (daysOfCoverLeft <= effectiveThreshold + 2.0) status = "amber";
+
+        const totalDays = effectiveUsage > 0 ? item.currentStock / effectiveUsage : 99;
+        const daysUntilExhausted = Math.max(0, Number((totalDays - daysAhead).toFixed(1)));
+        const hoursUntilExhausted = Math.round(daysUntilExhausted * 24);
+
+        const targetBufferDays = 12;
+        const targetStock = targetBufferDays * effectiveUsage;
+        const suggestedReorderQty = Math.max(0, Math.ceil(targetStock - remainingStock));
+        const reorderCostSAR = Math.round(suggestedReorderQty * item.unitPriceSAR);
+
+        let urgencyLabel = "Healthy Buffer";
+        if (status === "red") {
+          urgencyLabel = daysUntilExhausted <= 1 ? "Depleted in <24h" : `Runs out in ${Math.floor(daysUntilExhausted)}d ${hoursUntilExhausted % 24}h`;
+        } else if (status === "amber") {
+          urgencyLabel = `Order in ${Math.max(1, Math.round(daysOfCoverLeft - item.leadTimeDays))}d`;
+        }
+
+        return {
+          item,
+          effectiveUsage,
+          remainingStock,
+          daysOfCoverLeft,
+          effectiveThreshold,
+          status,
+          daysUntilExhausted,
+          hoursUntilExhausted,
+          suggestedReorderQty,
+          reorderCostSAR,
+          urgencyLabel,
+          isOrderRequired: status === "red" || status === "amber"
+        };
+      });
+
+      const ingMap = new Map();
+      ingredients.forEach(i => ingMap.set(i.item.id, i));
+
+      const dishes = UPCOMING_DISHES.map(dish => {
+        const keyStatuses = dish.keyIngredientIds.map(id => ingMap.get(id)).filter(Boolean);
+        const sortedByCover = [...keyStatuses].sort((a,b) => a.daysOfCoverLeft - b.daysOfCoverLeft);
+        const weakest = sortedByCover[0] || ingredients[0];
+        const hasRed = keyStatuses.some(k => k.status === "red");
+        const hasAmber = keyStatuses.some(k => k.status === "amber");
+        const overallStatus = hasRed ? "red" : (hasAmber ? "amber" : "green");
+
+        let msg = "All ingredients stocked";
+        if (overallStatus === "red") msg = `Blocked by: ${weakest.item.name} (${weakest.daysOfCoverLeft}d left)`;
+        else if (overallStatus === "amber") msg = `Low stock on: ${weakest.item.name} (${weakest.daysOfCoverLeft}d left)`;
+
+        return { dish, overallStatus, weakest, keyStatuses, canServeMessage: msg };
+      });
+
+      const supplierMap = new Map();
+      ingredients.filter(i => i.isOrderRequired).forEach(i => {
+        const sName = i.item.supplierName;
+        if (!supplierMap.has(sName)) {
+          supplierMap.set(sName, { supplierName: sName, leadTime: i.item.leadTimeDays, items: [], totalSAR: 0 });
+        }
+        const grp = supplierMap.get(sName);
+        grp.items.push({ name: i.item.name, qty: i.suggestedReorderQty, unit: i.item.unit, cost: i.reorderCostSAR, status: i.status });
+        grp.totalSAR += i.reorderCostSAR;
+      });
+
+      const supplierGroups = Array.from(supplierMap.values()).sort((a, b) => b.totalSAR - a.totalSAR);
+      const totalBuySAR = supplierGroups.reduce((acc, g) => acc + g.totalSAR, 0);
+
+      return {
+        ingredients,
+        dishes,
+        supplierGroups,
+        kpis: {
+          itemsToBuyToday: ingredients.filter(i => i.status === "red").length,
+          dishesAtRisk: dishes.filter(d => d.overallStatus !== "green").length,
+          totalBuySAR,
+          stockoutsAvoided: 14 + (whatIfs.delayDelivery3Days ? 6 : 0) + (whatIfs.extraWorkers200 ? 4 : 0)
+        }
+      };
+    }
+
+    // ========================================================================
+    // 3D SKYLINE COMPONENT (THREE.JS)
+    // ========================================================================
+    function PantrySkyline3D({ ingredients, onSelect, selectedId }) {
+      const containerRef = useRef(null);
+      const ingRef = useRef(ingredients);
+      ingRef.current = ingredients;
+      const selRef = useRef(selectedId);
+      selRef.current = selectedId;
+      const [hovered, setHovered] = useState(null);
+
+      useEffect(() => {
+        const container = containerRef.current;
+        if (!container) return;
+
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color("#080c16");
+        scene.fog = new THREE.FogExp2("#080c16", 0.016);
+
+        const width = container.clientWidth;
+        const height = container.clientHeight;
+
+        const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
+        camera.position.set(0, 18, 36);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(width, height);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.shadowMap.enabled = true;
+        container.appendChild(renderer.domElement);
+
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.maxPolarAngle = Math.PI / 2 - 0.05;
+        controls.target.set(0, 4, 0);
+
+        // Lights
+        scene.add(new THREE.AmbientLight("#38bdf8", 0.5));
+        const dirLight = new THREE.DirectionalLight("#ffffff", 1.2);
+        dirLight.position.set(15, 30, 20);
+        scene.add(dirLight);
+        scene.add(new THREE.DirectionalLight("#06b6d4", 0.9));
+
+        // Floor
+        const floorGeo = new THREE.CylinderGeometry(24, 25, 0.8, 48);
+        const floorMat = new THREE.MeshStandardMaterial({ color: "#0f172a", roughness: 0.6 });
+        const floor = new THREE.Mesh(floorGeo, floorMat);
+        floor.position.y = -0.4;
+        scene.add(floor);
+
+        const grid = new THREE.GridHelper(44, 44, "#06b6d4", "#1e293b");
+        grid.position.y = 0.02;
+        scene.add(grid);
+
+        // Floating Threshold Plane (at y = 5.5)
+        const planeGeo = new THREE.PlaneGeometry(36, 18);
+        const planeMat = new THREE.MeshStandardMaterial({
+          color: "#38bdf8", transparent: true, opacity: 0.28, side: THREE.DoubleSide, depthWrite: false
+        });
+        const thresholdPlane = new THREE.Mesh(planeGeo, planeMat);
+        thresholdPlane.rotation.x = Math.PI / 2;
+        thresholdPlane.position.set(0, 5.5, 0);
+        scene.add(thresholdPlane);
+
+        const edges = new THREE.LineSegments(new THREE.EdgesGeometry(planeGeo), new THREE.LineBasicMaterial({ color: "#38bdf8" }));
+        edges.rotation.x = Math.PI / 2;
+        edges.position.set(0, 5.5, 0);
+        scene.add(edges);
+
+        // Towers
+        const towers = new Map();
+        const SPACING_X = 4.2;
+        const SPACING_Z = 6.2;
+        const START_X = -((7 - 1) * SPACING_X) / 2;
+        const ROW_Z = [-SPACING_Z / 2, SPACING_Z / 2];
+
+        ingRef.current.forEach((ing, idx) => {
+          const row = Math.floor(idx / 7);
+          const col = idx % 7;
+          const px = START_X + col * SPACING_X;
+          const pz = ROW_Z[row];
+
+          // Base
+          const base = new THREE.Mesh(
+            new THREE.CylinderGeometry(1.5, 1.6, 0.3, 24),
+            new THREE.MeshStandardMaterial({ color: "#1e293b" })
+          );
+          base.position.set(px, 0.15, pz);
+          scene.add(base);
+
+          // Tower Box
+          const boxGeo = new THREE.BoxGeometry(2.0, 1, 2.0);
+          boxGeo.translate(0, 0.5, 0);
+
+          const boxMat = new THREE.MeshStandardMaterial({
+            color: ing.status === "red" ? "#ef4444" : (ing.status === "amber" ? "#f59e0b" : "#10b981"),
+            emissive: ing.status === "red" ? "#dc2626" : (ing.status === "amber" ? "#d97706" : "#059669"),
+            emissiveIntensity: 0.35,
+            roughness: 0.2
+          });
+
+          const mesh = new THREE.Mesh(boxGeo, boxMat);
+          mesh.position.set(px, 0.3, pz);
+          mesh.scale.y = Math.max(0.4, ing.daysOfCoverLeft * 1.1);
+          mesh.userData = { id: ing.item.id };
+          scene.add(mesh);
+
+          towers.set(ing.item.id, { mesh, curH: mesh.scale.y });
+        });
+
+        // Raycasting
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2(-999, -999);
+
+        const onMouseMove = (e) => {
+          const rect = container.getBoundingClientRect();
+          mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+          mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+          raycaster.setFromCamera(mouse, camera);
+
+          const meshes = Array.from(towers.values()).map(t => t.mesh);
+          const hits = raycaster.intersectObjects(meshes);
+          if (hits.length > 0) {
+            const hitId = hits[0].object.userData.id;
+            const item = ingRef.current.find(i => i.item.id === hitId);
+            if (item) {
+              setHovered({ item, x: e.clientX - rect.left, y: e.clientY - rect.top });
+              container.style.cursor = "pointer";
+              return;
+            }
+          }
+          setHovered(null);
+          container.style.cursor = "default";
+        };
+
+        const onClick = (e) => {
+          const rect = container.getBoundingClientRect();
+          mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+          mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+          raycaster.setFromCamera(mouse, camera);
+
+          const meshes = Array.from(towers.values()).map(t => t.mesh);
+          const hits = raycaster.intersectObjects(meshes);
+          if (hits.length > 0) {
+            const hitId = hits[0].object.userData.id;
+            const item = ingRef.current.find(i => i.item.id === hitId);
+            if (item) onSelect(item);
+          }
+        };
+
+        container.addEventListener("mousemove", onMouseMove);
+        container.addEventListener("click", onClick);
+
+        let reqId;
+        const clock = new THREE.Clock();
+
+        const loop = () => {
+          reqId = requestAnimationFrame(loop);
+          const time = clock.getElapsedTime();
+          controls.update();
+
+          ingRef.current.forEach(ing => {
+            const entry = towers.get(ing.item.id);
+            if (!entry) return;
+
+            const targetH = Math.max(0.4, ing.daysOfCoverLeft * 1.1);
+            entry.curH += (targetH - entry.curH) * 0.12;
+            entry.mesh.scale.y = entry.curH;
+
+            const mat = entry.mesh.material;
+            let col = "#10b981";
+            let emi = "#059669";
+            let intensity = 0.35;
+
+            if (ing.status === "red") {
+              col = "#ef4444";
+              emi = "#dc2626";
+              intensity = 0.3 + 0.7 * Math.abs(Math.sin(time * 5.0)); // pulsating red!
+            } else if (ing.status === "amber") {
+              col = "#f59e0b";
+              emi = "#d97706";
+              intensity = 0.3 + 0.2 * Math.sin(time * 2.5);
+            }
+
+            mat.color.set(col);
+            mat.emissive.set(emi);
+            mat.emissiveIntensity = intensity;
+
+            if (selRef.current === ing.item.id) {
+              entry.mesh.scale.x = 1.15;
+              entry.mesh.scale.z = 1.15;
+            } else {
+              entry.mesh.scale.x = 1.0;
+              entry.mesh.scale.z = 1.0;
+            }
+          });
+
+          renderer.render(scene, camera);
+        };
+        loop();
+
+        return () => {
+          cancelAnimationFrame(reqId);
+          container.removeEventListener("mousemove", onMouseMove);
+          container.removeEventListener("click", onClick);
+          renderer.dispose();
+          if (container.contains(renderer.domElement)) container.removeChild(renderer.domElement);
+        };
+      }, []);
+
+      return (
+        <div className="relative w-full h-[480px] rounded-2xl overflow-hidden border border-cyan-500/20 bg-slate-950/80 shadow-2xl">
+          <div ref={containerRef} className="w-full h-full" />
+          
+          <div className="absolute top-3 left-3 px-3 py-1.5 rounded-lg bg-slate-900/80 border border-cyan-500/30 text-xs font-mono text-cyan-300">
+            3D PANTRY SKYLINE · ORBIT / CLICK TO INSPECT
+          </div>
+
+          <div className="absolute bottom-3 left-3 flex items-center gap-3 text-[11px] font-mono bg-slate-900/85 px-3 py-1.5 rounded-xl border border-white/10">
+            <span className="flex items-center gap-1.5 text-emerald-400">● Optimal</span>
+            <span className="flex items-center gap-1.5 text-amber-400">● Near Limit</span>
+            <span className="flex items-center gap-1.5 text-rose-400 animate-pulse">● Below Threshold (Buy)</span>
+            <span className="text-cyan-300">― 5d Threshold Plane</span>
+          </div>
+
+          {hovered && (
+            <div
+              className="pointer-events-none absolute z-20 px-3 py-2 rounded-xl bg-slate-900/90 border border-cyan-500/40 text-xs font-mono shadow-2xl"
+              style={{ left: Math.min(hovered.x + 15, 600), top: Math.max(hovered.y - 70, 15) }}
+            >
+              <div className="font-bold text-white text-sm">{hovered.item.item.icon} {hovered.item.item.name}</div>
+              <div className="text-cyan-300 font-bold">{hovered.item.daysOfCoverLeft} Days Cover</div>
+              <div className="text-slate-400">Safety Limit: {hovered.item.effectiveThreshold} Days</div>
+              <div className="text-slate-400">Burn: {hovered.item.effectiveUsage} {hovered.item.item.unit}/day</div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // ========================================================================
+    // MAIN APP
+    // ========================================================================
+    function App() {
+      const [daysAhead, setDaysAhead] = useState(0);
+      const [whatIfs, setWhatIfs] = useState({ extraWorkers200: false, ramadanMode: false, delayDelivery3Days: false });
+      const [viewMode, setViewMode] = useState("3D");
+      const [selected, setSelected] = useState(null);
+      const [isDemo, setIsDemo] = useState(false);
+      const [demoStep, setDemoStep] = useState(0);
+
+      const sim = useMemo(() => calculateSimulation(daysAhead, whatIfs), [daysAhead, whatIfs]);
+
+      const demoSteps = [
+        { t: "Step 1: 3D Skyline Overview", d: "14 core ingredients represented as towers where height = days of stock left.", fn: () => { setDaysAhead(0); setWhatIfs({ extraWorkers200: false, ramadanMode: false, delayDelivery3Days: false }); } },
+        { t: "Step 2: Floating Threshold Plane", d: "Towers below the translucent cyan plane (Cooking Oil, Onions, Eggs) pulse in RED.", fn: () => {} },
+        { t: "Step 3: Time Machine Slider", d: "Advancing to Day +4 forecasts stockout. Notice Basmati Rice & Chicken drop into danger.", fn: () => setDaysAhead(4) },
+        { t: "Step 4: Stress Testing Delay", d: "Supplier delivery delayed by 3 days. Safety threshold expands, flagging 8 items.", fn: () => setWhatIfs(w => ({ ...w, delayDelivery3Days: true })) },
+        { t: "Step 5: Dish Impact", d: "Menu items evaluate in real-time. 'Chicken Biryani' and 'Shakshuka' glow red and cannot be served.", fn: () => {} },
+        { t: "Step 6: Smart Buy Requisition", d: "All at-risk ingredients auto-grouped by vendor with exact SAR cost. One-click Purchase.", fn: () => {} },
+      ];
+
+      useEffect(() => {
+        if (!isDemo) return;
+        demoSteps[demoStep]?.fn();
+        const timer = setTimeout(() => {
+          if (demoStep < demoSteps.length - 1) setDemoStep(s => s + 1);
+          else setIsDemo(false);
+        }, 6000);
+        return () => clearTimeout(timer);
+      }, [isDemo, demoStep]);
+
+      return (
+        <div className="max-w-[1550px] mx-auto p-4 md:p-6 space-y-5">
+          {/* Top Bar */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 rounded-2xl bg-slate-900/80 border border-cyan-500/30 backdrop-blur-xl">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xl">🥫</span>
+                <h1 className="text-2xl font-black text-white">Pantry Command Center</h1>
+                <span className="px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 font-mono text-[10px] border border-cyan-500/40 font-bold">CAMP-365</span>
+              </div>
+              <p className="text-xs text-slate-400 mt-1">
+                Visual 3D threshold stock intelligence & predictive reordering for 1,000+ remote workers.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <div className="p-1 rounded-xl bg-slate-950 border border-white/10 flex text-xs font-mono">
+                <button
+                  onClick={() => setViewMode("3D")}
+                  className={`px-3 py-1.5 rounded-lg ${viewMode === "3D" ? "bg-cyan-500 text-black font-bold" : "text-slate-400"}`}
+                >
+                  3D Skyline
+                </button>
+                <button
+                  onClick={() => setViewMode("2D")}
+                  className={`px-3 py-1.5 rounded-lg ${viewMode === "2D" ? "bg-cyan-500 text-black font-bold" : "text-slate-400"}`}
+                >
+                  2D Bar View
+                </button>
+              </div>
+
+              {isDemo ? (
+                <button
+                  onClick={() => setIsDemo(false)}
+                  className="px-3 py-1.5 rounded-lg bg-rose-600 text-white font-mono text-xs font-bold"
+                >
+                  Exit Demo
+                </button>
+              ) : (
+                <button
+                  onClick={() => { setDemoStep(0); setIsDemo(true); }}
+                  className="px-3.5 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-mono text-xs font-bold shadow-[0_0_15px_#06b6d4]"
+                >
+                  ▶ Guided Demo Tour
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* KPIs */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+            <div className="p-4 rounded-2xl border border-rose-500/30 bg-slate-900/80">
+              <span className="text-[11px] font-mono text-slate-400 block">ITEMS TO BUY TODAY</span>
+              <span className="text-3xl font-black text-rose-400 font-mono">{sim.kpis.itemsToBuyToday}</span>
+              <span className="text-[10px] text-rose-300 block">Below safe threshold</span>
+            </div>
+            <div className="p-4 rounded-2xl border border-amber-500/30 bg-slate-900/80">
+              <span className="text-[11px] font-mono text-slate-400 block">DISHES AT RISK (WEEK)</span>
+              <span className="text-3xl font-black text-amber-400 font-mono">{sim.kpis.dishesAtRisk}</span>
+              <span className="text-[10px] text-amber-300 block">Of 10 upcoming planned</span>
+            </div>
+            <div className="p-4 rounded-2xl border border-cyan-500/30 bg-slate-900/80">
+              <span className="text-[11px] font-mono text-slate-400 block">EST. REORDER VALUE</span>
+              <span className="text-2xl font-black text-cyan-300 font-mono">SAR {sim.kpis.totalBuySAR.toLocaleString()}</span>
+              <span className="text-[10px] text-slate-400 block">Across {sim.supplierGroups.length} vendors</span>
+            </div>
+            <div className="p-4 rounded-2xl border border-emerald-500/30 bg-slate-900/80">
+              <span className="text-[11px] font-mono text-slate-400 block">STOCKOUTS MITIGATED</span>
+              <span className="text-3xl font-black text-emerald-400 font-mono">{sim.kpis.stockoutsAvoided}</span>
+              <span className="text-[10px] text-emerald-300 block">Aramco SLA protected</span>
+            </div>
+          </div>
+
+          {/* Controls: What-Ifs & Slider */}
+          <div className="p-4 rounded-2xl bg-slate-900/80 border border-white/10 grid grid-cols-1 lg:grid-cols-12 gap-4">
+            <div className="lg:col-span-5 space-y-2">
+              <span className="text-xs font-mono font-bold text-slate-400 block">WHAT-IF SCENARIOS:</span>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={() => setWhatIfs(w => ({ ...w, extraWorkers200: !w.extraWorkers200 }))}
+                  className={`px-3 py-1 rounded-xl text-xs font-mono border ${whatIfs.extraWorkers200 ? "bg-cyan-500/20 text-cyan-300 border-cyan-400 font-bold" : "bg-slate-950 text-slate-400 border-white/10"}`}
+                >
+                  👥 +200 Workers (+20%)
+                </button>
+                <button
+                  onClick={() => setWhatIfs(w => ({ ...w, ramadanMode: !w.ramadanMode }))}
+                  className={`px-3 py-1 rounded-xl text-xs font-mono border ${whatIfs.ramadanMode ? "bg-amber-500/20 text-amber-300 border-amber-400 font-bold" : "bg-slate-950 text-slate-400 border-white/10"}`}
+                >
+                  🌙 Ramadan Mode
+                </button>
+                <button
+                  onClick={() => setWhatIfs(w => ({ ...w, delayDelivery3Days: !w.delayDelivery3Days }))}
+                  className={`px-3 py-1 rounded-xl text-xs font-mono border ${whatIfs.delayDelivery3Days ? "bg-rose-500/20 text-rose-300 border-rose-400 font-bold" : "bg-slate-950 text-slate-400 border-white/10"}`}
+                >
+                  🚚 Delivery Delayed 3d
+                </button>
+              </div>
+            </div>
+
+            <div className="lg:col-span-7 space-y-2 border-t lg:border-t-0 lg:border-l border-white/10 lg:pl-4">
+              <div className="flex justify-between text-xs font-mono">
+                <span className="text-slate-400">TIME MACHINE FORECAST:</span>
+                <span className="text-cyan-300 font-bold">{daysAhead === 0 ? "Today" : `Day +${daysAhead}`}</span>
+              </div>
+              <input
+                type="range"
+                min="0"
+                max="14"
+                value={daysAhead}
+                onChange={e => setDaysAhead(Number(e.target.value))}
+                className="w-full h-2 bg-slate-800 rounded-lg cursor-pointer"
+              />
+              <div className="flex justify-between text-[10px] font-mono text-slate-500">
+                <span>Today</span>
+                <span>+4 Days</span>
+                <span>+8 Days</span>
+                <span>+14 Days (2 Weeks)</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Visualizer & Side Card */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
+            <div className={selected ? "lg:col-span-8" : "lg:col-span-12"}>
+              {viewMode === "3D" ? (
+                <PantrySkyline3D ingredients={sim.ingredients} onSelect={setSelected} selectedId={selected?.item.id} />
+              ) : (
+                <div className="p-4 rounded-2xl bg-slate-950 border border-white/10 grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {sim.ingredients.map(ing => (
+                    <div
+                      key={ing.item.id}
+                      onClick={() => setSelected(ing)}
+                      className={`p-3 rounded-xl border cursor-pointer ${ing.status === "red" ? "border-rose-500/30 bg-rose-950/20" : (ing.status === "amber" ? "border-amber-500/30 bg-amber-950/20" : "border-white/10 bg-slate-900/50")}`}
+                    >
+                      <div className="flex justify-between items-center text-xs font-mono">
+                        <span className="font-bold text-white">{ing.item.icon} {ing.item.name}</span>
+                        <span className={ing.status === "red" ? "text-rose-400 font-bold" : (ing.status === "amber" ? "text-amber-400" : "text-emerald-400")}>
+                          {ing.daysOfCoverLeft}d cover
+                        </span>
+                      </div>
+                      <div className="text-[10px] text-slate-400 font-mono mt-1">
+                        Stock: {ing.remainingStock} {ing.item.unit} (Burn: {ing.effectiveUsage}/day) · Limit: {ing.effectiveThreshold}d
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {selected && (
+              <div className="lg:col-span-4 p-4 rounded-2xl bg-slate-950 border border-cyan-500/40 space-y-3 font-mono text-xs">
+                <div className="flex justify-between items-center pb-2 border-b border-white/10">
+                  <span className="font-bold text-white text-sm">{selected.item.icon} {selected.item.name}</span>
+                  <button onClick={() => setSelected(null)} className="text-slate-400 hover:text-white">✕</button>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-center">
+                  <div className="p-2 rounded bg-slate-900 border border-white/10">
+                    <span className="text-[10px] text-slate-400 block">COVER</span>
+                    <span className="text-lg font-bold text-cyan-300">{selected.daysOfCoverLeft}d</span>
+                  </div>
+                  <div className="p-2 rounded bg-slate-900 border border-white/10">
+                    <span className="text-[10px] text-slate-400 block">THRESHOLD</span>
+                    <span className="text-lg font-bold text-slate-300">{selected.effectiveThreshold}d</span>
+                  </div>
+                </div>
+                <div className="text-slate-300 space-y-1 text-[11px]">
+                  <div>Supplier: <strong className="text-white">{selected.item.supplierName}</strong></div>
+                  <div>Lead Time: <strong className="text-white">{selected.item.leadTimeDays} days</strong></div>
+                  <div>Suggested Buy: <strong className="text-emerald-400">{selected.suggestedReorderQty} {selected.item.unit}</strong></div>
+                  <div>Reorder Cost: <strong className="text-cyan-300">SAR {selected.reorderCostSAR.toLocaleString()}</strong></div>
+                  <div className="text-rose-400 font-bold pt-1">{selected.urgencyLabel}</div>
+                </div>
+                <button
+                  onClick={() => setSelected(null)}
+                  className="w-full py-1.5 rounded bg-slate-800 text-slate-300 text-xs hover:bg-slate-700"
+                >
+                  Close
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Dish Health Rings */}
+          <div className="space-y-3">
+            <h3 className="text-sm font-bold text-white font-mono">UPCOMING MENU DISH HEALTH</h3>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+              {sim.dishes.map(dh => (
+                <div
+                  key={dh.dish.id}
+                  className={`p-3 rounded-xl border backdrop-blur-md ${dh.overallStatus === "red" ? "border-rose-500/40 bg-rose-950/20" : (dh.overallStatus === "amber" ? "border-amber-500/40 bg-amber-950/20" : "border-white/10 bg-slate-900/60")}`}
+                >
+                  <div className="flex justify-between items-start">
+                    <span className="text-[10px] font-mono text-slate-400 uppercase">{dh.dish.scheduledDay} · {dh.dish.mealSession}</span>
+                    <span className={`w-3 h-3 rounded-full ${dh.overallStatus === "red" ? "bg-rose-500 shadow-[0_0_8px_#ef4444]" : (dh.overallStatus === "amber" ? "bg-amber-500" : "bg-emerald-500")}`} />
+                  </div>
+                  <h4 className="text-xs font-bold text-white mt-1">{dh.dish.name}</h4>
+                  <p className="text-[10px] text-slate-400 font-mono mt-0.5">{dh.dish.portions} portions</p>
+                  <div className={`text-[10px] font-mono mt-2 truncate ${dh.overallStatus === "red" ? "text-rose-300 font-bold" : "text-slate-300"}`}>
+                    {dh.canServeMessage}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Smart Buy List */}
+          <div className="p-4 md:p-5 rounded-2xl bg-slate-950/90 border border-cyan-500/30 space-y-3">
+            <div className="flex justify-between items-center border-b border-white/10 pb-3">
+              <div>
+                <h3 className="text-sm font-bold text-white font-mono flex items-center gap-2">
+                  <span>🛒 SMART REORDER BUY LIST</span>
+                  <span className="text-[10px] text-cyan-300 px-1.5 py-0.5 bg-cyan-500/20 rounded">AUTO-GROUPED</span>
+                </h3>
+                <p className="text-xs text-slate-400">Restores safety inventory buffer to 12 days.</p>
+              </div>
+              <button
+                onClick={() => alert(`PO-2026-ARAMCO-${Math.floor(1000 + Math.random() * 9000)} dispatched to ${sim.supplierGroups.length} vendors! Total SAR ${sim.kpis.totalBuySAR.toLocaleString()}`)}
+                className="px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 text-white font-mono text-xs font-bold shadow-[0_0_15px_#06b6d4]"
+              >
+                Send to Purchase (SAR {sim.kpis.totalBuySAR.toLocaleString()})
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {sim.supplierGroups.map(grp => (
+                <div key={grp.supplierName} className="p-3 rounded-xl bg-slate-900 border border-white/10 text-xs font-mono space-y-1">
+                  <div className="flex justify-between text-white font-bold pb-1 border-b border-white/5">
+                    <span>{grp.supplierName} ({grp.leadTime}d lead)</span>
+                    <span className="text-cyan-300">SAR {grp.totalSAR.toLocaleString()}</span>
+                  </div>
+                  {grp.items.map((it, idx) => (
+                    <div key={idx} className="flex justify-between text-slate-300 text-[11px]">
+                      <span>{it.status === "red" ? "🔴" : "🟡"} {it.name} ({it.qty} {it.unit})</span>
+                      <span className="text-white font-bold">SAR {it.cost.toLocaleString()}</span>
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Demo Subtitle Banner */}
+          {isDemo && (
+            <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-[90%] max-w-[650px] p-4 rounded-2xl bg-slate-900/95 border-2 border-cyan-400 shadow-[0_0_30px_#06b6d4] font-mono text-xs">
+              <div className="flex justify-between text-cyan-300 font-bold mb-1">
+                <span>{demoSteps[demoStep]?.t}</span>
+                <button onClick={() => setIsDemo(false)} className="text-rose-400 hover:text-white">✕ Exit</button>
+              </div>
+              <p className="text-white text-sm">{demoSteps[demoStep]?.d}</p>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    ReactDOM.render(<App />, document.getElementById("root"));
+  </script>
+</body>
+</html>

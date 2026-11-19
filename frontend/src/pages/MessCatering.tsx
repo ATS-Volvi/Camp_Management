@@ -1,8 +1,9 @@
 import { useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   UtensilsCrossed, Package, ClipboardList, BarChart3, Settings2,
   Plus, Trash2, Check, X, ChevronRight, AlertTriangle, Download,
-  Coffee, Sun, Moon, Users, Calculator, FileText, Truck, Sparkles, Recycle, ShoppingBasket, Wand2
+  Coffee, Sun, Moon, Users, Calculator, FileText, Truck, Sparkles, Recycle, ShoppingBasket, Wand2, Compass
 } from "lucide-react";
 import { MASTER_INGREDIENTS } from "@/data/ingredientMaster";
 import GroceryConfigMaster from "@/components/catering/GroceryConfigMaster";
@@ -49,6 +50,7 @@ export const formatDateSafe = (dateVal: any, fmt: string = "dd MMM yyyy") => {
 };
 
 export default function MessCatering() {
+  const navigate = useNavigate();
   const [tab, setTab] = useState<Tab>("dashboard");
   const [selectedCampId, setSelectedCampId] = useState("");
   const [ramadanMode, setRamadanMode] = useState(false);
@@ -96,6 +98,13 @@ export default function MessCatering() {
         </select>
 
         <div className="ml-auto flex items-center gap-2">
+          <button
+            onClick={() => navigate("/catering/pantry-command-center")}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 border border-cyan-500/30 hover:bg-cyan-500/25 transition-all shadow-sm"
+          >
+            <Compass size={14} className="text-cyan-500 animate-spin" style={{ animationDuration: "14s" }} />
+            Pantry Command Center (3D)
+          </button>
           <button
             onClick={() => setRamadanMode(!ramadanMode)}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${ramadanMode

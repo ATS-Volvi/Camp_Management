@@ -3,7 +3,7 @@ import {
   Home, Upload, Building2, Truck, Users, Wrench, Package, Settings as SettingsIcon,
   BarChart3, Activity, Bell, HelpCircle, ChevronDown, Search, Box, LogIn, ClipboardList, Sparkles, UtensilsCrossed, UserCheck,
   Shield, UserCog, FileText, AlertTriangle, ChefHat, ShieldCheck, LineChart, Cog, Gauge, BedDouble, Link2, Ban,
-  LayoutDashboard, PieChart, CalendarDays, Briefcase, SlidersHorizontal
+  LayoutDashboard, PieChart, CalendarDays, Briefcase, SlidersHorizontal, Compass
 } from "lucide-react";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useEffect, useState } from "react";
@@ -50,6 +50,7 @@ const navGroups: {
     label: "Catering Division",
     icon: UtensilsCrossed,
     items: [
+      { label: "Pantry Command Center", icon: Compass, path: "/catering/pantry-command-center" },
       { label: "Mess & Catering", icon: UtensilsCrossed, path: "/mess-catering" },
       { label: "Smart Meal Management", icon: UtensilsCrossed, path: "/meal-management" },
       { label: "Grocery Inventory", icon: Package, path: "/grocery-inventory" },
