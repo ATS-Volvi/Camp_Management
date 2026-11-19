@@ -44,6 +44,7 @@ import BottomlineReport from "./pages/BottomlineReport";
 import GroceryInventory from "./pages/GroceryInventory";
 import PreventiveMaintenance from "./pages/PreventiveMaintenance";
 import MealManagement from "./pages/MealManagement";
+import CateringInsightsPage from "./pages/CateringInsightsPage";
 import FoodCancellation from "./pages/FoodCancellation";
 import DepartmentLunch from "./pages/DepartmentLunch";
 import DepartmentLunchRates from "./pages/DepartmentLunchRates";
@@ -128,6 +129,9 @@ const App = () => (
                 <Route path="/ai-reports" element={<AIReports />} />
                 <Route path="/anomaly-report" element={<AnomalyReport />} />
                 <Route path="/mess-catering" element={<MessCatering />} />
+                <Route path="/catering/crowd-density" element={<CateringInsightsPage />} />
+                <Route path="/catering/waste-analytics" element={<CateringInsightsPage />} />
+                <Route path="/catering/insights" element={<CateringInsightsPage />} />
                 <Route path="/cook-requests" element={<CookRequests />} />
                 <Route path="/visitors" element={<VisitorManagement />} />
                 <Route path="/admin/users" element={<UserManagement />} />

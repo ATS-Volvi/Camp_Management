@@ -96,6 +96,20 @@ export default function MessCatering() {
         </select>
 
         <div className="ml-auto flex items-center gap-2">
+          <a
+            href="/catering/crowd-density"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-primary/10 text-primary hover:bg-primary/20 border border-primary/20 transition-all"
+          >
+            <Users size={14} />
+            <span>Dining Rush</span>
+          </a>
+          <a
+            href="/catering/waste-analytics"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-destructive/10 text-destructive hover:bg-destructive/20 border border-destructive/20 transition-all"
+          >
+            <Recycle size={14} />
+            <span>Waste Analytics</span>
+          </a>
           <button
             onClick={() => setRamadanMode(!ramadanMode)}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${ramadanMode
