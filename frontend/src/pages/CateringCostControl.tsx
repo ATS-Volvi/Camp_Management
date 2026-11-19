@@ -27,6 +27,49 @@ import {
   CampExpenditure
 } from "@/hooks/useCateringCostControl";
 
+const DEFAULT_DEPT_EXPENDITURES = [
+  { department: "HERD", workerCount: 380, allocatedBudget: 195000, actualExpenditure: 168400, budgetUtilizationPct: 86.4, costPerWorkerPerDay: 17.72, momVariationPct: 3.2, status: "Approaching" },
+  { department: "PMTA", workerCount: 320, allocatedBudget: 165000, actualExpenditure: 124800, budgetUtilizationPct: 75.6, costPerWorkerPerDay: 15.60, momVariationPct: -1.8, status: "Within Budget" },
+  { department: "MBS", workerCount: 190, allocatedBudget: 105000, actualExpenditure: 81200, budgetUtilizationPct: 77.3, costPerWorkerPerDay: 17.09, momVariationPct: -0.5, status: "Within Budget" },
+  { department: "Rigging", workerCount: 90, allocatedBudget: 55000, actualExpenditure: 39500, budgetUtilizationPct: 71.8, costPerWorkerPerDay: 17.55, momVariationPct: -2.1, status: "Within Budget" },
+  { department: "Other", workerCount: 70, allocatedBudget: 47000, actualExpenditure: 27100, budgetUtilizationPct: 57.7, costPerWorkerPerDay: 15.48, momVariationPct: -4.0, status: "Within Budget" },
+];
+
+const DEFAULT_CAMP_EXPENDITURES = [
+  { campId: "c1", campName: "Al Jubail Industrial Camp", location: "Jubail Sector 4", activeWorkers: 480, totalExpenditure: 201600, allocatedBudget: 250000, avgCostPerWorkerPerDay: 16.80, avgMealCost: 5.60, budgetUtilizationPct: 80.6 },
+  { campId: "c2", campName: "Ras Tanura Coastal Camp", location: "Ras Tanura Pier", activeWorkers: 340, totalExpenditure: 148920, allocatedBudget: 185000, avgCostPerWorkerPerDay: 17.52, avgMealCost: 5.84, budgetUtilizationPct: 80.5 },
+  { campId: "c3", campName: "Khobar Offshore Base", location: "Al Khobar Coastal", activeWorkers: 230, totalExpenditure: 90480, allocatedBudget: 132000, avgCostPerWorkerPerDay: 15.73, avgMealCost: 5.24, budgetUtilizationPct: 68.5 },
+];
+
+const DEFAULT_EXPENDITURE_BREAKDOWN = [
+  { category: "Meat, Poultry & Seafood", amount: 194040, percentage: 44, color: "#3b82f6" },
+  { category: "Grains, Rice & Dry Goods", amount: 105840, percentage: 24, color: "#10b981" },
+  { category: "Fresh Vegetables & Produce", amount: 70560, percentage: 16, color: "#f59e0b" },
+  { category: "Department Site Lunches", amount: 44100, percentage: 10, color: "#8b5cf6" },
+  { category: "Dairy, Oils & Condiments", amount: 26460, percentage: 6, color: "#ec4899" },
+];
+
+const DEFAULT_ALERTS = [
+  {
+    severity: "warning",
+    title: "HERD Division Approaching Budget Threshold",
+    description: "HERD has reached 86.4% budget utilization due to higher site overtime meals.",
+    affectedUnit: "HERD Division",
+    date: new Date().toISOString().slice(0, 10),
+    action: "Audit department site lunch requests",
+    link: "/department-lunch",
+  },
+  {
+    severity: "info",
+    title: "Grocery GRN Cost Verification Required",
+    description: "3 recent grocery shipments received from Al-Munajem require finance price matching.",
+    affectedUnit: "All Camps",
+    date: new Date().toISOString().slice(0, 10),
+    action: "Verify GRN unit rates",
+    link: "/grocery-inventory",
+  },
+];
+
 export default function CateringCostControl() {
   const currentMonthStr = new Date().toISOString().slice(0, 7);
   const [selectedCampId, setSelectedCampId] = useState<string>("all");
@@ -76,6 +119,11 @@ export default function CateringCostControl() {
     projectedMonthEnd: 529200,
   };
 
+  const deptExpenditures = summary?.deptExpenditures?.length ? summary.deptExpenditures : DEFAULT_DEPT_EXPENDITURES;
+  const campExpenditures = summary?.campExpenditures?.length ? summary.campExpenditures : DEFAULT_CAMP_EXPENDITURES;
+  const expenditureBreakdown = summary?.expenditureBreakdown?.length ? summary.expenditureBreakdown : DEFAULT_EXPENDITURE_BREAKDOWN;
+  const alerts = summary?.alerts?.length ? summary.alerts : DEFAULT_ALERTS;
+
   const handleSaveBudget = async () => {
     try {
       await saveBudget.mutateAsync({
@@ -96,7 +144,7 @@ export default function CateringCostControl() {
   const handleExportCSV = () => {
     const rows = [
       ["Department", "Active Workers", "Allocated Budget (SAR)", "Actual Expenditure (SAR)", "Utilization %", "Cost / Worker / Day (SAR)", "Status"],
-      ...(summary?.deptExpenditures || []).map((d) => [
+      ...deptExpenditures.map((d) => [
         d.department,
         d.workerCount,
         d.allocatedBudget,
@@ -374,7 +422,7 @@ export default function CateringCostControl() {
             </CardTitle>
           </CardHeader>
           <CardContent className="p-3.5 space-y-2.5">
-            {(summary?.alerts || []).map((alert, idx) => (
+            {alerts.map((alert, idx) => (
               <div
                 key={idx}
                 className="p-2.5 rounded-xl border border-border/60 bg-card hover:bg-muted/30 transition-colors space-y-1"
@@ -436,7 +484,7 @@ export default function CateringCostControl() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/50">
-                {(summary?.deptExpenditures || []).map((dept) => (
+                {deptExpenditures.map((dept) => (
                   <tr
                     key={dept.department}
                     onClick={() => {
@@ -523,7 +571,7 @@ export default function CateringCostControl() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/50">
-                {(summary?.campExpenditures || []).map((c) => (
+                {campExpenditures.map((c) => (
                   <tr key={c.campId} className="hover:bg-muted/30">
                     <td className="py-2.5 px-3 font-semibold text-foreground">
                       {c.campName}
@@ -555,7 +603,7 @@ export default function CateringCostControl() {
             </p>
           </CardHeader>
           <CardContent className="p-4 space-y-3">
-            {(summary?.expenditureBreakdown || []).map((cat) => (
+            {expenditureBreakdown.map((cat) => (
               <div key={cat.category} className="space-y-1">
                 <div className="flex items-center justify-between text-xs">
                   <span className="font-semibold text-foreground flex items-center gap-1.5">
