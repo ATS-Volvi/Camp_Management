@@ -1,8 +1,15 @@
 import React, { useState, useMemo } from "react";
-import { ComputedIngredientStatus } from "@/data/pantryCommandData";
+import { ComputedIngredientStatus, ComputedDishHealth } from "@/data/pantryCommandData";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   ResponsiveContainer,
   BarChart,
@@ -25,16 +32,24 @@ import {
   Clock,
   Sparkles,
   Info,
+  Utensils,
+  X,
 } from "lucide-react";
 
 interface PantrySkyline2DProps {
   ingredients: ComputedIngredientStatus[];
+  dishes?: ComputedDishHealth[];
+  selectedDishFilter?: string;
+  onSelectDishFilter?: (dishId: string) => void;
   onSelectIngredient: (item: ComputedIngredientStatus) => void;
   selectedIngredientId?: string | null;
 }
 
 export default function PantrySkyline2D({
   ingredients,
+  dishes,
+  selectedDishFilter = "all",
+  onSelectDishFilter,
   onSelectIngredient,
   selectedIngredientId,
 }: PantrySkyline2DProps) {
@@ -44,9 +59,22 @@ export default function PantrySkyline2D({
   const [filterStatus, setFilterStatus] = useState<"all" | "red" | "amber" | "green">("all");
   const [sortBy, setSortBy] = useState<"cover" | "name" | "status">("cover");
 
+  // Active dish object if a specific dish is filtered
+  const activeDish = useMemo(() => {
+    if (!dishes || !selectedDishFilter || selectedDishFilter === "all") return null;
+    return dishes.find((d) => d.dish.id === selectedDishFilter) || null;
+  }, [dishes, selectedDishFilter]);
+
   // Filter ingredients
   const filtered = useMemo(() => {
     return ingredients.filter((ing) => {
+      // If dish filter is active, only show ingredients for that planned dish
+      if (activeDish) {
+        if (!activeDish.dish.keyIngredientIds.includes(ing.item.id)) {
+          return false;
+        }
+      }
+
       const matchSearch =
         ing.item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         ing.item.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -55,7 +83,7 @@ export default function PantrySkyline2D({
       const matchStatus = filterStatus === "all" ? true : ing.status === filterStatus;
       return matchSearch && matchStatus;
     });
-  }, [ingredients, searchQuery, filterStatus]);
+  }, [ingredients, searchQuery, filterStatus, activeDish]);
 
   // Sort ingredients
   const sorted = useMemo(() => {
@@ -186,8 +214,47 @@ export default function PantrySkyline2D({
           </p>
         </div>
 
-        {/* View Mode Switcher (Dynamic Reports Style) */}
+        {/* Right Controls: Dish Selector & View Mode Switcher */}
         <div className="flex items-center gap-2 flex-wrap">
+          {dishes && dishes.length > 0 && (
+            <div className="flex items-center gap-1.5">
+              <Select
+                value={selectedDishFilter || "all"}
+                onValueChange={(val) => onSelectDishFilter?.(val)}
+              >
+                <SelectTrigger className="h-8 w-[210px] text-xs bg-muted/60 border-border font-medium">
+                  <div className="flex items-center gap-1.5 truncate">
+                    <Utensils className="h-3.5 w-3.5 text-[#fe932c] shrink-0" />
+                    <SelectValue placeholder="Filter by Planned Dish" />
+                  </div>
+                </SelectTrigger>
+                <SelectContent className="max-h-72">
+                  <SelectItem value="all">
+                    🍲 All Dishes ({ingredients.length} items)
+                  </SelectItem>
+                  {dishes.map((dh) => (
+                    <SelectItem key={dh.dish.id} value={dh.dish.id}>
+                      <div className="flex items-center justify-between gap-2 w-full text-xs">
+                        <span className="truncate">{dh.dish.name}</span>
+                        <span
+                          className={`text-[9px] px-1 py-0.2 rounded font-bold uppercase ${
+                            dh.overallStatus === "red"
+                              ? "bg-rose-500/20 text-rose-700 dark:text-rose-300"
+                              : dh.overallStatus === "amber"
+                              ? "bg-amber-500/20 text-amber-700 dark:text-amber-300"
+                              : "bg-emerald-500/20 text-emerald-700 dark:text-emerald-300"
+                          }`}
+                        >
+                          {dh.overallStatus}
+                        </span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
           <div className="p-1 rounded-lg bg-muted border border-border flex items-center gap-1 text-xs font-semibold">
             <button
               onClick={() => setChartMode("bar")}
@@ -292,6 +359,47 @@ export default function PantrySkyline2D({
           />
         </div>
       </div>
+
+      {/* Active Dish Filter Banner (When Filtered) */}
+      {activeDish && (
+        <div className="p-3 rounded-lg bg-[#0c2340]/5 dark:bg-primary/10 border border-[#0c2340]/20 dark:border-primary/20 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs animate-in fade-in duration-200">
+          <div className="flex items-center gap-2.5">
+            <div className="p-1.5 rounded-md bg-[#0c2340] text-white shrink-0">
+              <Utensils className="h-3.5 w-3.5 text-[#fe932c]" />
+            </div>
+            <div>
+              <span className="font-bold text-foreground">
+                Showing ingredients required for:{" "}
+              </span>
+              <span className="font-extrabold text-primary underline decoration-[#fe932c]">
+                {activeDish.dish.name}
+              </span>
+              <span className="text-muted-foreground ml-2">
+                ({activeDish.dish.keyIngredientIds.length} ingredients) &bull; Meal Status:{" "}
+                <strong
+                  className={
+                    activeDish.overallStatus === "red"
+                      ? "text-rose-600 dark:text-rose-400 font-bold"
+                      : activeDish.overallStatus === "amber"
+                      ? "text-amber-600 dark:text-amber-400 font-bold"
+                      : "text-emerald-600 dark:text-emerald-400 font-bold"
+                  }
+                >
+                  {activeDish.canServeMessage}
+                </strong>
+              </span>
+            </div>
+          </div>
+
+          <button
+            onClick={() => onSelectDishFilter?.("all")}
+            className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 px-2.5 py-1 rounded border border-border bg-card self-start sm:self-auto shrink-0 transition-colors shadow-2xs"
+          >
+            <X className="h-3 w-3" />
+            Clear Dish Filter
+          </button>
+        </div>
+      )}
 
       {/* VIEW 1: RECHARTS BAR GRAPH (WITH 5-DAY SAFETY LINE) */}
       {chartMode === "bar" && (

@@ -4,10 +4,17 @@ import { AlertCircle, CheckCircle, Clock, Utensils, ChevronDown, ChevronUp, Spar
 
 interface DishHealthRingsProps {
   dishes: ComputedDishHealth[];
+  selectedDishFilter?: string;
+  onSelectDishFilter?: (dishId: string) => void;
   onSelectIngredient: (item: ComputedIngredientStatus) => void;
 }
 
-export default function DishHealthRings({ dishes, onSelectIngredient }: DishHealthRingsProps) {
+export default function DishHealthRings({
+  dishes,
+  selectedDishFilter = "all",
+  onSelectDishFilter,
+  onSelectIngredient,
+}: DishHealthRingsProps) {
   const [expandedDishId, setExpandedDishId] = useState<string | null>(null);
 
   const toggleExpand = (id: string) => {
@@ -37,19 +44,29 @@ export default function DishHealthRings({ dishes, onSelectIngredient }: DishHeal
           const isExpanded = expandedDishId === dh.dish.id;
           const isRed = dh.overallStatus === "red";
           const isAmber = dh.overallStatus === "amber";
+          const isFiltered = selectedDishFilter === dh.dish.id;
 
           return (
             <div
               key={dh.dish.id}
               onClick={() => toggleExpand(dh.dish.id)}
               className={`rounded-xl p-3 border transition-all cursor-pointer relative overflow-hidden group ${
-                isRed
+                isFiltered
+                  ? "border-[#fe932c] ring-2 ring-[#fe932c]/40 bg-card shadow-md"
+                  : isRed
                   ? "bg-rose-500/5 border-rose-500/40 hover:border-rose-500/70 hover:shadow-md"
                   : isAmber
                   ? "bg-amber-500/5 border-amber-500/40 hover:border-amber-500/70 hover:shadow-md"
                   : "bg-muted/20 border-border/70 hover:border-emerald-500/50 hover:shadow-md"
               }`}
             >
+              {/* Active Filter Pill */}
+              {isFiltered && (
+                <div className="mb-1.5 -mx-3 -mt-3 px-3 py-1 bg-[#fe932c] text-slate-950 text-[10px] font-black uppercase tracking-wider flex items-center justify-between">
+                  <span>✦ Filtering Pantry</span>
+                  <span className="text-[9px] underline">Active</span>
+                </div>
+              )}
               {/* Dish Header & Status Ring */}
               <div className="flex items-start justify-between gap-2">
                 <div>
@@ -125,8 +142,27 @@ export default function DishHealthRings({ dishes, onSelectIngredient }: DishHeal
                 ))}
               </div>
 
+              {/* Filter Dish Action Button */}
+              <div className="mt-2.5">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onSelectDishFilter?.(isFiltered ? "all" : dh.dish.id);
+                  }}
+                  className={`w-full py-1 px-2 rounded-md text-[11px] font-bold transition-all flex items-center justify-center gap-1.5 ${
+                    isFiltered
+                      ? "bg-[#0c2340] text-white dark:bg-primary dark:text-primary-foreground shadow-xs"
+                      : "bg-muted/60 hover:bg-muted text-foreground border border-border/70"
+                  }`}
+                >
+                  <Utensils className="h-3 w-3 text-[#fe932c]" />
+                  <span>{isFiltered ? "Showing Ingredients" : "Filter Pantry by Dish"}</span>
+                </button>
+              </div>
+
               {/* Expand Toggle */}
-              <div className="mt-2.5 flex items-center justify-between text-[11px] text-primary font-medium">
+              <div className="mt-2 flex items-center justify-between text-[11px] text-primary font-medium">
                 <span>{isExpanded ? "Hide Details" : "Check Ingredients"}</span>
                 {isExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
               </div>

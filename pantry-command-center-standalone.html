@@ -193,21 +193,29 @@
     // ========================================================================
     // 2D PANTRY INVENTORY MONITOR WITH BAR GRAPH & STACKED GRAPH
     // ========================================================================
-    function PantryInventoryMonitor2D({ ingredients, onSelect, selectedId }) {
+    function PantryInventoryMonitor2D({ ingredients, onSelect, selectedId, dishes, selectedDishId = "all", onSelectDish }) {
       const [viewMode, setViewMode] = useState("bar"); // "bar", "stacked", "cards"
       const [searchQuery, setSearchQuery] = useState("");
       const [statusFilter, setStatusFilter] = useState("all");
       const [sortBy, setSortBy] = useState("cover");
 
+      const activeDish = useMemo(() => {
+        if (!dishes || !selectedDishId || selectedDishId === "all") return null;
+        return dishes.find(d => d.dish.id === selectedDishId) || null;
+      }, [dishes, selectedDishId]);
+
       const filtered = useMemo(() => {
         return ingredients.filter(ing => {
+          if (activeDish && !activeDish.dish.keyIngredientIds.includes(ing.item.id)) {
+            return false;
+          }
           const matchSearch = ing.item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
             ing.item.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
             ing.item.supplierName.toLowerCase().includes(searchQuery.toLowerCase());
           const matchStatus = statusFilter === "all" ? true : ing.status === statusFilter;
           return matchSearch && matchStatus;
         });
-      }, [ingredients, searchQuery, statusFilter]);
+      }, [ingredients, searchQuery, statusFilter, activeDish]);
 
       const sorted = useMemo(() => {
         return [...filtered].sort((a, b) => {
@@ -242,16 +250,32 @@
               </p>
             </div>
 
-            {/* View Mode Switcher */}
-            <div className="flex items-center gap-1.5 p-1 bg-slate-950 border border-slate-700 rounded-lg text-xs font-semibold">
-              <button
-                onClick={() => setViewMode("bar")}
-                className={`px-2.5 py-1 rounded transition-all ${
-                  viewMode === "bar" ? "bg-[#fe932c] text-slate-950 font-bold" : "text-slate-400 hover:text-white"
-                }`}
-              >
-                📊 Bar Graph
-              </button>
+            {/* Dish Filter Dropdown & View Mode Switcher */}
+            <div className="flex items-center gap-2 flex-wrap">
+              {dishes && dishes.length > 0 && (
+                <select
+                  value={selectedDishId || "all"}
+                  onChange={(e) => onSelectDish && onSelectDish(e.target.value)}
+                  className="bg-slate-950 border border-slate-700 text-white text-xs px-2.5 py-1.5 rounded-lg focus:outline-hidden focus:border-[#fe932c]"
+                >
+                  <option value="all">🍲 All Planned Dishes ({ingredients.length} items)</option>
+                  {dishes.map(d => (
+                    <option key={d.dish.id} value={d.dish.id}>
+                      {d.dish.name} ({d.overallStatus.toUpperCase()})
+                    </option>
+                  ))}
+                </select>
+              )}
+
+              <div className="flex items-center gap-1.5 p-1 bg-slate-950 border border-slate-700 rounded-lg text-xs font-semibold">
+                <button
+                  onClick={() => setViewMode("bar")}
+                  className={`px-2.5 py-1 rounded transition-all ${
+                    viewMode === "bar" ? "bg-[#fe932c] text-slate-950 font-bold" : "text-slate-400 hover:text-white"
+                  }`}
+                >
+                  📊 Bar Graph
+                </button>
               <button
                 onClick={() => setViewMode("stacked")}
                 className={`px-2.5 py-1 rounded transition-all ${
@@ -319,6 +343,24 @@
               className="px-3 py-1 text-xs bg-slate-950 border border-slate-700 rounded-lg text-white placeholder-slate-500 w-full sm:w-48 focus:outline-none focus:border-[#fe932c]"
             />
           </div>
+
+          {/* Active Dish Filter Banner */}
+          {activeDish && (
+            <div className="p-3 rounded-lg bg-[#0c2340] border border-[#fe932c]/50 flex items-center justify-between text-xs">
+              <div className="flex items-center gap-2">
+                <span className="text-base">🍲</span>
+                <span>
+                  Showing ingredients needed for <strong className="text-[#fe932c] underline">{activeDish.dish.name}</strong> ({activeDish.dish.keyIngredientIds.length} ingredients) &bull; Meal Status: <strong className={activeDish.overallStatus === "red" ? "text-rose-400" : activeDish.overallStatus === "amber" ? "text-amber-400" : "text-emerald-400"}>{activeDish.canServeMessage}</strong>
+                </span>
+              </div>
+              <button
+                onClick={() => onSelectDish && onSelectDish("all")}
+                className="px-2 py-0.5 rounded bg-slate-800 text-slate-300 hover:text-white border border-slate-700"
+              >
+                ✕ Clear
+              </button>
+            </div>
+          )}
 
           {/* VIEW 1: INTERACTIVE BAR GRAPH */}
           {viewMode === "bar" && (
@@ -558,6 +600,7 @@
       const [whatIfs, setWhatIfs] = useState({ extraWorkers200: false, ramadanMode: false, delayDelivery3Days: false });
       const [viewMode, setViewMode] = useState("3D");
       const [selected, setSelected] = useState(null);
+      const [selectedDishId, setSelectedDishId] = useState("all");
       const [isDemo, setIsDemo] = useState(false);
       const [demoStep, setDemoStep] = useState(0);
 
@@ -750,6 +793,9 @@
             <div className={selected ? "lg:col-span-8" : "lg:col-span-12"}>
               <PantryInventoryMonitor2D
                 ingredients={sim.ingredients}
+                dishes={sim.dishes}
+                selectedDishId={selectedDishId}
+                onSelectDish={setSelectedDishId}
                 onSelect={setSelected}
                 selectedId={selected?.item.id}
               />
@@ -795,32 +841,54 @@
                 <h3 className="text-sm font-bold text-white flex items-center gap-1.5">
                   <span>🍽️ Upcoming Menu Dishes & Meal Availability</span>
                 </h3>
-                <p className="text-xs text-slate-400">Will the kitchen have enough food to prepare these scheduled meals?</p>
+                <p className="text-xs text-slate-400">Click any dish below to filter inventory and reorders specifically for that meal</p>
               </div>
+              {selectedDishId !== "all" && (
+                <button
+                  onClick={() => setSelectedDishId("all")}
+                  className="text-xs text-[#fe932c] hover:underline"
+                >
+                  ✕ Show All Dishes
+                </button>
+              )}
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-              {sim.dishes.map(dh => (
-                <div
-                  key={dh.dish.id}
-                  className={`p-3 rounded-xl border transition-all ${
-                    dh.overallStatus === "red"
-                      ? "border-rose-500/40 bg-rose-500/10"
-                      : dh.overallStatus === "amber"
-                      ? "border-amber-500/40 bg-amber-500/10"
-                      : "border-slate-700/60 bg-slate-800/40 hover:bg-slate-800"
-                  }`}
-                >
-                  <div className="flex justify-between items-start">
-                    <span className="text-[10px] uppercase font-bold text-slate-400">{dh.dish.scheduledDay} · {dh.dish.mealSession}</span>
-                    <span className={`w-3 h-3 rounded-full shrink-0 ${dh.overallStatus === "red" ? "bg-rose-500" : (dh.overallStatus === "amber" ? "bg-amber-500" : "bg-emerald-500")}`} />
+              {sim.dishes.map(dh => {
+                const isFiltered = selectedDishId === dh.dish.id;
+                return (
+                  <div
+                    key={dh.dish.id}
+                    onClick={() => setSelectedDishId(isFiltered ? "all" : dh.dish.id)}
+                    className={`p-3 rounded-xl border transition-all cursor-pointer relative ${
+                      isFiltered
+                        ? "border-[#fe932c] ring-2 ring-[#fe932c]/50 bg-slate-800 shadow-lg"
+                        : dh.overallStatus === "red"
+                        ? "border-rose-500/40 bg-rose-500/10 hover:border-rose-500"
+                        : dh.overallStatus === "amber"
+                        ? "border-amber-500/40 bg-amber-500/10 hover:border-amber-500"
+                        : "border-slate-700/60 bg-slate-800/40 hover:bg-slate-800"
+                    }`}
+                  >
+                    {isFiltered && (
+                      <span className="absolute -top-2.5 right-2 px-1.5 py-0.5 rounded bg-[#fe932c] text-slate-950 font-black text-[9px] uppercase">
+                        Filtering Graph
+                      </span>
+                    )}
+                    <div className="flex justify-between items-start">
+                      <span className="text-[10px] uppercase font-bold text-slate-400">{dh.dish.scheduledDay} · {dh.dish.mealSession}</span>
+                      <span className={`w-3 h-3 rounded-full shrink-0 ${dh.overallStatus === "red" ? "bg-rose-500" : (dh.overallStatus === "amber" ? "bg-amber-500" : "bg-emerald-500")}`} />
+                    </div>
+                    <h4 className="text-xs font-bold text-white mt-1">{dh.dish.name}</h4>
+                    <p className="text-[11px] text-slate-400 mt-0.5">{dh.dish.portions} portions planned</p>
+                    <div className={`text-[11px] mt-2 truncate ${dh.overallStatus === "red" ? "text-rose-400 font-bold" : (dh.overallStatus === "amber" ? "text-amber-400 font-medium" : "text-emerald-400")}`}>
+                      {dh.canServeMessage}
+                    </div>
+                    <div className="mt-2 pt-1 border-t border-slate-700/50 text-[10px] text-[#fe932c] font-semibold">
+                      {isFiltered ? "✕ Click to clear" : "🔍 Click to filter ingredients"}
+                    </div>
                   </div>
-                  <h4 className="text-xs font-bold text-white mt-1">{dh.dish.name}</h4>
-                  <p className="text-[11px] text-slate-400 mt-0.5">{dh.dish.portions} portions planned</p>
-                  <div className={`text-[11px] mt-2 truncate ${dh.overallStatus === "red" ? "text-rose-400 font-bold" : (dh.overallStatus === "amber" ? "text-amber-400 font-medium" : "text-emerald-400")}`}>
-                    {dh.canServeMessage}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 
@@ -849,15 +917,38 @@
                     <span>{grp.supplierName} ({grp.leadTime}d delivery)</span>
                     <span className="text-[#fe932c] font-bold font-mono">SAR {grp.totalSAR.toLocaleString()}</span>
                   </div>
-                  {grp.items.map((it, idx) => (
-                    <div key={idx} className="flex justify-between items-center text-slate-300 text-xs">
-                      <span className="flex items-center gap-1.5">
-                        <span className={`w-2 h-2 rounded-full ${it.status === "red" ? "bg-rose-500" : "bg-amber-500"}`} />
-                        {it.name} ({it.qty} {it.unit})
-                      </span>
-                      <span className="text-white font-mono font-semibold">SAR {it.cost.toLocaleString()}</span>
-                    </div>
-                  ))}
+                  {grp.items.map((it, idx) => {
+                    const matchedDishes = sim.dishes.filter(d => 
+                      d.dish.keyIngredientIds.some(kid => 
+                        it.name.toLowerCase().includes(kid.toLowerCase()) || 
+                        kid.toLowerCase().includes(it.name.toLowerCase().split(' ')[0].toLowerCase())
+                      )
+                    );
+                    const isForSelected = selectedDishId !== "all" && matchedDishes.some(d => d.dish.id === selectedDishId);
+
+                    return (
+                      <div key={idx} className={`p-1.5 rounded-lg flex flex-col sm:flex-row sm:items-center justify-between text-slate-300 text-xs gap-1 transition-colors ${isForSelected ? "bg-[#fe932c]/10 border border-[#fe932c]/40" : ""}`}>
+                        <div>
+                          <div className="flex items-center gap-1.5">
+                            <span className={`w-2 h-2 rounded-full ${it.status === "red" ? "bg-rose-500" : "bg-amber-500"}`} />
+                            <span className="font-semibold text-white">{it.name}</span>
+                            <span className="text-slate-400">({it.qty} {it.unit})</span>
+                            {isForSelected && (
+                              <span className="text-[9px] px-1 rounded bg-[#fe932c] text-slate-950 font-black uppercase">
+                                For Selected Dish
+                              </span>
+                            )}
+                          </div>
+                          {matchedDishes.length > 0 && (
+                            <div className="text-[10px] text-slate-400 ml-3.5 mt-0.5 truncate max-w-[280px]">
+                              Needed for: <strong className="text-slate-300">{matchedDishes.map(d => d.dish.name).join(", ")}</strong>
+                            </div>
+                          )}
+                        </div>
+                        <span className="text-white font-mono font-semibold text-right">SAR {it.cost.toLocaleString()}</span>
+                      </div>
+                    );
+                  })}
                 </div>
               ))}
             </div>

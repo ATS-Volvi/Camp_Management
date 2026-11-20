@@ -26,6 +26,7 @@ export default function PantryCommandCenter() {
   const [daysAhead, setDaysAhead] = useState<number>(0);
   const [whatIfs, setWhatIfs] = useState<WhatIfState>(INITIAL_WHAT_IF_STATE);
   const [selectedIngredient, setSelectedIngredient] = useState<ComputedIngredientStatus | null>(null);
+  const [selectedDishFilter, setSelectedDishFilter] = useState<string>("all");
 
   // 2. Demo Mode Guided Tour State
   const [isDemoMode, setIsDemoMode] = useState(false);
@@ -384,6 +385,9 @@ export default function PantryCommandCenter() {
         <div className={selectedIngredient ? "lg:col-span-8" : "lg:col-span-12"}>
           <PantrySkyline2D
             ingredients={simulation.ingredients}
+            dishes={simulation.dishes}
+            selectedDishFilter={selectedDishFilter}
+            onSelectDishFilter={setSelectedDishFilter}
             onSelectIngredient={(ing) => setSelectedIngredient(ing)}
             selectedIngredientId={selectedIngredient?.item.id}
           />
@@ -403,6 +407,8 @@ export default function PantryCommandCenter() {
       {/* 5. Upcoming Menu Dish Health Cards */}
       <DishHealthRings
         dishes={simulation.dishes}
+        selectedDishFilter={selectedDishFilter}
+        onSelectDishFilter={setSelectedDishFilter}
         onSelectIngredient={(ing) => setSelectedIngredient(ing)}
       />
 
@@ -410,6 +416,8 @@ export default function PantryCommandCenter() {
       <PantrySmartBuyList
         supplierGroups={simulation.supplierGroups}
         totalSAR={simulation.kpis.estimatedPurchaseValueSAR}
+        dishes={simulation.dishes}
+        selectedDishFilter={selectedDishFilter}
       />
 
       {/* 7. Demo Mode Guided Tour Floating Banner (When Active) */}

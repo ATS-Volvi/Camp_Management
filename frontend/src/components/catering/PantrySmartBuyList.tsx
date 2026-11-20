@@ -1,6 +1,6 @@
 import React, { useState } from "react";
-import { SupplierOrderGroup } from "@/data/pantryCommandData";
-import { ShoppingCart, CheckCircle2, Send, Building2, Clock, Sparkles } from "lucide-react";
+import { SupplierOrderGroup, ComputedDishHealth } from "@/data/pantryCommandData";
+import { ShoppingCart, CheckCircle2, Send, Building2, Clock, Sparkles, Utensils } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
@@ -8,9 +8,16 @@ import { toast } from "@/hooks/use-toast";
 interface PantrySmartBuyListProps {
   supplierGroups: SupplierOrderGroup[];
   totalSAR: number;
+  dishes?: ComputedDishHealth[];
+  selectedDishFilter?: string;
 }
 
-export default function PantrySmartBuyList({ supplierGroups, totalSAR }: PantrySmartBuyListProps) {
+export default function PantrySmartBuyList({
+  supplierGroups,
+  totalSAR,
+  dishes,
+  selectedDishFilter = "all",
+}: PantrySmartBuyListProps) {
   const [purchaseSent, setPurchaseSent] = useState(false);
   const [generatedPoId, setGeneratedPoId] = useState<string>("");
 
@@ -97,34 +104,65 @@ export default function PantrySmartBuyList({ supplierGroups, totalSAR }: PantryS
 
               {/* Items List */}
               <div className="divide-y divide-border/40 border-t border-border/40 pt-1.5">
-                {group.items.map((it, idx) => (
-                  <div
-                    key={idx}
-                    className="py-1.5 flex items-center justify-between text-xs"
-                  >
-                    <div className="flex items-center gap-2">
-                      <span
-                        className={`h-2 w-2 rounded-full ${
-                          it.urgency === "critical"
-                            ? "bg-rose-500"
-                            : "bg-amber-500"
-                        }`}
-                        title={it.urgency === "critical" ? "Urgent buy today" : "Order soon"}
-                      />
-                      <span className="font-medium text-foreground">{it.name}</span>
-                    </div>
+                {group.items.map((it, idx) => {
+                  const neededForDishes = dishes
+                    ? dishes.filter((d) => d.dish.keyIngredientIds.includes(it.id))
+                    : [];
+                  const isNeededForSelectedDish =
+                    selectedDishFilter && selectedDishFilter !== "all"
+                      ? neededForDishes.some((d) => d.dish.id === selectedDishFilter)
+                      : false;
 
-                    <div className="flex items-center gap-3 sm:gap-6 text-muted-foreground text-[11px] font-mono">
-                      <span>
-                        Order: <strong className="text-foreground">{it.suggestedQty} {it.unit}</strong>
-                      </span>
-                      <span className="hidden sm:inline">@ SAR {it.unitPriceSAR.toFixed(2)}</span>
-                      <span className="text-foreground font-bold min-w-[70px] text-right">
-                        SAR {it.subtotalSAR.toLocaleString()}
-                      </span>
+                  return (
+                    <div
+                      key={idx}
+                      className={`py-2 px-1.5 rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs transition-colors ${
+                        isNeededForSelectedDish
+                          ? "bg-[#fe932c]/10 border border-[#fe932c]/30"
+                          : ""
+                      }`}
+                    >
+                      <div className="flex flex-col">
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`h-2 w-2 rounded-full shrink-0 ${
+                              it.urgency === "critical"
+                                ? "bg-rose-500"
+                                : "bg-amber-500"
+                            }`}
+                            title={it.urgency === "critical" ? "Urgent buy today" : "Order soon"}
+                          />
+                          <span className="font-semibold text-foreground">{it.name}</span>
+                          {isNeededForSelectedDish && (
+                            <span className="text-[9px] px-1.5 py-0.2 rounded bg-[#fe932c] text-slate-950 font-black uppercase tracking-wider">
+                              Needed for Selected Dish
+                            </span>
+                          )}
+                        </div>
+
+                        {neededForDishes.length > 0 && (
+                          <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground ml-4 mt-0.5">
+                            <Utensils className="h-2.5 w-2.5 text-[#fe932c] shrink-0" />
+                            <span>Needed for:</span>
+                            <span className="text-foreground/90 font-medium truncate max-w-[320px]">
+                              {neededForDishes.map((d) => d.dish.name).join(", ")}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-3 sm:gap-6 text-muted-foreground text-[11px] font-mono ml-4 sm:ml-0">
+                        <span>
+                          Order: <strong className="text-foreground">{it.suggestedQty} {it.unit}</strong>
+                        </span>
+                        <span className="hidden sm:inline">@ SAR {it.unitPriceSAR.toFixed(2)}</span>
+                        <span className="text-foreground font-bold min-w-[70px] text-right">
+                          SAR {it.subtotalSAR.toLocaleString()}
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           ))}

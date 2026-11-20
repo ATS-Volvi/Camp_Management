@@ -397,6 +397,7 @@ export interface SupplierOrderGroup {
   contactEmail: string;
   leadTimeDays: number;
   items: Array<{
+    id: string;
     name: string;
     suggestedQty: number;
     unit: string;
@@ -556,6 +557,7 @@ export function calculatePantrySimulation(
       const group = supplierMap.get(sName)!;
       const subtotalSAR = ing.reorderCostSAR;
       group.items.push({
+        id: ing.item.id,
         name: ing.item.name,
         suggestedQty: ing.suggestedReorderQty,
         unit: ing.item.unit,
