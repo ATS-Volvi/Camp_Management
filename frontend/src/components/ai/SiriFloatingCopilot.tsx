@@ -27,8 +27,22 @@ interface Message {
   reportAction?: any;
 }
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:3001/api";
-const CHAT_URL = `${BACKEND_URL}/ai/chat`;
+function resolveCopilotChatUrl(): string {
+  const envUrl = import.meta.env.VITE_BACKEND_URL;
+  if (envUrl && envUrl.trim()) {
+    const clean = envUrl.trim().replace(/\/+$/, "");
+    const base = clean.endsWith("/api") ? clean : `${clean}/api`;
+    return `${base}/ai/chat`;
+  }
+  // Auto-detect Render deployment: if running on *.onrender.com
+  if (typeof window !== "undefined" && window.location.hostname.includes("onrender.com")) {
+    const currentHost = window.location.hostname;
+    // e.g. camp-management-frontend.onrender.com -> camp-management-backend.onrender.com
+    const backendHost = currentHost.replace("frontend", "backend");
+    return `https://${backendHost}/api/ai/chat`;
+  }
+  return "http://localhost:3001/api/ai/chat";
+}
 
 export default function SiriFloatingCopilot() {
   const location = useLocation();
@@ -173,8 +187,13 @@ export default function SiriFloatingCopilot() {
     };
 
     try {
-      const token = localStorage.getItem("token") || localStorage.getItem("authToken");
-      const resp = await fetch(CHAT_URL, {
+      const token =
+        localStorage.getItem("auth_token") ||
+        localStorage.getItem("token") ||
+        localStorage.getItem("authToken");
+
+      const chatEndpoint = resolveCopilotChatUrl();
+      const resp = await fetch(chatEndpoint, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -184,11 +203,21 @@ export default function SiriFloatingCopilot() {
       });
 
       if (!resp.ok) {
-        const err = await resp.json().catch(() => ({ error: "Request failed" }));
+        const err = await resp.json().catch(() => ({ error: `Server returned HTTP ${resp.status}` }));
         throw new Error(err.error || `Error ${resp.status}`);
       }
 
-      if (!resp.body) throw new Error("No response body");
+      const contentType = resp.headers.get("content-type") || "";
+
+      // Handle standard JSON response
+      if (contentType.includes("application/json")) {
+        const data = await resp.json();
+        const content = data.report || data.content || data.message || JSON.stringify(data);
+        setMessages((prev) => [...prev, { role: "assistant", content }]);
+        return;
+      }
+
+      if (!resp.body) throw new Error("No response stream available");
 
       const reader = resp.body.getReader();
       const decoder = new TextDecoder();
@@ -214,6 +243,11 @@ export default function SiriFloatingCopilot() {
             }
           }
         }
+      }
+
+      // If buffer has leftover text and assistantSoFar is empty, handle plain text stream
+      if (!assistantSoFar && buffer.trim()) {
+        upsertAssistant(buffer.trim());
       }
     } catch (err: any) {
       toast.error(err.message || "Failed to reach AI Copilot");

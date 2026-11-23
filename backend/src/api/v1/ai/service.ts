@@ -1,6 +1,15 @@
 import AIDatabase from './database';
 
 class AIService {
+    static async getRawSystemContext() {
+        try {
+            return await AIDatabase.getSystemContext();
+        } catch (err) {
+            console.error('Error fetching raw context:', err);
+            return {};
+        }
+    }
+
     static async getSystemContext(userQuery?: string) {
         try {
             const context = await AIDatabase.getSystemContext();
