@@ -99,6 +99,13 @@ export default function MessCatering() {
 
         <div className="ml-auto flex items-center gap-2">
           <button
+            onClick={() => navigate("/catering/enterprise-hub")}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold bg-[#fe932c]/15 text-[#fe932c] border border-[#fe932c]/40 hover:bg-[#fe932c]/25 transition-all shadow-sm"
+          >
+            <Sparkles size={14} className="text-[#fe932c]" />
+            Enterprise 3D Suite
+          </button>
+          <button
             onClick={() => navigate("/catering/pantry-command-center")}
             className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 border border-cyan-500/30 hover:bg-cyan-500/25 transition-all shadow-sm"
           >

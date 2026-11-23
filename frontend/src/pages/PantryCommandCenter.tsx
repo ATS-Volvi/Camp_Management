@@ -162,6 +162,15 @@ export default function PantryCommandCenter() {
 
         {/* Global Toolbar Commands */}
         <div className="flex flex-wrap items-center gap-2">
+          <Button
+            size="sm"
+            onClick={() => navigate("/catering/enterprise-hub")}
+            className="h-8 text-xs font-semibold gap-1.5 bg-cyan-600 hover:bg-cyan-700 text-white shadow-xs font-bold"
+          >
+            <Compass size={13} />
+            <span>Enterprise 3D Suite</span>
+          </Button>
+
           {/* Guided Demo Tour Button */}
           {isDemoMode ? (
             <Button

@@ -1,0 +1,549 @@
+/**
+ * Enterprise Catering & Kitchen Operations Suite Data Engine
+ * Models the 6 core pillars:
+ * 1. Menu & Production Planning (Recipe BOM & Scaling)
+ * 2. Inventory & Procurement (Inter-Site Transfers & Redistribution Radar)
+ * 3. Food Cost & DMC (3D Financial Skyline & Budget Ceilings)
+ * 4. Meal Management (Dining Hall Digital Twin & Zero-Duplicate Shield)
+ * 5. Waste & Quality Control (FIFO Shelf-Life Vault & Recipe Rescue)
+ * 6. Reporting & Billing (Aramco Audit Cube & SAP Reconciliation)
+ */
+
+// ============================================================================
+// 1. MENU & PRODUCTION PLANNING (RECIPE BOM & SCALER)
+// ============================================================================
+
+export interface RecipeIngredientBOM {
+  ingredientId: string;
+  name: string;
+  category: "Protein" | "Grain" | "Vegetable" | "Dairy" | "Spices" | "Oil";
+  unit: string;
+  baseQtyPer100Pax: number;
+  unitCostSAR: number;
+  warehouseStock: number; // Current stock in camp store
+  prepStation: "Butchery" | "Rice & Grain Prep" | "Hot Range" | "Cold Larder" | "Bakery";
+  colorHex: string;
+}
+
+export interface DishRecipeMaster {
+  id: string;
+  name: string;
+  arabicName: string;
+  cuisine: string;
+  mealSession: "Breakfast" | "Lunch" | "Dinner" | "Suhoor" | "Iftar";
+  basePortions: number;
+  prepTimeMinutes: number;
+  cookingTimeMinutes: number;
+  ingredients: RecipeIngredientBOM[];
+  chefInstructions: string[];
+}
+
+export const ENTERPRISE_RECIPES: DishRecipeMaster[] = [
+  {
+    id: "dish-biryani",
+    name: "Chicken Dum Biryani",
+    arabicName: "برياني دجاج دوم",
+    cuisine: "Hyderabadi / Gulf",
+    mealSession: "Lunch",
+    basePortions: 100,
+    prepTimeMinutes: 45,
+    cookingTimeMinutes: 60,
+    ingredients: [
+      { ingredientId: "ing-chicken", name: "Fresh Chicken (Clean Cut)", category: "Protein", unit: "kg", baseQtyPer100Pax: 18.0, unitCostSAR: 26, warehouseStock: 210, prepStation: "Butchery", colorHex: "#f97316" },
+      { ingredientId: "ing-rice", name: "Basmati Sella Rice", category: "Grain", unit: "kg", baseQtyPer100Pax: 8.5, unitCostSAR: 6, warehouseStock: 140, prepStation: "Rice & Grain Prep", colorHex: "#eab308" },
+      { ingredientId: "ing-oil", name: "Corn Cooking Oil", category: "Oil", unit: "L", baseQtyPer100Pax: 2.5, unitCostSAR: 12, warehouseStock: 26, prepStation: "Hot Range", colorHex: "#84cc16" },
+      { ingredientId: "ing-onion", name: "Red Onions (Sliced)", category: "Vegetable", unit: "kg", baseQtyPer100Pax: 4.0, unitCostSAR: 3.5, warehouseStock: 55, prepStation: "Cold Larder", colorHex: "#a855f7" },
+      { ingredientId: "ing-yogurt", name: "Fresh Plain Yogurt", category: "Dairy", unit: "kg", baseQtyPer100Pax: 3.0, unitCostSAR: 8, warehouseStock: 35, prepStation: "Cold Larder", colorHex: "#06b6d4" },
+      { ingredientId: "ing-spices", name: "Biryani Garam Masala & Saffron", category: "Spices", unit: "kg", baseQtyPer100Pax: 0.8, unitCostSAR: 45, warehouseStock: 12, prepStation: "Hot Range", colorHex: "#ec4899" },
+    ],
+    chefInstructions: [
+      "Marinate bone-in chicken in yogurt, ginger-garlic paste, and spices for 45 minutes.",
+      "Par-boil basmati rice with whole spices until 70% cooked (approx 6 minutes in rolling boil).",
+      "Layer marinated protein at bottom of deg/pot, top with par-boiled rice and caramelized onions.",
+      "Seal pot with dough/foil and cook on low dum heat for 40 minutes.",
+    ],
+  },
+  {
+    id: "dish-kabsa",
+    name: "Saudi Lamb Kabsa",
+    arabicName: "كبسة لحم ضأن سعودية",
+    cuisine: "Traditional Saudi",
+    mealSession: "Dinner",
+    basePortions: 100,
+    prepTimeMinutes: 40,
+    cookingTimeMinutes: 75,
+    ingredients: [
+      { ingredientId: "ing-lamb", name: "Fresh Local Lamb", category: "Protein", unit: "kg", baseQtyPer100Pax: 20.0, unitCostSAR: 65, warehouseStock: 180, prepStation: "Butchery", colorHex: "#ef4444" },
+      { ingredientId: "ing-rice", name: "Long Grain Rice", category: "Grain", unit: "kg", baseQtyPer100Pax: 9.0, unitCostSAR: 6, warehouseStock: 140, prepStation: "Rice & Grain Prep", colorHex: "#eab308" },
+      { ingredientId: "ing-oil", name: "Ghee & Vegetable Oil Blend", category: "Oil", unit: "L", baseQtyPer100Pax: 3.0, unitCostSAR: 15, warehouseStock: 30, prepStation: "Hot Range", colorHex: "#84cc16" },
+      { ingredientId: "ing-tomato", name: "Crushed Plum Tomatoes", category: "Vegetable", unit: "kg", baseQtyPer100Pax: 5.0, unitCostSAR: 4, warehouseStock: 48, prepStation: "Cold Larder", colorHex: "#f43f5e" },
+      { ingredientId: "ing-spices", name: "Loomi (Dried Lime) & Kabsa Spices", category: "Spices", unit: "kg", baseQtyPer100Pax: 1.0, unitCostSAR: 40, warehouseStock: 15, prepStation: "Hot Range", colorHex: "#ec4899" },
+    ],
+    chefInstructions: [
+      "Sear lamb chunks in ghee until golden brown, add chopped onions and whole spices.",
+      "Add tomato puree and water, simmer under pressure until lamb is fork tender (45 mins).",
+      "Remove lamb pieces to broil in oven for golden crispness.",
+      "Cook spiced rice directly in seasoned lamb stock broth.",
+    ],
+  },
+  {
+    id: "dish-dal-tadka",
+    name: "Yellow Dal Tadka & Jeera Rice",
+    arabicName: "عدس تادكا مع أرز كمون",
+    cuisine: "Indian Vegetarian",
+    mealSession: "Lunch",
+    basePortions: 100,
+    prepTimeMinutes: 20,
+    cookingTimeMinutes: 35,
+    ingredients: [
+      { ingredientId: "ing-dal", name: "Toor & Moong Lentils", category: "Grain", unit: "kg", baseQtyPer100Pax: 6.0, unitCostSAR: 7, warehouseStock: 95, prepStation: "Rice & Grain Prep", colorHex: "#f59e0b" },
+      { ingredientId: "ing-rice", name: "Basmati Rice", category: "Grain", unit: "kg", baseQtyPer100Pax: 8.0, unitCostSAR: 6, warehouseStock: 140, prepStation: "Rice & Grain Prep", colorHex: "#eab308" },
+      { ingredientId: "ing-oil", name: "Refined Sunflower Oil", category: "Oil", unit: "L", baseQtyPer100Pax: 2.0, unitCostSAR: 12, warehouseStock: 26, prepStation: "Hot Range", colorHex: "#84cc16" },
+      { ingredientId: "ing-tomato", name: "Fresh Tomatoes (Diced)", category: "Vegetable", unit: "kg", baseQtyPer100Pax: 4.0, unitCostSAR: 4, warehouseStock: 48, prepStation: "Cold Larder", colorHex: "#f43f5e" },
+      { ingredientId: "ing-spices", name: "Cumin, Garlic & Mustard Tadka", category: "Spices", unit: "kg", baseQtyPer100Pax: 0.6, unitCostSAR: 35, warehouseStock: 10, prepStation: "Hot Range", colorHex: "#ec4899" },
+    ],
+    chefInstructions: [
+      "Pressure cook washed lentils with turmeric and salt until velvety smooth.",
+      "In a separate skillet, prepare temper (tadka) with garlic, cumin, green chillies and ghee.",
+      "Pour sizzled tadka over hot lentils and garnish with fresh coriander.",
+    ],
+  },
+];
+
+export interface ScaledRecipeResult {
+  pax: number;
+  scaleFactor: number;
+  totalCostSAR: number;
+  costPerPersonSAR: number;
+  ingredients: Array<{
+    bom: RecipeIngredientBOM;
+    scaledQty: number;
+    subtotalSAR: number;
+    hasStockShortage: boolean;
+    shortageQty: number;
+  }>;
+  stationWorkload: Array<{
+    station: string;
+    totalWeightKg: number;
+    itemCount: number;
+  }>;
+}
+
+export function scaleRecipe(recipe: DishRecipeMaster, pax: number): ScaledRecipeResult {
+  const scaleFactor = pax / recipe.basePortions;
+  let totalCostSAR = 0;
+  const stationMap = new Map<string, { weight: number; count: number }>();
+
+  const scaledIngredients = recipe.ingredients.map((ing) => {
+    const scaledQty = Number((ing.baseQtyPer100Pax * scaleFactor).toFixed(2));
+    const subtotalSAR = Number((scaledQty * ing.unitCostSAR).toFixed(2));
+    totalCostSAR += subtotalSAR;
+
+    const hasStockShortage = scaledQty > ing.warehouseStock;
+    const shortageQty = hasStockShortage ? Number((scaledQty - ing.warehouseStock).toFixed(2)) : 0;
+
+    const station = ing.prepStation;
+    const current = stationMap.get(station) || { weight: 0, count: 0 };
+    stationMap.set(station, {
+      weight: current.weight + scaledQty,
+      count: current.count + 1,
+    });
+
+    return {
+      bom: ing,
+      scaledQty,
+      subtotalSAR,
+      hasStockShortage,
+      shortageQty,
+    };
+  });
+
+  const stationWorkload = Array.from(stationMap.entries()).map(([station, val]) => ({
+    station,
+    totalWeightKg: Number(val.weight.toFixed(1)),
+    itemCount: val.count,
+  }));
+
+  return {
+    pax,
+    scaleFactor,
+    totalCostSAR: Number(totalCostSAR.toFixed(2)),
+    costPerPersonSAR: Number((totalCostSAR / pax).toFixed(2)),
+    ingredients: scaledIngredients,
+    stationWorkload,
+  };
+}
+
+// ============================================================================
+// 2. INVENTORY & PROCUREMENT (INTER-CAMP REDISTRIBUTION RADAR)
+// ============================================================================
+
+export interface CampClusterNode {
+  id: string;
+  name: string;
+  code: string;
+  occupancy: number;
+  coords: [number, number]; // 3D coordinates on terrain [x, z]
+  distanceKmFromBase: number;
+  oilDaysCover: number; // e.g. Cooking Oil days of cover left
+  chickenDaysCover: number;
+  riceDaysCover: number;
+}
+
+export const CAMP_CLUSTER_NODES: CampClusterNode[] = [
+  { id: "camp-01", name: "Camp-01 Tanajib Main", code: "TAN-01", occupancy: 1250, coords: [0, 0], distanceKmFromBase: 0, oilDaysCover: 1.8, chickenDaysCover: 2.2, riceDaysCover: 8.5 },
+  { id: "camp-02", name: "Camp-02 Marjan Coastal", code: "MRJ-02", occupancy: 820, coords: [18, -12], distanceKmFromBase: 21.6, oilDaysCover: 7.4, chickenDaysCover: 6.0, riceDaysCover: 12.0 },
+  { id: "camp-03", name: "Camp-03 Berri Base", code: "BER-03", occupancy: 650, coords: [-16, 14], distanceKmFromBase: 21.2, oilDaysCover: 5.0, chickenDaysCover: 5.5, riceDaysCover: 9.0 },
+  { id: "camp-04", name: "Camp-04 Rig Central Hub", code: "RIG-04", occupancy: 1100, coords: [24, 20], distanceKmFromBase: 31.2, oilDaysCover: 14.5, chickenDaysCover: 12.0, riceDaysCover: 18.0 },
+  { id: "camp-05", name: "Camp-05 EPC North Facility", code: "EPC-05", occupancy: 490, coords: [-22, -18], distanceKmFromBase: 28.4, oilDaysCover: 9.0, chickenDaysCover: 8.0, riceDaysCover: 11.5 },
+];
+
+export interface InterCampTransferManifest {
+  id: string;
+  transferNumber: string;
+  sourceCamp: CampClusterNode;
+  destCamp: CampClusterNode;
+  item: string;
+  qty: number;
+  unit: string;
+  valueSAR: number;
+  distanceKm: number;
+  estimatedDriveMins: number;
+  driverName: string;
+  plateNumber: string;
+  status: "proposed" | "in_transit" | "delivered";
+  savingsVsSupplierSAR: number;
+}
+
+export const SAMPLE_TRANSFERS: InterCampTransferManifest[] = [
+  {
+    id: "tr-001",
+    transferNumber: "TR-2026-ARAMCO-0042",
+    sourceCamp: CAMP_CLUSTER_NODES[3], // Rig Central Hub
+    destCamp: CAMP_CLUSTER_NODES[0], // Tanajib Main
+    item: "Corn Cooking Oil",
+    qty: 40,
+    unit: "L",
+    valueSAR: 480,
+    distanceKm: 31.2,
+    estimatedDriveMins: 38,
+    driverName: "Mansour Al-Harbi",
+    plateNumber: "KSA-7741-KBL",
+    status: "in_transit",
+    savingsVsSupplierSAR: 1450,
+  },
+  {
+    id: "tr-002",
+    transferNumber: "TR-2026-ARAMCO-0043",
+    sourceCamp: CAMP_CLUSTER_NODES[1], // Marjan
+    destCamp: CAMP_CLUSTER_NODES[0], // Tanajib Main
+    item: "Fresh Chicken (Clean Cut)",
+    qty: 60,
+    unit: "kg",
+    valueSAR: 1560,
+    distanceKm: 21.6,
+    estimatedDriveMins: 26,
+    driverName: "Zaid Tariq",
+    plateNumber: "KSA-9122-NRD",
+    status: "proposed",
+    savingsVsSupplierSAR: 2100,
+  },
+];
+
+// ============================================================================
+// 3. FOOD COST & DMC (3D FINANCIAL SKYLINE & CPH BUDGET CEILING)
+// ============================================================================
+
+export interface ProjectDmcRecord {
+  projectCode: string;
+  projectName: string;
+  contractClient: string;
+  headcount: number;
+  sessions: {
+    breakfast: { cph: number; totalCostSAR: number };
+    lunch: { cph: number; totalCostSAR: number };
+    dinner: { cph: number; totalCostSAR: number };
+    fieldPack: { cph: number; totalCostSAR: number };
+  };
+  totalDailyDmcSAR: number;
+  overallCphSAR: number;
+  budgetCeilingCphSAR: number; // Contractual cap, e.g. 18.50 SAR
+  status: "under_budget" | "over_budget";
+  varianceSAR: number;
+  topCostDriver: string;
+}
+
+export const PROJECT_DMC_DATA: ProjectDmcRecord[] = [
+  {
+    projectCode: "MRJ-EXP",
+    projectName: "Aramco Marjan Expansion",
+    contractClient: "Saudi Aramco Offshore",
+    headcount: 420,
+    sessions: {
+      breakfast: { cph: 4.2, totalCostSAR: 1764 },
+      lunch: { cph: 8.8, totalCostSAR: 3696 },
+      dinner: { cph: 8.5, totalCostSAR: 3570 },
+      fieldPack: { cph: 2.1, totalCostSAR: 882 },
+    },
+    totalDailyDmcSAR: 9912,
+    overallCphSAR: 23.6,
+    budgetCeilingCphSAR: 20.0,
+    status: "over_budget",
+    varianceSAR: 3.6,
+    topCostDriver: "Fresh Mutton & Premium Basmati",
+  },
+  {
+    projectCode: "TAN-GAS",
+    projectName: "Tanajib Gas Plant Project",
+    contractClient: "Aramco / EPC JV",
+    headcount: 380,
+    sessions: {
+      breakfast: { cph: 3.8, totalCostSAR: 1444 },
+      lunch: { cph: 6.9, totalCostSAR: 2622 },
+      dinner: { cph: 6.5, totalCostSAR: 2470 },
+      fieldPack: { cph: 1.5, totalCostSAR: 570 },
+    },
+    totalDailyDmcSAR: 7106,
+    overallCphSAR: 18.7,
+    budgetCeilingCphSAR: 19.5,
+    status: "under_budget",
+    varianceSAR: -0.8,
+    topCostDriver: "Standard Poultry & Lentils",
+  },
+  {
+    projectCode: "HERD-RIG",
+    projectName: "Heavy Equipment Rental (HERD)",
+    contractClient: "Contractor Fleet",
+    headcount: 240,
+    sessions: {
+      breakfast: { cph: 3.2, totalCostSAR: 768 },
+      lunch: { cph: 6.1, totalCostSAR: 1464 },
+      dinner: { cph: 5.8, totalCostSAR: 1392 },
+      fieldPack: { cph: 2.4, totalCostSAR: 576 },
+    },
+    totalDailyDmcSAR: 4200,
+    overallCphSAR: 17.5,
+    budgetCeilingCphSAR: 18.0,
+    status: "under_budget",
+    varianceSAR: -0.5,
+    topCostDriver: "Packed Field Lunches",
+  },
+  {
+    projectCode: "PMTA-PIPE",
+    projectName: "Plant Maint. Tech Assistance (PMTA)",
+    contractClient: "Aramco Pipeline Division",
+    headcount: 310,
+    sessions: {
+      breakfast: { cph: 4.0, totalCostSAR: 1240 },
+      lunch: { cph: 7.9, totalCostSAR: 2449 },
+      dinner: { cph: 7.8, totalCostSAR: 2418 },
+      fieldPack: { cph: 1.8, totalCostSAR: 558 },
+    },
+    totalDailyDmcSAR: 6665,
+    overallCphSAR: 21.5,
+    budgetCeilingCphSAR: 19.0,
+    status: "over_budget",
+    varianceSAR: 2.5,
+    topCostDriver: "Unscheduled VIP Dinner Guests",
+  },
+  {
+    projectCode: "MBS-MOD",
+    projectName: "Modular Building Services (MBS)",
+    contractClient: "Civil Camp Infrastructure",
+    headcount: 150,
+    sessions: {
+      breakfast: { cph: 3.1, totalCostSAR: 465 },
+      lunch: { cph: 5.8, totalCostSAR: 870 },
+      dinner: { cph: 5.5, totalCostSAR: 825 },
+      fieldPack: { cph: 1.2, totalCostSAR: 180 },
+    },
+    totalDailyDmcSAR: 2340,
+    overallCphSAR: 15.6,
+    budgetCeilingCphSAR: 17.5,
+    status: "under_budget",
+    varianceSAR: -1.9,
+    topCostDriver: "Vegetarian Diet Ratio",
+  },
+];
+
+// ============================================================================
+// 4. MEAL MANAGEMENT (DINING HALL DIGITAL TWIN & ZERO-DUPLICATE SHIELD)
+// ============================================================================
+
+export interface ServingLineStatus {
+  lineId: string;
+  lineName: string;
+  category: "Dietary" | "Arabic Regular" | "Asian Regular" | "Continental / VIP";
+  currentThroughputPaxPerHour: number;
+  queueCount: number;
+  estWaitMins: number;
+  status: "optimal" | "busy" | "congested";
+  activeServerStaff: string;
+}
+
+export const SERVING_LINES: ServingLineStatus[] = [
+  { lineId: "line-1", lineName: "Line 1 - Arabic Traditional", category: "Arabic Regular", currentThroughputPaxPerHour: 480, queueCount: 18, estWaitMins: 2.5, status: "optimal", activeServerStaff: "Chef Tariq & 2 Servers" },
+  { lineId: "line-2", lineName: "Line 2 - Asian & Curry Buffet", category: "Asian Regular", currentThroughputPaxPerHour: 620, queueCount: 42, estWaitMins: 7.0, status: "congested", activeServerStaff: "Chef Rahman & 3 Servers" },
+  { lineId: "line-3", lineName: "Line 3 - Continental / Grill", category: "Continental / VIP", currentThroughputPaxPerHour: 340, queueCount: 14, estWaitMins: 2.0, status: "optimal", activeServerStaff: "Chef Joseph & 2 Servers" },
+  { lineId: "line-4", lineName: "Line 4 - Express Takeaway", category: "Dietary", currentThroughputPaxPerHour: 510, queueCount: 28, estWaitMins: 4.0, status: "busy", activeServerStaff: "Supervisor Al-Otaibi" },
+];
+
+export interface EmployeeMealScanRecord {
+  employeeId: string;
+  employeeName: string;
+  department: string;
+  campId: string;
+  scanTime: string;
+  mealSession: "Breakfast" | "Lunch" | "Dinner";
+  hasApprovedPackedLunch: boolean;
+  packedLunchRef?: string;
+  scanResult: "granted" | "blocked_duplicate" | "override_allowed";
+  overrideReason?: string;
+}
+
+export const SIMULATED_RECENT_SCANS: EmployeeMealScanRecord[] = [
+  { employeeId: "11009837", employeeName: "Rajesh Kumar", department: "PMTA", campId: "camp-01", scanTime: "12:14:02", mealSession: "Lunch", hasApprovedPackedLunch: true, packedLunchRef: "PL-2026-0814", scanResult: "blocked_duplicate" },
+  { employeeId: "11004521", employeeName: "Ali Al-Ghamdi", department: "HERD", campId: "camp-01", scanTime: "12:14:15", mealSession: "Lunch", hasApprovedPackedLunch: false, scanResult: "granted" },
+  { employeeId: "11007890", employeeName: "Mohammed Farooq", department: "PMTA", campId: "camp-01", scanTime: "12:14:32", mealSession: "Lunch", hasApprovedPackedLunch: true, packedLunchRef: "PL-2026-0819", scanResult: "override_allowed", overrideReason: "Field shift cancelled by Foreman" },
+  { employeeId: "11003412", employeeName: "Sultan Al-Shammari", department: "MBS", campId: "camp-01", scanTime: "12:15:01", mealSession: "Lunch", hasApprovedPackedLunch: false, scanResult: "granted" },
+];
+
+// ============================================================================
+// 5. WASTE & QUALITY CONTROL (FIFO EXPIRY VAULT & RECIPE RESCUE)
+// ============================================================================
+
+export interface InventoryBatchLot {
+  lotId: string;
+  ingredientName: string;
+  category: "Dairy" | "Meat" | "Vegetable" | "Dry Store";
+  supplierName: string;
+  invoiceRef: string;
+  storageZone: "Walk-in Chiller 1" | "Walk-in Chiller 2" | "Deep Freeze A" | "Dry Pantry 3";
+  receivedDate: string;
+  expiryDate: string;
+  hoursUntilExpiry: number;
+  initialQty: number;
+  remainingQty: number;
+  unit: string;
+  status: "critical_rescue" | "warning" | "fresh";
+  suggestedRescueRecipe?: string;
+  haccpChillerTempC: number;
+}
+
+export const INVENTORY_BATCH_LOTS: InventoryBatchLot[] = [
+  {
+    lotId: "LOT-2026-CHK-092",
+    ingredientName: "Fresh Chicken (Clean Cut)",
+    category: "Meat",
+    supplierName: "Al-Watania Poultry",
+    invoiceRef: "INV-WAT-8819",
+    storageZone: "Walk-in Chiller 1",
+    receivedDate: "2026-11-20",
+    expiryDate: "2026-11-24",
+    hoursUntilExpiry: 36,
+    initialQty: 180,
+    remainingQty: 55,
+    unit: "kg",
+    status: "critical_rescue",
+    suggestedRescueRecipe: "Chicken Dum Biryani (Cook tomorrow lunch)",
+    haccpChillerTempC: 1.8,
+  },
+  {
+    lotId: "LOT-2026-TOM-141",
+    ingredientName: "Vine Ripe Tomatoes",
+    category: "Vegetable",
+    supplierName: "Eastern Produce Co.",
+    invoiceRef: "INV-EPC-3041",
+    storageZone: "Walk-in Chiller 2",
+    receivedDate: "2026-11-19",
+    expiryDate: "2026-11-25",
+    hoursUntilExpiry: 48,
+    initialQty: 120,
+    remainingQty: 45,
+    unit: "kg",
+    status: "critical_rescue",
+    suggestedRescueRecipe: "Yellow Dal Tadka / Shakshuka Prep",
+    haccpChillerTempC: 3.4,
+  },
+  {
+    lotId: "LOT-2026-YOG-055",
+    ingredientName: "Plain Yogurt (10kg bucket)",
+    category: "Dairy",
+    supplierName: "Almarai Dairy Logistics",
+    invoiceRef: "INV-ALM-9021",
+    storageZone: "Walk-in Chiller 1",
+    receivedDate: "2026-11-18",
+    expiryDate: "2026-11-27",
+    hoursUntilExpiry: 96,
+    initialQty: 60,
+    remainingQty: 25,
+    unit: "kg",
+    status: "warning",
+    suggestedRescueRecipe: "Tandoori Chicken Marinade & Raita",
+    haccpChillerTempC: 2.1,
+  },
+  {
+    lotId: "LOT-2026-RIC-303",
+    ingredientName: "Basmati Sella Rice (50kg bags)",
+    category: "Dry Store",
+    supplierName: "Al-Kabeer Grain Mills",
+    invoiceRef: "INV-AKB-7711",
+    storageZone: "Dry Pantry 3",
+    receivedDate: "2026-11-01",
+    expiryDate: "2027-11-01",
+    hoursUntilExpiry: 8760,
+    initialQty: 500,
+    remainingQty: 320,
+    unit: "kg",
+    status: "fresh",
+    haccpChillerTempC: 22.0,
+  },
+];
+
+// ============================================================================
+// 6. REPORTING & BILLING (ARAMCO AUDIT CUBE & SAP RECONCILIATION)
+// ============================================================================
+
+export interface AramcoBillingSummary {
+  billingMonth: string;
+  contractNumber: string;
+  clientName: string;
+  campLocation: string;
+  layers: {
+    inmateBedNights: { count: number; rateSAR: number; subtotalSAR: number };
+    scannedDiningMeals: { count: number; rateSAR: number; subtotalSAR: number };
+    approvedFieldPacks: { count: number; rateSAR: number; subtotalSAR: number };
+    deductedCancellations: { count: number; creditSAR: number; subtotalSAR: number };
+  };
+  netInvoicedSAR: number;
+  sapPostingDocument: string;
+  sapStatus: "posted_verified" | "pending_review" | "variance_flagged";
+  varianceSAR: number;
+  auditSignOff: {
+    campManager: string;
+    clientRepresentative: string;
+    timestamp: string;
+  };
+}
+
+export const CURRENT_ARAMCO_BILLING_PACK: AramcoBillingSummary = {
+  billingMonth: "November 2026",
+  contractNumber: "ARAMCO-CON-660004921",
+  clientName: "Saudi Aramco Community Services & Contractor Affairs",
+  campLocation: "Tanajib Contractor Residential Complex (Cluster 4)",
+  layers: {
+    inmateBedNights: { count: 34500, rateSAR: 45.0, subtotalSAR: 1552500 },
+    scannedDiningMeals: { count: 72400, rateSAR: 12.0, subtotalSAR: 868800 },
+    approvedFieldPacks: { count: 18200, rateSAR: 14.5, subtotalSAR: 263900 },
+    deductedCancellations: { count: 2150, creditSAR: -10.0, subtotalSAR: -21500 },
+  },
+  netInvoicedSAR: 2663700,
+  sapPostingDocument: "SAP-DOC-2026-11-9004821",
+  sapStatus: "posted_verified",
+  varianceSAR: 0.0,
+  auditSignOff: {
+    campManager: "Eng. Fahad Al-Mutairi (Camp 365 Operations Director)",
+    clientRepresentative: "Mr. Scott Harrison (Aramco Lead Site Auditor)",
+    timestamp: "2026-11-23 09:30 UTC+3",
+  },
+};

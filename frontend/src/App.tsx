@@ -48,6 +48,7 @@ import FoodCancellation from "./pages/FoodCancellation";
 import DepartmentLunch from "./pages/DepartmentLunch";
 import DepartmentLunchRates from "./pages/DepartmentLunchRates";
 import PantryCommandCenter from "./pages/PantryCommandCenter";
+import EnterpriseCateringHub from "./pages/EnterpriseCateringHub";
 import StaffKPI from "./pages/StaffKPI";
 import RoomCategoryMaster from "./pages/RoomCategoryMaster";
 import SupplierMaster from "./pages/SupplierMaster";
@@ -144,6 +145,8 @@ const App = () => (
                 <Route path="/department-lunch" element={<DepartmentLunch />} />
                 <Route path="/catering/pantry-command-center" element={<PantryCommandCenter />} />
                 <Route path="/pantry-command-center" element={<PantryCommandCenter />} />
+                <Route path="/catering/enterprise-hub" element={<EnterpriseCateringHub />} />
+                <Route path="/catering/executive-hub" element={<EnterpriseCateringHub />} />
                 <Route path="/admin/department-lunch-rates" element={<DepartmentLunchRates />} />
                 <Route path="/admin/room-categories" element={<RoomCategoryMaster />} />
                 <Route path="/admin/suppliers" element={<SupplierMaster />} />
