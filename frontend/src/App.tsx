@@ -143,10 +143,38 @@ const App = () => (
                 <Route path="/meal-management" element={<MealManagement />} />
                 <Route path="/food-cancellation" element={<FoodCancellation />} />
                 <Route path="/department-lunch" element={<DepartmentLunch />} />
-                <Route path="/catering/pantry-command-center" element={<PantryCommandCenter />} />
-                <Route path="/pantry-command-center" element={<PantryCommandCenter />} />
-                <Route path="/catering/enterprise-hub" element={<EnterpriseCateringHub />} />
-                <Route path="/catering/executive-hub" element={<EnterpriseCateringHub />} />
+                <Route
+                  path="/catering/pantry-command-center"
+                  element={
+                    <ErrorBoundary fallbackTitle="Pantry Command Center Error">
+                      <PantryCommandCenter />
+                    </ErrorBoundary>
+                  }
+                />
+                <Route
+                  path="/pantry-command-center"
+                  element={
+                    <ErrorBoundary fallbackTitle="Pantry Command Center Error">
+                      <PantryCommandCenter />
+                    </ErrorBoundary>
+                  }
+                />
+                <Route
+                  path="/catering/enterprise-hub"
+                  element={
+                    <ErrorBoundary fallbackTitle="Enterprise Catering Hub Error">
+                      <EnterpriseCateringHub />
+                    </ErrorBoundary>
+                  }
+                />
+                <Route
+                  path="/catering/executive-hub"
+                  element={
+                    <ErrorBoundary fallbackTitle="Enterprise Catering Hub Error">
+                      <EnterpriseCateringHub />
+                    </ErrorBoundary>
+                  }
+                />
                 <Route path="/admin/department-lunch-rates" element={<DepartmentLunchRates />} />
                 <Route path="/admin/room-categories" element={<RoomCategoryMaster />} />
                 <Route path="/admin/suppliers" element={<SupplierMaster />} />

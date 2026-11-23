@@ -25,7 +25,7 @@ export default function PantryCommandCenter() {
   // 1. Interactive States
   const [daysAhead, setDaysAhead] = useState<number>(0);
   const [whatIfs, setWhatIfs] = useState<WhatIfState>(INITIAL_WHAT_IF_STATE);
-  const [selectedIngredient, setSelectedIngredient] = useState<ComputedIngredientStatus | null>(null);
+  const [selectedIngredientId, setSelectedIngredientId] = useState<string | null>(null);
   const [selectedDishFilter, setSelectedDishFilter] = useState<string>("all");
 
   // 2. Demo Mode Guided Tour State
@@ -37,15 +37,11 @@ export default function PantryCommandCenter() {
     return calculatePantrySimulation(daysAhead, whatIfs);
   }, [daysAhead, whatIfs]);
 
-  // Keep selected ingredient data up to date when simulation recalculates
-  useEffect(() => {
-    if (selectedIngredient) {
-      const refreshed = simulation.ingredients.find(
-        (i) => i.item.id === selectedIngredient.item.id
-      );
-      if (refreshed) setSelectedIngredient(refreshed);
-    }
-  }, [simulation, selectedIngredient]);
+  // Derived selected ingredient (auto-updates cleanly with simulation changes)
+  const selectedIngredient = useMemo(() => {
+    if (!selectedIngredientId) return null;
+    return simulation.ingredients.find((i) => i.item.id === selectedIngredientId) ?? null;
+  }, [simulation, selectedIngredientId]);
 
   // Layman-friendly Demo Mode Steps
   const demoCaptions = [
@@ -61,8 +57,7 @@ export default function PantryCommandCenter() {
       title: "Step 2: The Safety Line (5 Days)",
       text: "Items falling below the orange safety line are flagged with red 'Buy Today' badges (Cooking Oil, Onions, Eggs). Click any card to inspect suppliers.",
       action: () => {
-        const oil = simulation.ingredients.find((i) => i.item.id === "cooking_oil");
-        if (oil) setSelectedIngredient(oil);
+        setSelectedIngredientId("cooking_oil");
       },
     },
     {
@@ -397,8 +392,8 @@ export default function PantryCommandCenter() {
             dishes={simulation.dishes}
             selectedDishFilter={selectedDishFilter}
             onSelectDishFilter={setSelectedDishFilter}
-            onSelectIngredient={(ing) => setSelectedIngredient(ing)}
-            selectedIngredientId={selectedIngredient?.item.id}
+            onSelectIngredient={(ing) => setSelectedIngredientId(ing.item.id)}
+            selectedIngredientId={selectedIngredientId ?? undefined}
           />
         </div>
 
@@ -407,7 +402,7 @@ export default function PantryCommandCenter() {
           <div className="lg:col-span-4">
             <IngredientDetailCard
               ingredient={selectedIngredient}
-              onClose={() => setSelectedIngredient(null)}
+              onClose={() => setSelectedIngredientId(null)}
             />
           </div>
         )}
@@ -418,7 +413,7 @@ export default function PantryCommandCenter() {
         dishes={simulation.dishes}
         selectedDishFilter={selectedDishFilter}
         onSelectDishFilter={setSelectedDishFilter}
-        onSelectIngredient={(ing) => setSelectedIngredient(ing)}
+        onSelectIngredient={(ing) => setSelectedIngredientId(ing.item.id)}
       />
 
       {/* 6. Smart Buy List Panel */}
