@@ -168,7 +168,7 @@ export default function PantryCommandCenter() {
             className="h-8 text-xs font-semibold gap-1.5 bg-cyan-600 hover:bg-cyan-700 text-white shadow-xs font-bold"
           >
             <Compass size={13} />
-            <span>Enterprise 3D Suite</span>
+            <span>Enterprise Catering Hub</span>
           </Button>
 
           {/* Guided Demo Tour Button */}

@@ -103,14 +103,14 @@ export default function MessCatering() {
             className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold bg-[#fe932c]/15 text-[#fe932c] border border-[#fe932c]/40 hover:bg-[#fe932c]/25 transition-all shadow-sm"
           >
             <Sparkles size={14} className="text-[#fe932c]" />
-            Enterprise 3D Suite
+            Enterprise Catering Hub
           </button>
           <button
             onClick={() => navigate("/catering/pantry-command-center")}
             className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 border border-cyan-500/30 hover:bg-cyan-500/25 transition-all shadow-sm"
           >
             <Compass size={14} className="text-cyan-500 animate-spin" style={{ animationDuration: "14s" }} />
-            Pantry Command Center (3D)
+            Pantry Command Center
           </button>
           <button
             onClick={() => setRamadanMode(!ramadanMode)}

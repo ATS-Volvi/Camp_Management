@@ -50,7 +50,7 @@ const navGroups: {
     label: "Catering Division",
     icon: UtensilsCrossed,
     items: [
-      { label: "Enterprise 3D Suite", icon: Sparkles, path: "/catering/enterprise-hub" },
+      { label: "Enterprise Catering Hub", icon: Sparkles, path: "/catering/enterprise-hub" },
       { label: "Pantry Command Center", icon: Compass, path: "/catering/pantry-command-center" },
       { label: "Mess & Catering", icon: UtensilsCrossed, path: "/mess-catering" },
       { label: "Smart Meal Management", icon: UtensilsCrossed, path: "/meal-management" },
