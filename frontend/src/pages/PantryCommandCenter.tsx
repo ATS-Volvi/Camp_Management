@@ -13,7 +13,7 @@ import IngredientDetailCard from "@/components/catering/IngredientDetailCard";
 import {
   ShoppingCart, AlertTriangle, CheckCircle2, Play, Pause, RotateCcw,
   SlidersHorizontal, Calendar, Sparkles, ArrowLeft, Users, Moon, Truck,
-  ShieldCheck, Clock, Layers, HelpCircle
+  ShieldCheck, Clock, Layers, HelpCircle, Compass
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
