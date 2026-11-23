@@ -776,3 +776,290 @@ export const CURRENT_ARAMCO_BILLING_PACK: AramcoBillingSummary = {
     timestamp: "2026-11-23 09:30 UTC+3",
   },
 };
+
+// ============================================================================
+// 4B. CLIENT-WISE MEAL CONSUMPTION & PACKED MEAL MANIFESTS
+// ============================================================================
+
+export interface ClientMealConsumptionRecord {
+  clientCode: string;
+  clientName: string;
+  contractRef: string;
+  entitledHeadcount: number;
+  actualDineInHeadcount: number;
+  packedMealsDispatched: number;
+  advanceCancellations: number;
+  netBilledPax: number;
+  attendanceRatePct: number;
+  status: "compliant" | "over_entitlement" | "under_entitlement";
+}
+
+export const SAMPLE_CLIENT_MEAL_CONSUMPTION: ClientMealConsumptionRecord[] = [
+  {
+    clientCode: "ARAMCO-DIR",
+    clientName: "Saudi Aramco Direct Operations",
+    contractRef: "SAP-CON-88001",
+    entitledHeadcount: 450,
+    actualDineInHeadcount: 395,
+    packedMealsDispatched: 45,
+    advanceCancellations: 10,
+    netBilledPax: 440,
+    attendanceRatePct: 97.8,
+    status: "compliant",
+  },
+  {
+    clientCode: "TECHINT-JV",
+    clientName: "TechInt Pipeline JV",
+    contractRef: "SAP-CON-88042",
+    entitledHeadcount: 320,
+    actualDineInHeadcount: 260,
+    packedMealsDispatched: 50,
+    advanceCancellations: 10,
+    netBilledPax: 310,
+    attendanceRatePct: 96.9,
+    status: "compliant",
+  },
+  {
+    clientCode: "RUSH-DRILL",
+    clientName: "Al-Rushaid Offshore Drilling",
+    contractRef: "SAP-CON-88109",
+    entitledHeadcount: 280,
+    actualDineInHeadcount: 205,
+    packedMealsDispatched: 65,
+    advanceCancellations: 10,
+    netBilledPax: 270,
+    attendanceRatePct: 96.4,
+    status: "compliant",
+  },
+  {
+    clientCode: "MBS-CIVIL",
+    clientName: "Modular Building Services (MBS)",
+    contractRef: "SAP-CON-88215",
+    entitledHeadcount: 200,
+    actualDineInHeadcount: 185,
+    packedMealsDispatched: 10,
+    advanceCancellations: 5,
+    netBilledPax: 195,
+    attendanceRatePct: 97.5,
+    status: "compliant",
+  },
+];
+
+export interface PackedMealManifestRecord {
+  manifestId: string;
+  destinationRig: string;
+  clientRef: string;
+  shift: "Day Shift (Lunch)" | "Night Shift (Midnight)" | "Early Dawn (Breakfast)";
+  packType: "Heavy Industrial Hot Pack" | "Cold Standard Box" | "VIP Field Pack";
+  portionsCount: number;
+  dispatchTime: string;
+  haccpDepartureTempC: number;
+  driverName: string;
+  vehiclePlate: string;
+  status: "dispatched" | "delivered" | "staging";
+}
+
+export const SAMPLE_PACKED_MEAL_MANIFESTS: PackedMealManifestRecord[] = [
+  {
+    manifestId: "PM-2026-1123-01",
+    destinationRig: "Rig 404 Manifa Outer",
+    clientRef: "Al-Rushaid Offshore Drilling",
+    shift: "Day Shift (Lunch)",
+    packType: "Heavy Industrial Hot Pack",
+    portionsCount: 45,
+    dispatchTime: "10:45 AM",
+    haccpDepartureTempC: 72.8,
+    driverName: "Mansour Al-Harbi",
+    vehiclePlate: "KSA-7741-KBL",
+    status: "dispatched",
+  },
+  {
+    manifestId: "PM-2026-1123-02",
+    destinationRig: "Marjan Platform West Pump Station",
+    clientRef: "Saudi Aramco Direct Operations",
+    shift: "Day Shift (Lunch)",
+    packType: "Heavy Industrial Hot Pack",
+    portionsCount: 35,
+    dispatchTime: "11:15 AM",
+    haccpDepartureTempC: 71.4,
+    driverName: "Khalid Al-Ghamdi",
+    vehiclePlate: "KSA-9932-RAB",
+    status: "delivered",
+  },
+  {
+    manifestId: "PM-2026-1123-03",
+    destinationRig: "Tanajib Desert Pipeline Section 4",
+    clientRef: "TechInt Pipeline JV",
+    shift: "Day Shift (Lunch)",
+    packType: "Cold Standard Box",
+    portionsCount: 50,
+    dispatchTime: "11:30 AM",
+    haccpDepartureTempC: 3.8,
+    driverName: "Tariq Al-Dosari",
+    vehiclePlate: "KSA-4412-DHN",
+    status: "staging",
+  },
+];
+
+// ============================================================================
+// 5B. DAILY 3-BUCKET FOOD WASTAGE MONITORING & OPERATIONAL ACCOUNTABILITY
+// ============================================================================
+
+export interface DailyWastageMonitoringRecord {
+  logId: string;
+  logDate: string;
+  mealSession: "Breakfast" | "Lunch" | "Dinner";
+  prepWasteKg: number;
+  buffetOverproductionKg: number;
+  plateScrapKg: number;
+  totalWasteKg: number;
+  totalServedPax: number;
+  wasteGramsPerPax: number;
+  targetGramsPerPax: number;
+  financialLossSAR: number;
+  haccpDisposalMethod: "Organic Composting" | "Charity Cold-Chained Donation" | "Sanitary Bio-Digester";
+  responsibleStation: string;
+  chefAuditor: string;
+  status: "within_target" | "target_exceeded";
+}
+
+export const SAMPLE_DAILY_WASTAGE_LOGS: DailyWastageMonitoringRecord[] = [
+  {
+    logId: "WST-2026-1123-01",
+    logDate: "2026-11-23",
+    mealSession: "Breakfast",
+    prepWasteKg: 5.2,
+    buffetOverproductionKg: 3.8,
+    plateScrapKg: 4.5,
+    totalWasteKg: 13.5,
+    totalServedPax: 1180,
+    wasteGramsPerPax: 11.4,
+    targetGramsPerPax: 15.0,
+    financialLossSAR: 84.0,
+    haccpDisposalMethod: "Sanitary Bio-Digester",
+    responsibleStation: "Hot Range & Bakery",
+    chefAuditor: "Sous Chef Tariq",
+    status: "within_target",
+  },
+  {
+    logId: "WST-2026-1123-02",
+    logDate: "2026-11-23",
+    mealSession: "Lunch",
+    prepWasteKg: 14.5,
+    buffetOverproductionKg: 8.2,
+    plateScrapKg: 12.0,
+    totalWasteKg: 34.7,
+    totalServedPax: 1420,
+    wasteGramsPerPax: 24.4,
+    targetGramsPerPax: 28.0,
+    financialLossSAR: 298.0,
+    haccpDisposalMethod: "Charity Cold-Chained Donation",
+    responsibleStation: "Butchery & Rice Range",
+    chefAuditor: "Exec Chef Joseph",
+    status: "within_target",
+  },
+  {
+    logId: "WST-2026-1122-03",
+    logDate: "2026-11-22",
+    mealSession: "Dinner",
+    prepWasteKg: 12.0,
+    buffetOverproductionKg: 11.5,
+    plateScrapKg: 9.8,
+    totalWasteKg: 33.3,
+    totalServedPax: 1210,
+    wasteGramsPerPax: 27.5,
+    targetGramsPerPax: 25.0,
+    financialLossSAR: 345.0,
+    haccpDisposalMethod: "Organic Composting",
+    responsibleStation: "Curry & Stew Line",
+    chefAuditor: "Lead Steward Farooq",
+    status: "target_exceeded",
+  },
+];
+
+// ============================================================================
+// 6B. PROJECT-WISE PROFITABILITY & SAP RECONCILIATION
+// ============================================================================
+
+export interface ProjectProfitabilityRecord {
+  projectCode: string;
+  projectName: string;
+  client: string;
+  billedRevenueSAR: number;
+  foodDmcCostSAR: number;
+  kitchenLaborSAR: number;
+  energyConsumablesSAR: number;
+  grossProfitSAR: number;
+  grossMarginPct: number;
+  marginVarianceTargetPct: number;
+  sapReconciliationStatus: "SAP_RECONCILED" | "PENDING_MIGO_CYCLE";
+}
+
+export const SAMPLE_PROJECT_PROFITABILITY: ProjectProfitabilityRecord[] = [
+  {
+    projectCode: "MRJ-EXP",
+    projectName: "Aramco Marjan Expansion",
+    client: "Saudi Aramco Offshore",
+    billedRevenueSAR: 625000,
+    foodDmcCostSAR: 297360,
+    kitchenLaborSAR: 75000,
+    energyConsumablesSAR: 18500,
+    grossProfitSAR: 234140,
+    grossMarginPct: 37.5,
+    marginVarianceTargetPct: +2.5,
+    sapReconciliationStatus: "SAP_RECONCILED",
+  },
+  {
+    projectCode: "TAN-GAS",
+    projectName: "Tanajib Gas Plant Project",
+    client: "Aramco / EPC JV",
+    billedRevenueSAR: 580000,
+    foodDmcCostSAR: 213180,
+    kitchenLaborSAR: 68000,
+    energyConsumablesSAR: 15200,
+    grossProfitSAR: 283620,
+    grossMarginPct: 48.9,
+    marginVarianceTargetPct: +4.9,
+    sapReconciliationStatus: "SAP_RECONCILED",
+  },
+  {
+    projectCode: "HERD-RIG",
+    projectName: "Heavy Equipment Rental (HERD)",
+    client: "Contractor Fleet",
+    billedRevenueSAR: 320000,
+    foodDmcCostSAR: 126000,
+    kitchenLaborSAR: 42000,
+    energyConsumablesSAR: 9500,
+    grossProfitSAR: 142500,
+    grossMarginPct: 44.5,
+    marginVarianceTargetPct: +1.5,
+    sapReconciliationStatus: "SAP_RECONCILED",
+  },
+  {
+    projectCode: "PMTA-PIPE",
+    projectName: "Plant Maint. Tech Assistance (PMTA)",
+    client: "Aramco Pipeline Division",
+    billedRevenueSAR: 460000,
+    foodDmcCostSAR: 199950,
+    kitchenLaborSAR: 55000,
+    energyConsumablesSAR: 12000,
+    grossProfitSAR: 193050,
+    grossMarginPct: 42.0,
+    marginVarianceTargetPct: -1.0,
+    sapReconciliationStatus: "SAP_RECONCILED",
+  },
+  {
+    projectCode: "MBS-MOD",
+    projectName: "Modular Building Services (MBS)",
+    client: "Civil Camp Infrastructure",
+    billedRevenueSAR: 210000,
+    foodDmcCostSAR: 70200,
+    kitchenLaborSAR: 28000,
+    energyConsumablesSAR: 6200,
+    grossProfitSAR: 105600,
+    grossMarginPct: 50.3,
+    marginVarianceTargetPct: +5.3,
+    sapReconciliationStatus: "SAP_RECONCILED",
+  },
+];
+
