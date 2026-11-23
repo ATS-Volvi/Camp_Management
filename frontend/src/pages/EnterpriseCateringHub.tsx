@@ -1,12 +1,11 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import DmcSkyline3D from "@/components/catering/enterprise/DmcSkyline3D";
+import DmcCostDashboard2D from "@/components/catering/enterprise/DmcCostDashboard2D";
 import LogisticsRadar3D from "@/components/catering/enterprise/LogisticsRadar3D";
 import CulinaryReactor3D from "@/components/catering/enterprise/CulinaryReactor3D";
 import DiningHallDigitalTwin3D from "@/components/catering/enterprise/DiningHallDigitalTwin3D";
 import FifoExpiryVault3D from "@/components/catering/enterprise/FifoExpiryVault3D";
 import AramcoAuditCube3D from "@/components/catering/enterprise/AramcoAuditCube3D";
-import DmcChart2D from "@/components/catering/enterprise/DmcChart2D";
 
 import {
   ENTERPRISE_RECIPES,
@@ -56,7 +55,7 @@ import { Slider } from "@/components/ui/slider";
 
 export type ViewMode = "unified" | "deepdive";
 export type EnterpriseModuleKey =
-  | "dmc-skyline"
+  | "dmc-cost"
   | "logistics-radar"
   | "culinary-reactor"
   | "dining-twin"
@@ -66,12 +65,9 @@ export type EnterpriseModuleKey =
 export default function EnterpriseCateringHub() {
   const navigate = useNavigate();
 
-  // Primary Mode: Unified Executive Command vs 3D Deep-Dive Modules
+  // Primary Mode: Unified Executive Command vs Module Deep Dives
   const [viewMode, setViewMode] = useState<ViewMode>("unified");
-  const [active3DModule, setActive3DModule] = useState<EnterpriseModuleKey>("dmc-skyline");
-
-  // DMC Section 2D vs 3D Toggle in Unified View
-  const [dmcVisualMode, setDmcVisualMode] = useState<"2d" | "3d">("2d");
+  const [activeModule, setActiveModule] = useState<EnterpriseModuleKey>("dmc-cost");
 
   // Recipe Scaler Interactive State
   const [selectedRecipeId, setSelectedRecipeId] = useState<string>("dish-biryani");
@@ -138,12 +134,12 @@ export default function EnterpriseCateringHub() {
 
   const modules = [
     {
-      key: "dmc-skyline" as const,
+      key: "dmc-cost" as const,
       name: "Food Cost & DMC Matrix",
-      subtitle: "3D CPH vs Budget Ceiling",
+      subtitle: "Pure 2D CPH vs Budget Ceiling",
       icon: DollarSign,
-      badge: "Financial Twin",
-      component: <DmcSkyline3D />,
+      badge: "Pure 2D Executive",
+      component: <DmcCostDashboard2D />,
     },
     {
       key: "logistics-radar" as const,
@@ -187,7 +183,7 @@ export default function EnterpriseCateringHub() {
     },
   ];
 
-  const current3DMod = modules.find((m) => m.key === active3DModule) || modules[0];
+  const currentMod = modules.find((m) => m.key === activeModule) || modules[0];
 
   return (
     <div className="space-y-6 pb-12 font-sans">
@@ -229,7 +225,7 @@ export default function EnterpriseCateringHub() {
                 </Badge>
               </div>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Centralized operations, financial control, and audit compliance built to Saudi Aramco contractor specifications.
+                Centralized catering operations, 2D financial cost control, and Aramco SAP compliance.
               </p>
             </div>
           </div>
@@ -260,7 +256,7 @@ export default function EnterpriseCateringHub() {
       </div>
 
       {/* ==================================================================== */}
-      {/* VIEW MODE TOGGLE BAR (Unified Executive vs 3D Deep-Dive)             */}
+      {/* VIEW MODE TOGGLE BAR (Unified Executive vs Deep-Dive Modules)        */}
       {/* ==================================================================== */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-2 bg-muted/40 rounded-2xl border border-border/60">
         <div className="flex items-center gap-1.5 bg-card p-1 rounded-xl border border-border/60 shadow-2xs">
@@ -273,7 +269,7 @@ export default function EnterpriseCateringHub() {
             }`}
           >
             <Layers className="h-4 w-4 text-[#fe932c]" />
-            Unified Executive Command (2D + Hybrid)
+            Unified Executive Command (All 6 Pillars)
           </button>
           <button
             onClick={() => setViewMode("deepdive")}
@@ -284,7 +280,7 @@ export default function EnterpriseCateringHub() {
             }`}
           >
             <Box className="h-4 w-4 text-[#fe932c]" />
-            Interactive 3D Deep Dives (6 Modules)
+            Detailed Module Views
           </button>
         </div>
 
@@ -292,8 +288,8 @@ export default function EnterpriseCateringHub() {
           <Sparkles className="h-3.5 w-3.5 text-[#fe932c]" />
           <span>
             {viewMode === "unified"
-              ? "All 6 operational pillars on a single actionable executive canvas."
-              : "Explore full 3D spatial environments for each catering function."}
+              ? "Pure 2D financial cost tracking + operational cards in one seamless executive view."
+              : "Dedicated full-screen workspace for each individual operational function."}
           </span>
         </div>
       </div>
@@ -304,88 +300,16 @@ export default function EnterpriseCateringHub() {
       {viewMode === "unified" && (
         <div className="space-y-6 animate-in fade-in duration-300">
           {/* ---------------------------------------------------------------- */}
-          {/* SECTION 1: FINANCIAL CONTROL & REGIONAL REDISTRIBUTION           */}
+          {/* SECTION 1: FOOD COST & DMC CONTROL (PURE 2D EXECUTIVE DASHBOARD) */}
+          {/* ---------------------------------------------------------------- */}
+          <div>
+            <DmcCostDashboard2D />
+          </div>
+
+          {/* ---------------------------------------------------------------- */}
+          {/* SECTION 2: REGIONAL LOGISTICS & KITCHEN PRODUCTION PLANNING      */}
           {/* ---------------------------------------------------------------- */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            {/* Card 1: Food Cost & DMC Matrix (Pillar 3) */}
-            <div className="lg:col-span-7 bg-card rounded-2xl border border-border/80 shadow-xs p-5 flex flex-col justify-between">
-              <div>
-                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 pb-3">
-                  <div className="flex items-center gap-2.5">
-                    <div className="p-2 rounded-lg bg-[#0c2340] text-[#fe932c]">
-                      <DollarSign className="h-5 w-5" />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h2 className="text-base font-black text-foreground">
-                          Pillar 3: Daily Food Cost & DMC Matrix
-                        </h2>
-                        <Badge variant="outline" className="text-[10px] font-bold border-emerald-500/40 text-emerald-600 dark:text-emerald-400">
-                          Cost Per Head (CPH)
-                        </Badge>
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        Contractual budget ceiling vs actual kitchen consumption across projects.
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* 2D vs 3D Matrix View Switcher */}
-                  <div className="flex items-center gap-1 p-1 bg-muted/60 rounded-lg text-xs font-semibold">
-                    <button
-                      onClick={() => setDmcVisualMode("2d")}
-                      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md transition-all ${
-                        dmcVisualMode === "2d"
-                          ? "bg-[#0c2340] text-white shadow-2xs"
-                          : "text-muted-foreground hover:text-foreground"
-                      }`}
-                    >
-                      <BarChart2 className="h-3.5 w-3.5" />
-                      2D Analytical
-                    </button>
-                    <button
-                      onClick={() => setDmcVisualMode("3d")}
-                      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md transition-all ${
-                        dmcVisualMode === "3d"
-                          ? "bg-[#0c2340] text-white shadow-2xs"
-                          : "text-muted-foreground hover:text-foreground"
-                      }`}
-                    >
-                      <Box className="h-3.5 w-3.5 text-[#fe932c]" />
-                      3D Spatial Skyline
-                    </button>
-                  </div>
-                </div>
-
-                {/* Body: Render 2D Chart or 3D Skyline based on toggle */}
-                <div className="mt-4">
-                  {dmcVisualMode === "2d" ? (
-                    <DmcChart2D />
-                  ) : (
-                    <div className="rounded-xl overflow-hidden border border-border/60">
-                      <div className="p-2 bg-muted/50 text-[11px] text-muted-foreground flex items-center justify-between border-b border-border/40">
-                        <span>Click any 3D pillar to view session breakdown. Drag to orbit.</span>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-6 text-[10px] text-primary"
-                          onClick={() => {
-                            setViewMode("deepdive");
-                            setActive3DModule("dmc-skyline");
-                          }}
-                        >
-                          Full-Screen 3D &rarr;
-                        </Button>
-                      </div>
-                      <div className="h-80">
-                        <DmcSkyline3D />
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-
             {/* Card 2: Inter-Camp Transfer Radar & SAP Logistics (Pillar 2) */}
             <div className="lg:col-span-5 bg-card rounded-2xl border border-border/80 shadow-xs p-5 flex flex-col justify-between">
               <div>
@@ -415,7 +339,7 @@ export default function EnterpriseCateringHub() {
                     className="h-7 text-xs text-primary"
                     onClick={() => {
                       setViewMode("deepdive");
-                      setActive3DModule("logistics-radar");
+                      setActiveModule("logistics-radar");
                     }}
                   >
                     3D Radar &rarr;
@@ -512,12 +436,7 @@ export default function EnterpriseCateringHub() {
                 </div>
               </div>
             </div>
-          </div>
 
-          {/* ---------------------------------------------------------------- */}
-          {/* SECTION 2: KITCHEN FLOOR & QUALITY CONTROL                       */}
-          {/* ---------------------------------------------------------------- */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             {/* Card 3: Recipe BOM & Headcount Scaler (Pillar 1) */}
             <div className="lg:col-span-7 bg-card rounded-2xl border border-border/80 shadow-xs p-5 flex flex-col justify-between">
               <div>
@@ -547,7 +466,7 @@ export default function EnterpriseCateringHub() {
                     className="h-7 text-xs text-primary"
                     onClick={() => {
                       setViewMode("deepdive");
-                      setActive3DModule("culinary-reactor");
+                      setActiveModule("culinary-reactor");
                     }}
                   >
                     3D Reactor &rarr;
@@ -588,7 +507,7 @@ export default function EnterpriseCateringHub() {
                       max={2000}
                       step={25}
                       onValueChange={(val) => setPaxCount(val[0])}
-                      className="py-1"
+                      className="py-1 cursor-pointer"
                     />
                     <div className="flex items-center justify-between text-[10px] text-muted-foreground font-mono">
                       <button onClick={() => setPaxCount(350)} className="hover:text-foreground">350 Pax</button>
@@ -695,9 +614,14 @@ export default function EnterpriseCateringHub() {
                 </div>
               </div>
             </div>
+          </div>
 
+          {/* ---------------------------------------------------------------- */}
+          {/* SECTION 3: QUALITY SAFETY & OPERATIONAL CONTROL                  */}
+          {/* ---------------------------------------------------------------- */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             {/* Card 4: FIFO Freshness Vault & Recipe Rescue (Pillar 5) */}
-            <div className="lg:col-span-5 bg-card rounded-2xl border border-border/80 shadow-xs p-5 flex flex-col justify-between">
+            <div className="lg:col-span-6 bg-card rounded-2xl border border-border/80 shadow-xs p-5 flex flex-col justify-between">
               <div>
                 <div className="flex items-center justify-between border-b border-border/60 pb-3">
                   <div className="flex items-center gap-2.5">
@@ -725,7 +649,7 @@ export default function EnterpriseCateringHub() {
                     className="h-7 text-xs text-primary"
                     onClick={() => {
                       setViewMode("deepdive");
-                      setActive3DModule("fifo-vault");
+                      setActiveModule("fifo-vault");
                     }}
                   >
                     3D Vault &rarr;
@@ -818,12 +742,7 @@ export default function EnterpriseCateringHub() {
                 </div>
               </div>
             </div>
-          </div>
 
-          {/* ---------------------------------------------------------------- */}
-          {/* SECTION 3: MEAL ACCESS CONTROL & CLIENT BILLING                  */}
-          {/* ---------------------------------------------------------------- */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             {/* Card 5: Meal Management & Zero-Duplicate Shield (Pillar 4) */}
             <div className="lg:col-span-6 bg-card rounded-2xl border border-border/80 shadow-xs p-5 flex flex-col justify-between">
               <div>
@@ -853,7 +772,7 @@ export default function EnterpriseCateringHub() {
                     className="h-7 text-xs text-primary"
                     onClick={() => {
                       setViewMode("deepdive");
-                      setActive3DModule("dining-twin");
+                      setActiveModule("dining-twin");
                     }}
                   >
                     3D Twin &rarr;
@@ -967,160 +886,160 @@ export default function EnterpriseCateringHub() {
                 </div>
               </div>
             </div>
+          </div>
 
-            {/* Card 6: Aramco Master Billing Pack & SAP Reconciliation (Pillar 6) */}
-            <div className="lg:col-span-6 bg-card rounded-2xl border border-border/80 shadow-xs p-5 flex flex-col justify-between">
-              <div>
-                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 pb-3">
-                  <div className="flex items-center gap-2.5">
-                    <div className="p-2 rounded-lg bg-[#0c2340] text-[#fe932c]">
-                      <Building2 className="h-5 w-5" />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h2 className="text-base font-black text-foreground">
-                          Pillar 6: Aramco Master Billing Pack
-                        </h2>
-                        <Badge className="bg-emerald-500 text-slate-950 text-[10px] font-bold">
-                          SAP Reconciled
-                        </Badge>
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        Transparent 4-tier client billing binder verified against SAP VF01 document.
-                      </p>
-                    </div>
-                  </div>
-
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="h-7 text-xs text-primary"
-                    onClick={() => {
-                      setViewMode("deepdive");
-                      setActive3DModule("audit-cube");
-                    }}
-                  >
-                    3D Audit Cube &rarr;
-                  </Button>
+          {/* ---------------------------------------------------------------- */}
+          {/* SECTION 4: CLIENT BILLING PACK & ARAMCO RECONCILIATION           */}
+          {/* ---------------------------------------------------------------- */}
+          <div className="bg-card rounded-2xl border border-border/80 shadow-xs p-5">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-lg bg-[#0c2340] text-[#fe932c]">
+                  <Building2 className="h-5 w-5" />
                 </div>
-
-                {exportNotice && (
-                  <div className="mt-3 p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 text-xs font-semibold flex items-center gap-2 animate-in fade-in">
-                    <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" />
-                    <span>Aramco Audit Dossier (PDF & CSV) exported to client billing portal!</span>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-base font-black text-foreground">
+                      Pillar 6: Aramco Master Billing Pack & SAP Reconciliation
+                    </h2>
+                    <Badge className="bg-emerald-500 text-slate-950 text-[10px] font-bold">
+                      SAP Reconciled
+                    </Badge>
                   </div>
-                )}
-
-                {/* 4-Layer Billing Breakdown Table */}
-                <div className="mt-4 rounded-xl border border-border/60 overflow-hidden text-xs">
-                  <div className="bg-[#0c2340] text-white p-2.5 font-bold flex items-center justify-between">
-                    <span>Audit Layer</span>
-                    <span>Units × Contract Rate = Subtotal (SAR)</span>
-                  </div>
-                  <div className="divide-y divide-border/60 bg-card">
-                    <div className="p-2.5 flex items-center justify-between">
-                      <div>
-                        <strong className="block text-foreground font-semibold">1. Inmate Bed-Nights</strong>
-                        <span className="text-[10px] text-muted-foreground">Contractual accommodation occupancy</span>
-                      </div>
-                      <span className="font-mono font-bold text-foreground">
-                        34,500 × SAR 45.00 = <strong className="text-primary font-black">SAR 1,552,500</strong>
-                      </span>
-                    </div>
-
-                    <div className="p-2.5 flex items-center justify-between">
-                      <div>
-                        <strong className="block text-foreground font-semibold">2. Scanned Dining Meals</strong>
-                        <span className="text-[10px] text-muted-foreground">Turnstile verified breakfast, lunch, dinner</span>
-                      </div>
-                      <span className="font-mono font-bold text-foreground">
-                        72,400 × SAR 12.00 = <strong className="text-primary font-black">SAR 868,800</strong>
-                      </span>
-                    </div>
-
-                    <div className="p-2.5 flex items-center justify-between">
-                      <div>
-                        <strong className="block text-foreground font-semibold">3. Approved Field Lunches</strong>
-                        <span className="text-[10px] text-muted-foreground">Heavy remote site packed meals</span>
-                      </div>
-                      <span className="font-mono font-bold text-foreground">
-                        18,200 × SAR 14.50 = <strong className="text-primary font-black">SAR 263,900</strong>
-                      </span>
-                    </div>
-
-                    <div className="p-2.5 flex items-center justify-between bg-rose-500/5">
-                      <div>
-                        <strong className="block text-rose-600 dark:text-rose-400 font-semibold">4. Deducted Cancellations</strong>
-                        <span className="text-[10px] text-muted-foreground">Advance cancellation credit applied</span>
-                      </div>
-                      <span className="font-mono font-bold text-rose-600 dark:text-rose-400">
-                        2,150 × -SAR 10.00 = <strong>-SAR 21,500</strong>
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Net Billing Total */}
-                  <div className="p-3 bg-muted/40 flex items-center justify-between border-t border-border/80">
-                    <div>
-                      <span className="text-[10px] text-muted-foreground uppercase font-bold block">
-                        Net Approved Billing Amount
-                      </span>
-                      <strong className="text-foreground font-black text-base font-mono">
-                        SAR {CURRENT_ARAMCO_BILLING_PACK.netInvoicedSAR.toLocaleString()}.00
-                      </strong>
-                    </div>
-                    <div className="text-right">
-                      <span className="text-[10px] text-muted-foreground block font-bold">Variance vs SAP</span>
-                      <strong className="text-emerald-600 dark:text-emerald-400 font-mono font-black text-sm">
-                        0.00 SAR (Exact Match)
-                      </strong>
-                    </div>
-                  </div>
-                </div>
-
-                {/* SAP Posting & Sign-off Stamp */}
-                <div className="mt-3 p-3 rounded-xl bg-muted/20 border border-border/60 flex flex-wrap items-center justify-between gap-2 text-xs">
-                  <div className="space-y-0.5">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-muted-foreground text-[10px]">SAP Doc:</span>
-                      <code className="font-bold text-primary bg-primary/10 px-1 py-0.5 rounded text-[11px]">
-                        {CURRENT_ARAMCO_BILLING_PACK.sapPostingDocument}
-                      </code>
-                    </div>
-                    <span className="text-[10px] text-muted-foreground block">
-                      Sign-off: {CURRENT_ARAMCO_BILLING_PACK.auditSignOff.campManager}
-                    </span>
-                  </div>
-
-                  <Button
-                    size="sm"
-                    onClick={handleExportBilling}
-                    className="h-8 bg-[#0c2340] hover:bg-[#0c2340]/90 text-white font-bold gap-1 text-xs"
-                  >
-                    <Download className="h-3.5 w-3.5 text-[#fe932c]" />
-                    Export Aramco Billing Pack
-                  </Button>
+                  <p className="text-xs text-muted-foreground">
+                    Transparent 4-tier client billing binder verified against SAP VF01 invoice document.
+                  </p>
                 </div>
               </div>
+
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 text-xs text-primary"
+                onClick={() => {
+                  setViewMode("deepdive");
+                  setActiveModule("audit-cube");
+                }}
+              >
+                3D Audit Cube &rarr;
+              </Button>
+            </div>
+
+            {exportNotice && (
+              <div className="mt-3 p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 text-xs font-semibold flex items-center gap-2 animate-in fade-in">
+                <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" />
+                <span>Aramco Audit Dossier (PDF & CSV) exported to client billing portal!</span>
+              </div>
+            )}
+
+            {/* 4-Layer Billing Breakdown Table */}
+            <div className="mt-4 rounded-xl border border-border/60 overflow-hidden text-xs">
+              <div className="bg-[#0c2340] text-white p-2.5 font-bold flex items-center justify-between">
+                <span>Audit Layer</span>
+                <span>Units × Contract Rate = Subtotal (SAR)</span>
+              </div>
+              <div className="divide-y divide-border/60 bg-card">
+                <div className="p-2.5 flex items-center justify-between">
+                  <div>
+                    <strong className="block text-foreground font-semibold">1. Inmate Bed-Nights</strong>
+                    <span className="text-[10px] text-muted-foreground">Contractual accommodation occupancy</span>
+                  </div>
+                  <span className="font-mono font-bold text-foreground">
+                    34,500 × SAR 45.00 = <strong className="text-primary font-black">SAR 1,552,500</strong>
+                  </span>
+                </div>
+
+                <div className="p-2.5 flex items-center justify-between">
+                  <div>
+                    <strong className="block text-foreground font-semibold">2. Scanned Dining Meals</strong>
+                    <span className="text-[10px] text-muted-foreground">Turnstile verified breakfast, lunch, dinner</span>
+                  </div>
+                  <span className="font-mono font-bold text-foreground">
+                    72,400 × SAR 12.00 = <strong className="text-primary font-black">SAR 868,800</strong>
+                  </span>
+                </div>
+
+                <div className="p-2.5 flex items-center justify-between">
+                  <div>
+                    <strong className="block text-foreground font-semibold">3. Approved Field Lunches</strong>
+                    <span className="text-[10px] text-muted-foreground">Heavy remote site packed meals</span>
+                  </div>
+                  <span className="font-mono font-bold text-foreground">
+                    18,200 × SAR 14.50 = <strong className="text-primary font-black">SAR 263,900</strong>
+                  </span>
+                </div>
+
+                <div className="p-2.5 flex items-center justify-between bg-rose-500/5">
+                  <div>
+                    <strong className="block text-rose-600 dark:text-rose-400 font-semibold">4. Deducted Cancellations</strong>
+                    <span className="text-[10px] text-muted-foreground">Advance cancellation credit applied</span>
+                  </div>
+                  <span className="font-mono font-bold text-rose-600 dark:text-rose-400">
+                    2,150 × -SAR 10.00 = <strong>-SAR 21,500</strong>
+                  </span>
+                </div>
+              </div>
+
+              {/* Net Billing Total */}
+              <div className="p-3 bg-muted/40 flex items-center justify-between border-t border-border/80">
+                <div>
+                  <span className="text-[10px] text-muted-foreground uppercase font-bold block">
+                    Net Approved Billing Amount
+                  </span>
+                  <strong className="text-foreground font-black text-base font-mono">
+                    SAR {CURRENT_ARAMCO_BILLING_PACK.netInvoicedSAR.toLocaleString()}.00
+                  </strong>
+                </div>
+                <div className="text-right">
+                  <span className="text-[10px] text-muted-foreground block font-bold">Variance vs SAP</span>
+                  <strong className="text-emerald-600 dark:text-emerald-400 font-mono font-black text-sm">
+                    0.00 SAR (Exact Match)
+                  </strong>
+                </div>
+              </div>
+            </div>
+
+            {/* SAP Posting & Sign-off Stamp */}
+            <div className="mt-3 p-3 rounded-xl bg-muted/20 border border-border/60 flex flex-wrap items-center justify-between gap-2 text-xs">
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-muted-foreground text-[10px]">SAP Doc:</span>
+                  <code className="font-bold text-primary bg-primary/10 px-1 py-0.5 rounded text-[11px]">
+                    {CURRENT_ARAMCO_BILLING_PACK.sapPostingDocument}
+                  </code>
+                </div>
+                <span className="text-[10px] text-muted-foreground block">
+                  Sign-off: {CURRENT_ARAMCO_BILLING_PACK.auditSignOff.campManager}
+                </span>
+              </div>
+
+              <Button
+                size="sm"
+                onClick={handleExportBilling}
+                className="h-8 bg-[#0c2340] hover:bg-[#0c2340]/90 text-white font-bold gap-1 text-xs"
+              >
+                <Download className="h-3.5 w-3.5 text-[#fe932c]" />
+                Export Aramco Billing Pack
+              </Button>
             </div>
           </div>
         </div>
       )}
 
       {/* ==================================================================== */}
-      {/* MODE 2: INTERACTIVE 3D DEEP-DIVE MODULES                             */}
+      {/* MODE 2: DETAILED MODULE VIEWS (DEEP DIVES)                           */}
       {/* ==================================================================== */}
       {viewMode === "deepdive" && (
         <div className="space-y-6 animate-in fade-in duration-300">
-          {/* 6-Module Switcher Bar */}
+          {/* Module Switcher Bar */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
             {modules.map((m) => {
               const Icon = m.icon;
-              const isActive = m.key === active3DModule;
+              const isActive = m.key === activeModule;
               return (
                 <button
                   key={m.key}
-                  onClick={() => setActive3DModule(m.key)}
+                  onClick={() => setActiveModule(m.key)}
                   className={`p-3 rounded-xl border text-left transition-all relative overflow-hidden group ${
                     isActive
                       ? "bg-[#0c2340] text-white border-[#fe932c] ring-2 ring-[#fe932c]/40 shadow-md"
@@ -1148,9 +1067,9 @@ export default function EnterpriseCateringHub() {
             })}
           </div>
 
-          {/* Active 3D Visualizer Canvas */}
+          {/* Active Visualizer Canvas */}
           <div className="rounded-2xl overflow-hidden border border-border/80 shadow-md bg-card">
-            {current3DMod.component}
+            {currentMod.component}
           </div>
         </div>
       )}
