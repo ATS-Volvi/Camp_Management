@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import DmcCostDashboard2D from "@/components/catering/enterprise/DmcCostDashboard2D";
-import LogisticsRadar3D from "@/components/catering/enterprise/LogisticsRadar3D";
+import InterCampTransfer2D from "@/components/catering/enterprise/InterCampTransfer2D";
 import CulinaryReactor3D from "@/components/catering/enterprise/CulinaryReactor3D";
 import DiningHallDigitalTwin3D from "@/components/catering/enterprise/DiningHallDigitalTwin3D";
 import FifoExpiryVault3D from "@/components/catering/enterprise/FifoExpiryVault3D";
@@ -16,7 +16,6 @@ import {
   SIMULATED_RECENT_SCANS,
   INVENTORY_BATCH_LOTS,
   CURRENT_ARAMCO_BILLING_PACK,
-  InterCampTransferManifest,
   EmployeeMealScanRecord,
 } from "@/data/enterpriseCateringSuiteData";
 
@@ -74,10 +73,6 @@ export default function EnterpriseCateringHub() {
   const [paxCount, setPaxCount] = useState<number>(650);
   const [workOrderPrinted, setWorkOrderPrinted] = useState<boolean>(false);
 
-  // Inter-Camp Transfer State
-  const [transfers, setTransfers] = useState<InterCampTransferManifest[]>(SAMPLE_TRANSFERS);
-  const [dispatchedId, setDispatchedId] = useState<string | null>(null);
-
   // Meal Management Scans State
   const [scanList, setScanList] = useState<EmployeeMealScanRecord[]>(SIMULATED_RECENT_SCANS);
   const [overrideNotice, setOverrideNotice] = useState<string | null>(null);
@@ -93,14 +88,6 @@ export default function EnterpriseCateringHub() {
   const scaledData = scaleRecipe(currentRecipe, paxCount);
 
   // Handlers
-  const handleDispatch = (transferId: string) => {
-    setTransfers((prev) =>
-      prev.map((t) => (t.id === transferId ? { ...t, status: "in_transit" } : t))
-    );
-    setDispatchedId(transferId);
-    setTimeout(() => setDispatchedId(null), 3000);
-  };
-
   const handleRescueBatch = (lotId: string, recipeSuggested?: string) => {
     setRescuedBatchId(lotId);
     if (recipeSuggested?.includes("Biryani")) {
@@ -143,11 +130,11 @@ export default function EnterpriseCateringHub() {
     },
     {
       key: "logistics-radar" as const,
-      name: "Inter-Camp Transfer Radar",
-      subtitle: "3D Regional Redistribution",
+      name: "Inter-Site Stock Transfers",
+      subtitle: "Regional Inventory Redistribution",
       icon: Truck,
-      badge: "Saves SAR 3,550",
-      component: <LogisticsRadar3D />,
+      badge: "Pure 2D Logistics",
+      component: <InterCampTransfer2D />,
     },
     {
       key: "culinary-reactor" as const,
@@ -225,7 +212,7 @@ export default function EnterpriseCateringHub() {
                 </Badge>
               </div>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Centralized catering operations, 2D financial cost control, and Aramco SAP compliance.
+                Centralized catering operations, 2D financial cost control, inter-site logistics, and Aramco SAP compliance.
               </p>
             </div>
           </div>
@@ -280,7 +267,7 @@ export default function EnterpriseCateringHub() {
             }`}
           >
             <Box className="h-4 w-4 text-[#fe932c]" />
-            Detailed Module Views
+            Dedicated Module Views
           </button>
         </div>
 
@@ -288,7 +275,7 @@ export default function EnterpriseCateringHub() {
           <Sparkles className="h-3.5 w-3.5 text-[#fe932c]" />
           <span>
             {viewMode === "unified"
-              ? "Pure 2D financial cost tracking + operational cards in one seamless executive view."
+              ? "Pure 2D financial cost tracking, inter-site logistics & operational cards in one executive canvas."
               : "Dedicated full-screen workspace for each individual operational function."}
           </span>
         </div>
@@ -307,137 +294,17 @@ export default function EnterpriseCateringHub() {
           </div>
 
           {/* ---------------------------------------------------------------- */}
-          {/* SECTION 2: REGIONAL LOGISTICS & KITCHEN PRODUCTION PLANNING      */}
+          {/* SECTION 2: INTER-SITE TRANSFERS & REGIONAL LOGISTICS (PURE 2D)   */}
+          {/* ---------------------------------------------------------------- */}
+          <div>
+            <InterCampTransfer2D />
+          </div>
+
+          {/* ---------------------------------------------------------------- */}
+          {/* SECTION 3: KITCHEN PRODUCTION & SHELF-LIFE RESCUE                */}
           {/* ---------------------------------------------------------------- */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            {/* Card 2: Inter-Camp Transfer Radar & SAP Logistics (Pillar 2) */}
-            <div className="lg:col-span-5 bg-card rounded-2xl border border-border/80 shadow-xs p-5 flex flex-col justify-between">
-              <div>
-                <div className="flex items-center justify-between border-b border-border/60 pb-3">
-                  <div className="flex items-center gap-2.5">
-                    <div className="p-2 rounded-lg bg-[#0c2340] text-[#fe932c]">
-                      <Truck className="h-5 w-5" />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h2 className="text-base font-black text-foreground">
-                          Pillar 2: Inter-Camp Redistribution
-                        </h2>
-                        <Badge className="bg-emerald-500 text-slate-950 text-[10px] font-bold">
-                          Saves SAR 3,550
-                        </Badge>
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        Avoid emergency supplier re-orders via camp-to-camp truck transfers.
-                      </p>
-                    </div>
-                  </div>
-
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="h-7 text-xs text-primary"
-                    onClick={() => {
-                      setViewMode("deepdive");
-                      setActiveModule("logistics-radar");
-                    }}
-                  >
-                    3D Radar &rarr;
-                  </Button>
-                </div>
-
-                {dispatchedId && (
-                  <div className="mt-3 p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 text-xs font-semibold flex items-center gap-2 animate-in fade-in">
-                    <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" />
-                    <span>Waybill generated and dispatched to driver mobile terminal!</span>
-                  </div>
-                )}
-
-                {/* Transfer Manifest List */}
-                <div className="mt-4 space-y-3">
-                  {transfers.map((t) => (
-                    <div
-                      key={t.id}
-                      className="p-3.5 rounded-xl border border-border/70 bg-muted/20 hover:bg-muted/40 transition-colors text-xs space-y-2.5"
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <strong className="font-mono text-foreground font-bold">{t.transferNumber}</strong>
-                          <Badge
-                            className={`text-[9px] font-bold uppercase ${
-                              t.status === "in_transit"
-                                ? "bg-amber-500 text-slate-950"
-                                : "bg-primary text-primary-foreground"
-                            }`}
-                          >
-                            {t.status === "in_transit" ? "En Route" : "Ready to Dispatch"}
-                          </Badge>
-                        </div>
-                        <span className="font-bold text-emerald-600 dark:text-emerald-400">
-                          +{t.savingsVsSupplierSAR} SAR Saved
-                        </span>
-                      </div>
-
-                      <div className="flex items-center justify-between text-muted-foreground font-medium">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-foreground font-bold">{t.sourceCamp.code}</span>
-                          <ArrowRight className="h-3 w-3 text-primary" />
-                          <span className="text-foreground font-bold">{t.destCamp.code}</span>
-                        </div>
-                        <span>
-                          {t.distanceKm} km • ~{t.estimatedDriveMins} mins
-                        </span>
-                      </div>
-
-                      <div className="p-2 rounded-lg bg-card border border-border/60 flex items-center justify-between">
-                        <div>
-                          <span className="text-muted-foreground block text-[10px]">Cargo Item</span>
-                          <strong className="text-foreground font-semibold">
-                            {t.qty} {t.unit} × {t.item}
-                          </strong>
-                        </div>
-                        <div className="text-right">
-                          <span className="text-muted-foreground block text-[10px]">Driver</span>
-                          <span className="text-xs font-medium text-foreground">{t.driverName}</span>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center justify-between pt-1">
-                        <span className="text-[10px] text-muted-foreground font-mono">
-                          Plate: {t.plateNumber}
-                        </span>
-                        {t.status === "proposed" ? (
-                          <Button
-                            size="sm"
-                            onClick={() => handleDispatch(t.id)}
-                            className="h-7 text-xs bg-[#0c2340] hover:bg-[#0c2340]/90 text-white font-bold gap-1"
-                          >
-                            <Send className="h-3 w-3 text-[#fe932c]" /> Dispatch Waybill
-                          </Button>
-                        ) : (
-                          <span className="text-xs text-amber-600 dark:text-amber-400 font-bold flex items-center gap-1">
-                            <Clock className="h-3.5 w-3.5 animate-spin" /> Truck In Transit
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Camp Cluster Summary */}
-                <div className="mt-4 p-3 rounded-xl bg-[#0c2340] text-white text-xs space-y-1.5 border border-[#fe932c]/30">
-                  <div className="flex items-center justify-between text-[#fe932c] font-bold">
-                    <span>Cluster Hub Coverage</span>
-                    <span>5 Active Sites</span>
-                  </div>
-                  <p className="text-[11px] text-slate-300">
-                    Rig Central Hub (RIG-04) holds 14.5 days cooking oil cover; replenishing Tanajib Main (1.8 days left) prevents SAR 1,450 local emergency courier surcharge.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Card 3: Recipe BOM & Headcount Scaler (Pillar 1) */}
+            {/* Card: Recipe BOM & Headcount Scaler (Pillar 1) */}
             <div className="lg:col-span-7 bg-card rounded-2xl border border-border/80 shadow-xs p-5 flex flex-col justify-between">
               <div>
                 <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 pb-3">
@@ -614,14 +481,9 @@ export default function EnterpriseCateringHub() {
                 </div>
               </div>
             </div>
-          </div>
 
-          {/* ---------------------------------------------------------------- */}
-          {/* SECTION 3: QUALITY SAFETY & OPERATIONAL CONTROL                  */}
-          {/* ---------------------------------------------------------------- */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            {/* Card 4: FIFO Freshness Vault & Recipe Rescue (Pillar 5) */}
-            <div className="lg:col-span-6 bg-card rounded-2xl border border-border/80 shadow-xs p-5 flex flex-col justify-between">
+            {/* Card: FIFO Freshness Vault & Recipe Rescue (Pillar 5) */}
+            <div className="lg:col-span-5 bg-card rounded-2xl border border-border/80 shadow-xs p-5 flex flex-col justify-between">
               <div>
                 <div className="flex items-center justify-between border-b border-border/60 pb-3">
                   <div className="flex items-center gap-2.5">
@@ -742,8 +604,13 @@ export default function EnterpriseCateringHub() {
                 </div>
               </div>
             </div>
+          </div>
 
-            {/* Card 5: Meal Management & Zero-Duplicate Shield (Pillar 4) */}
+          {/* ---------------------------------------------------------------- */}
+          {/* SECTION 4: DINING ACCESS CONTROL & CLIENT BILLING PACK           */}
+          {/* ---------------------------------------------------------------- */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            {/* Card: Meal Management & Zero-Duplicate Shield (Pillar 4) */}
             <div className="lg:col-span-6 bg-card rounded-2xl border border-border/80 shadow-xs p-5 flex flex-col justify-between">
               <div>
                 <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 pb-3">
@@ -886,141 +753,141 @@ export default function EnterpriseCateringHub() {
                 </div>
               </div>
             </div>
-          </div>
 
-          {/* ---------------------------------------------------------------- */}
-          {/* SECTION 4: CLIENT BILLING PACK & ARAMCO RECONCILIATION           */}
-          {/* ---------------------------------------------------------------- */}
-          <div className="bg-card rounded-2xl border border-border/80 shadow-xs p-5">
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 pb-3">
-              <div className="flex items-center gap-2.5">
-                <div className="p-2 rounded-lg bg-[#0c2340] text-[#fe932c]">
-                  <Building2 className="h-5 w-5" />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h2 className="text-base font-black text-foreground">
-                      Pillar 6: Aramco Master Billing Pack & SAP Reconciliation
-                    </h2>
-                    <Badge className="bg-emerald-500 text-slate-950 text-[10px] font-bold">
-                      SAP Reconciled
-                    </Badge>
+            {/* Card: Aramco Master Billing Pack & SAP Reconciliation (Pillar 6) */}
+            <div className="lg:col-span-6 bg-card rounded-2xl border border-border/80 shadow-xs p-5 flex flex-col justify-between">
+              <div>
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 pb-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-2 rounded-lg bg-[#0c2340] text-[#fe932c]">
+                      <Building2 className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h2 className="text-base font-black text-foreground">
+                          Pillar 6: Aramco Master Billing Pack
+                        </h2>
+                        <Badge className="bg-emerald-500 text-slate-950 text-[10px] font-bold">
+                          SAP Reconciled
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Transparent 4-tier client billing binder verified against SAP VF01 document.
+                      </p>
+                    </div>
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    Transparent 4-tier client billing binder verified against SAP VF01 invoice document.
-                  </p>
+
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 text-xs text-primary"
+                    onClick={() => {
+                      setViewMode("deepdive");
+                      setActiveModule("audit-cube");
+                    }}
+                  >
+                    3D Audit Cube &rarr;
+                  </Button>
                 </div>
-              </div>
 
-              <Button
-                size="sm"
-                variant="ghost"
-                className="h-7 text-xs text-primary"
-                onClick={() => {
-                  setViewMode("deepdive");
-                  setActiveModule("audit-cube");
-                }}
-              >
-                3D Audit Cube &rarr;
-              </Button>
-            </div>
-
-            {exportNotice && (
-              <div className="mt-3 p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 text-xs font-semibold flex items-center gap-2 animate-in fade-in">
-                <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" />
-                <span>Aramco Audit Dossier (PDF & CSV) exported to client billing portal!</span>
-              </div>
-            )}
-
-            {/* 4-Layer Billing Breakdown Table */}
-            <div className="mt-4 rounded-xl border border-border/60 overflow-hidden text-xs">
-              <div className="bg-[#0c2340] text-white p-2.5 font-bold flex items-center justify-between">
-                <span>Audit Layer</span>
-                <span>Units × Contract Rate = Subtotal (SAR)</span>
-              </div>
-              <div className="divide-y divide-border/60 bg-card">
-                <div className="p-2.5 flex items-center justify-between">
-                  <div>
-                    <strong className="block text-foreground font-semibold">1. Inmate Bed-Nights</strong>
-                    <span className="text-[10px] text-muted-foreground">Contractual accommodation occupancy</span>
+                {exportNotice && (
+                  <div className="mt-3 p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 text-xs font-semibold flex items-center gap-2 animate-in fade-in">
+                    <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" />
+                    <span>Aramco Audit Dossier (PDF & CSV) exported to client billing portal!</span>
                   </div>
-                  <span className="font-mono font-bold text-foreground">
-                    34,500 × SAR 45.00 = <strong className="text-primary font-black">SAR 1,552,500</strong>
-                  </span>
+                )}
+
+                {/* 4-Layer Billing Breakdown Table */}
+                <div className="mt-4 rounded-xl border border-border/60 overflow-hidden text-xs">
+                  <div className="bg-[#0c2340] text-white p-2.5 font-bold flex items-center justify-between">
+                    <span>Audit Layer</span>
+                    <span>Units × Contract Rate = Subtotal (SAR)</span>
+                  </div>
+                  <div className="divide-y divide-border/60 bg-card">
+                    <div className="p-2.5 flex items-center justify-between">
+                      <div>
+                        <strong className="block text-foreground font-semibold">1. Inmate Bed-Nights</strong>
+                        <span className="text-[10px] text-muted-foreground">Contractual accommodation occupancy</span>
+                      </div>
+                      <span className="font-mono font-bold text-foreground">
+                        34,500 × SAR 45.00 = <strong className="text-primary font-black">SAR 1,552,500</strong>
+                      </span>
+                    </div>
+
+                    <div className="p-2.5 flex items-center justify-between">
+                      <div>
+                        <strong className="block text-foreground font-semibold">2. Scanned Dining Meals</strong>
+                        <span className="text-[10px] text-muted-foreground">Turnstile verified breakfast, lunch, dinner</span>
+                      </div>
+                      <span className="font-mono font-bold text-foreground">
+                        72,400 × SAR 12.00 = <strong className="text-primary font-black">SAR 868,800</strong>
+                      </span>
+                    </div>
+
+                    <div className="p-2.5 flex items-center justify-between">
+                      <div>
+                        <strong className="block text-foreground font-semibold">3. Approved Field Lunches</strong>
+                        <span className="text-[10px] text-muted-foreground">Heavy remote site packed meals</span>
+                      </div>
+                      <span className="font-mono font-bold text-foreground">
+                        18,200 × SAR 14.50 = <strong className="text-primary font-black">SAR 263,900</strong>
+                      </span>
+                    </div>
+
+                    <div className="p-2.5 flex items-center justify-between bg-rose-500/5">
+                      <div>
+                        <strong className="block text-rose-600 dark:text-rose-400 font-semibold">4. Deducted Cancellations</strong>
+                        <span className="text-[10px] text-muted-foreground">Advance cancellation credit applied</span>
+                      </div>
+                      <span className="font-mono font-bold text-rose-600 dark:text-rose-400">
+                        2,150 × -SAR 10.00 = <strong>-SAR 21,500</strong>
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Net Billing Total */}
+                  <div className="p-3 bg-muted/40 flex items-center justify-between border-t border-border/80">
+                    <div>
+                      <span className="text-[10px] text-muted-foreground uppercase font-bold block">
+                        Net Approved Billing Amount
+                      </span>
+                      <strong className="text-foreground font-black text-base font-mono">
+                        SAR {CURRENT_ARAMCO_BILLING_PACK.netInvoicedSAR.toLocaleString()}.00
+                      </strong>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-[10px] text-muted-foreground block font-bold">Variance vs SAP</span>
+                      <strong className="text-emerald-600 dark:text-emerald-400 font-mono font-black text-sm">
+                        0.00 SAR (Exact Match)
+                      </strong>
+                    </div>
+                  </div>
                 </div>
 
-                <div className="p-2.5 flex items-center justify-between">
-                  <div>
-                    <strong className="block text-foreground font-semibold">2. Scanned Dining Meals</strong>
-                    <span className="text-[10px] text-muted-foreground">Turnstile verified breakfast, lunch, dinner</span>
+                {/* SAP Posting & Sign-off Stamp */}
+                <div className="mt-3 p-3 rounded-xl bg-muted/20 border border-border/60 flex flex-wrap items-center justify-between gap-2 text-xs">
+                  <div className="space-y-0.5">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-muted-foreground text-[10px]">SAP Doc:</span>
+                      <code className="font-bold text-primary bg-primary/10 px-1 py-0.5 rounded text-[11px]">
+                        {CURRENT_ARAMCO_BILLING_PACK.sapPostingDocument}
+                      </code>
+                    </div>
+                    <span className="text-[10px] text-muted-foreground block">
+                      Sign-off: {CURRENT_ARAMCO_BILLING_PACK.auditSignOff.campManager}
+                    </span>
                   </div>
-                  <span className="font-mono font-bold text-foreground">
-                    72,400 × SAR 12.00 = <strong className="text-primary font-black">SAR 868,800</strong>
-                  </span>
-                </div>
 
-                <div className="p-2.5 flex items-center justify-between">
-                  <div>
-                    <strong className="block text-foreground font-semibold">3. Approved Field Lunches</strong>
-                    <span className="text-[10px] text-muted-foreground">Heavy remote site packed meals</span>
-                  </div>
-                  <span className="font-mono font-bold text-foreground">
-                    18,200 × SAR 14.50 = <strong className="text-primary font-black">SAR 263,900</strong>
-                  </span>
-                </div>
-
-                <div className="p-2.5 flex items-center justify-between bg-rose-500/5">
-                  <div>
-                    <strong className="block text-rose-600 dark:text-rose-400 font-semibold">4. Deducted Cancellations</strong>
-                    <span className="text-[10px] text-muted-foreground">Advance cancellation credit applied</span>
-                  </div>
-                  <span className="font-mono font-bold text-rose-600 dark:text-rose-400">
-                    2,150 × -SAR 10.00 = <strong>-SAR 21,500</strong>
-                  </span>
+                  <Button
+                    size="sm"
+                    onClick={handleExportBilling}
+                    className="h-8 bg-[#0c2340] hover:bg-[#0c2340]/90 text-white font-bold gap-1 text-xs"
+                  >
+                    <Download className="h-3.5 w-3.5 text-[#fe932c]" />
+                    Export Aramco Billing Pack
+                  </Button>
                 </div>
               </div>
-
-              {/* Net Billing Total */}
-              <div className="p-3 bg-muted/40 flex items-center justify-between border-t border-border/80">
-                <div>
-                  <span className="text-[10px] text-muted-foreground uppercase font-bold block">
-                    Net Approved Billing Amount
-                  </span>
-                  <strong className="text-foreground font-black text-base font-mono">
-                    SAR {CURRENT_ARAMCO_BILLING_PACK.netInvoicedSAR.toLocaleString()}.00
-                  </strong>
-                </div>
-                <div className="text-right">
-                  <span className="text-[10px] text-muted-foreground block font-bold">Variance vs SAP</span>
-                  <strong className="text-emerald-600 dark:text-emerald-400 font-mono font-black text-sm">
-                    0.00 SAR (Exact Match)
-                  </strong>
-                </div>
-              </div>
-            </div>
-
-            {/* SAP Posting & Sign-off Stamp */}
-            <div className="mt-3 p-3 rounded-xl bg-muted/20 border border-border/60 flex flex-wrap items-center justify-between gap-2 text-xs">
-              <div className="space-y-0.5">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-muted-foreground text-[10px]">SAP Doc:</span>
-                  <code className="font-bold text-primary bg-primary/10 px-1 py-0.5 rounded text-[11px]">
-                    {CURRENT_ARAMCO_BILLING_PACK.sapPostingDocument}
-                  </code>
-                </div>
-                <span className="text-[10px] text-muted-foreground block">
-                  Sign-off: {CURRENT_ARAMCO_BILLING_PACK.auditSignOff.campManager}
-                </span>
-              </div>
-
-              <Button
-                size="sm"
-                onClick={handleExportBilling}
-                className="h-8 bg-[#0c2340] hover:bg-[#0c2340]/90 text-white font-bold gap-1 text-xs"
-              >
-                <Download className="h-3.5 w-3.5 text-[#fe932c]" />
-                Export Aramco Billing Pack
-              </Button>
             </div>
           </div>
         </div>
