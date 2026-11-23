@@ -174,6 +174,125 @@ export function scaleRecipe(recipe: DishRecipeMaster, pax: number): ScaledRecipe
   };
 }
 
+// ----------------------------------------------------------------------------
+// PORTION CONTROL & MEAL FORECASTING & PLANNED VS ACTUAL PRODUCTION
+// ----------------------------------------------------------------------------
+
+export interface PortionControlSpec {
+  dishId: string;
+  componentName: string;
+  targetServingGrams: number;
+  toleranceGrams: number;
+  ladleScoopSize: string;
+  targetTempServingC: number;
+}
+
+export const SAMPLE_PORTION_SPECS: Record<string, PortionControlSpec[]> = {
+  "dish-biryani": [
+    { dishId: "dish-biryani", componentName: "Marinated Cooked Chicken", targetServingGrams: 180, toleranceGrams: 10, ladleScoopSize: "Tongs (2 pieces)", targetTempServingC: 72 },
+    { dishId: "dish-biryani", componentName: "Aromatic Basmati Rice", targetServingGrams: 220, toleranceGrams: 15, ladleScoopSize: "No. 4 Grey Handle Dishers (250ml)", targetTempServingC: 68 },
+    { dishId: "dish-biryani", componentName: "Mint Cucumber Raita", targetServingGrams: 80, toleranceGrams: 5, ladleScoopSize: "3oz Ladle", targetTempServingC: 4 },
+  ],
+  "dish-kabsa": [
+    { dishId: "dish-kabsa", componentName: "Slow Cooked Lamb Chunks", targetServingGrams: 200, toleranceGrams: 10, ladleScoopSize: "Tongs / Slotted Spoon", targetTempServingC: 74 },
+    { dishId: "dish-kabsa", componentName: "Spiced Kabsa Rice", targetServingGrams: 240, toleranceGrams: 15, ladleScoopSize: "No. 4 Grey Dishers (250ml)", targetTempServingC: 68 },
+    { dishId: "dish-kabsa", componentName: "Daqaq Salsa Dip", targetServingGrams: 60, toleranceGrams: 5, ladleScoopSize: "2oz Ladle", targetTempServingC: 4 },
+  ],
+  "dish-dal-tadka": [
+    { dishId: "dish-dal-tadka", componentName: "Yellow Dal Tadka", targetServingGrams: 180, toleranceGrams: 10, ladleScoopSize: "6oz Soup Ladle", targetTempServingC: 75 },
+    { dishId: "dish-dal-tadka", componentName: "Steamed Jeera Rice", targetServingGrams: 200, toleranceGrams: 15, ladleScoopSize: "No. 5 Dishers", targetTempServingC: 68 },
+    { dishId: "dish-dal-tadka", componentName: "Mixed Pickles & Salad", targetServingGrams: 50, toleranceGrams: 5, ladleScoopSize: "Tongs (Standard)", targetTempServingC: 5 },
+  ],
+};
+
+export interface ProductionVarianceRecord {
+  id: string;
+  date: string;
+  mealSession: "Breakfast" | "Lunch" | "Dinner";
+  dishId: string;
+  dishName: string;
+  forecastPax: number;
+  plannedPax: number;
+  safetyBufferPct: number;
+  targetCookPax: number;
+  actualCookedPax: number;
+  actualConsumedPax: number;
+  leftoverPax: number;
+  leftoverPct: number;
+  costPerHeadSAR: number;
+  varianceSAR: number;
+  disposition: "blast_chill_reuse" | "consumed_perfect" | "haccp_discard";
+  dispositionNotes: string;
+  headChefSignOff: string;
+  status: "reconciled" | "in_service" | "prep";
+}
+
+export const SAMPLE_PRODUCTION_LOGS: ProductionVarianceRecord[] = [
+  {
+    id: "PROD-2026-1123-L01",
+    date: "2026-11-23",
+    mealSession: "Lunch",
+    dishId: "dish-biryani",
+    dishName: "Chicken Dum Biryani",
+    forecastPax: 1250,
+    plannedPax: 650,
+    safetyBufferPct: 4.0,
+    targetCookPax: 676,
+    actualCookedPax: 680,
+    actualConsumedPax: 648,
+    leftoverPax: 32,
+    leftoverPct: 4.7,
+    costPerHeadSAR: 7.24,
+    varianceSAR: 231.68,
+    disposition: "blast_chill_reuse",
+    dispositionNotes: "Blast-chilled to 3°C within 90 minutes. Scheduled for tomorrow night shift curry supplement.",
+    headChefSignOff: "Executive Chef Tariq Al-Sayed",
+    status: "reconciled",
+  },
+  {
+    id: "PROD-2026-1123-L02",
+    date: "2026-11-23",
+    mealSession: "Lunch",
+    dishId: "dish-dal-tadka",
+    dishName: "Yellow Dal Tadka & Jeera Rice",
+    forecastPax: 1250,
+    plannedPax: 420,
+    safetyBufferPct: 3.5,
+    targetCookPax: 435,
+    actualCookedPax: 435,
+    actualConsumedPax: 430,
+    leftoverPax: 5,
+    leftoverPct: 1.1,
+    costPerHeadSAR: 2.15,
+    varianceSAR: 10.75,
+    disposition: "consumed_perfect",
+    dispositionNotes: "Near zero variance (1.1%). Serving line finished clean at 13:45.",
+    headChefSignOff: "Sous Chef Ramanathan",
+    status: "reconciled",
+  },
+  {
+    id: "PROD-2026-1122-D01",
+    date: "2026-11-22",
+    mealSession: "Dinner",
+    dishId: "dish-kabsa",
+    dishName: "Saudi Lamb Kabsa",
+    forecastPax: 1100,
+    plannedPax: 550,
+    safetyBufferPct: 5.0,
+    targetCookPax: 577,
+    actualCookedPax: 580,
+    actualConsumedPax: 562,
+    leftoverPax: 18,
+    leftoverPct: 3.1,
+    costPerHeadSAR: 15.55,
+    varianceSAR: 279.90,
+    disposition: "blast_chill_reuse",
+    dispositionNotes: "Portioned into HACCP GN-pans and labeled for cold storage holding at 2°C.",
+    headChefSignOff: "Chef de Cuisine Joseph",
+    status: "reconciled",
+  },
+];
+
 // ============================================================================
 // 2. INVENTORY & PROCUREMENT (INTER-CAMP REDISTRIBUTION RADAR)
 // ============================================================================
