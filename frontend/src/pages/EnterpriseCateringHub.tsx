@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import DmcCostDashboard2D from "@/components/catering/enterprise/DmcCostDashboard2D";
-import InterCampTransfer2D from "@/components/catering/enterprise/InterCampTransfer2D";
+import InventoryProcurement2D from "@/components/catering/enterprise/InventoryProcurement2D";
 import MenuProductionPlanning2D from "@/components/catering/enterprise/MenuProductionPlanning2D";
 
 import {
@@ -172,10 +172,10 @@ export default function EnterpriseCateringHub() {
         </div>
 
         {/* ------------------------------------------------------------------ */}
-        {/* PILLAR 2: INTER-SITE STOCK TRANSFERS & REGIONAL LOGISTICS          */}
+        {/* PILLAR 2: INVENTORY & PROCUREMENT (SAP MM INTEGRATED)              */}
         {/* ------------------------------------------------------------------ */}
         <div>
-          <InterCampTransfer2D />
+          <InventoryProcurement2D />
         </div>
 
         {/* ------------------------------------------------------------------ */}

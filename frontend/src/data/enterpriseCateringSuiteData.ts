@@ -369,6 +369,116 @@ export const SAMPLE_TRANSFERS: InterCampTransferManifest[] = [
   },
 ];
 
+// ----------------------------------------------------------------------------
+// STOCK ISSUANCE & CONSUMPTION TRACKING & PHYSICAL RECONCILIATION
+// ----------------------------------------------------------------------------
+
+export interface KitchenStockIssuanceRecord {
+  id: string;
+  sapReservationDoc: string;
+  sapMovementType: "MIGO 201 (Kitchen Cost Center)";
+  date: string;
+  mealSession: "Breakfast" | "Lunch" | "Dinner";
+  targetDish: string;
+  requestedByChef: string;
+  issuedByStorekeeper: string;
+  items: Array<{
+    materialCode: string;
+    name: string;
+    qty: number;
+    unit: string;
+    storageZone: string;
+    unitCostSAR: number;
+    subtotalSAR: number;
+  }>;
+  totalValueSAR: number;
+  status: "issued_to_kitchen" | "draft" | "returned_surplus";
+}
+
+export const SAMPLE_STOCK_ISSUANCES: KitchenStockIssuanceRecord[] = [
+  {
+    id: "ISSUE-2026-1123-01",
+    sapReservationDoc: "RES-90048210",
+    sapMovementType: "MIGO 201 (Kitchen Cost Center)",
+    date: "2026-11-23 09:30",
+    mealSession: "Lunch",
+    targetDish: "Chicken Dum Biryani (680 Pax)",
+    requestedByChef: "Executive Chef Tariq Al-Sayed",
+    issuedByStorekeeper: "Chief Storekeeper Salem Al-Ghamdi",
+    items: [
+      { materialCode: "MAT-CHK-01", name: "Fresh Chicken (Clean Cut)", qty: 122.4, unit: "kg", storageZone: "Walk-in Chiller 1", unitCostSAR: 26, subtotalSAR: 3182.4 },
+      { materialCode: "MAT-RIC-02", name: "Basmati Sella Rice", qty: 57.8, unit: "kg", storageZone: "Dry Pantry 3", unitCostSAR: 6, subtotalSAR: 346.8 },
+      { materialCode: "MAT-OIL-03", name: "Corn Cooking Oil", qty: 17.0, unit: "L", storageZone: "Dry Store A", unitCostSAR: 12, subtotalSAR: 204.0 },
+      { materialCode: "MAT-YOG-04", name: "Fresh Plain Yogurt", qty: 20.4, unit: "kg", storageZone: "Walk-in Chiller 1", unitCostSAR: 8, subtotalSAR: 163.2 },
+      { materialCode: "MAT-SPC-05", name: "Biryani Garam Masala & Saffron", qty: 5.4, unit: "kg", storageZone: "Spices Vault", unitCostSAR: 45, subtotalSAR: 243.0 },
+    ],
+    totalValueSAR: 4139.4,
+    status: "issued_to_kitchen",
+  },
+  {
+    id: "ISSUE-2026-1123-02",
+    sapReservationDoc: "RES-90048215",
+    sapMovementType: "MIGO 201 (Kitchen Cost Center)",
+    date: "2026-11-23 10:15",
+    mealSession: "Lunch",
+    targetDish: "Yellow Dal Tadka (435 Pax)",
+    requestedByChef: "Sous Chef Ramanathan",
+    issuedByStorekeeper: "Storekeeper Fahad Al-Dossary",
+    items: [
+      { materialCode: "MAT-LEN-08", name: "Toor & Moong Lentils", qty: 26.1, unit: "kg", storageZone: "Dry Pantry 3", unitCostSAR: 7, subtotalSAR: 182.7 },
+      { materialCode: "MAT-RIC-02", name: "Basmati Sella Rice", qty: 34.8, unit: "kg", storageZone: "Dry Pantry 3", unitCostSAR: 6, subtotalSAR: 208.8 },
+      { materialCode: "MAT-TOM-11", name: "Fresh Tomatoes (Diced)", qty: 17.4, unit: "kg", storageZone: "Walk-in Chiller 2", unitCostSAR: 4, subtotalSAR: 69.6 },
+    ],
+    totalValueSAR: 461.1,
+    status: "issued_to_kitchen",
+  },
+];
+
+export interface InventoryConsumptionVelocity {
+  materialCode: string;
+  name: string;
+  category: "Protein" | "Grain" | "Produce" | "Dairy" | "Oils" | "Spices";
+  currentStock: number;
+  unit: string;
+  dailyBurnRate: number;
+  daysCoverRemaining: number;
+  reorderPoint: number;
+  safetyStock: number;
+  status: "healthy" | "reorder_warning" | "critical_stockout";
+  lastSapPoRef: string;
+}
+
+export const SAMPLE_CONSUMPTION_VELOCITY: InventoryConsumptionVelocity[] = [
+  { materialCode: "MAT-CHK-01", name: "Fresh Chicken (Clean Cut)", category: "Protein", currentStock: 210, unit: "kg", dailyBurnRate: 95.0, daysCoverRemaining: 2.2, reorderPoint: 250, safetyStock: 100, status: "reorder_warning", lastSapPoRef: "SAP-PO-45009182" },
+  { materialCode: "MAT-RIC-02", name: "Basmati Sella Rice (50kg)", category: "Grain", currentStock: 650, unit: "kg", dailyBurnRate: 72.0, daysCoverRemaining: 9.0, reorderPoint: 300, safetyStock: 150, status: "healthy", lastSapPoRef: "SAP-PO-45009144" },
+  { materialCode: "MAT-OIL-03", name: "Corn Cooking Oil (20L)", category: "Oils", currentStock: 36, unit: "L", dailyBurnRate: 20.0, daysCoverRemaining: 1.8, reorderPoint: 80, safetyStock: 40, status: "critical_stockout", lastSapPoRef: "SAP-PO-45009190" },
+  { materialCode: "MAT-TOM-11", name: "Plum Tomatoes (Vine Ripe)", category: "Produce", currentStock: 85, unit: "kg", dailyBurnRate: 35.0, daysCoverRemaining: 2.4, reorderPoint: 100, safetyStock: 30, status: "reorder_warning", lastSapPoRef: "SAP-PO-45009167" },
+  { materialCode: "MAT-LMB-07", name: "Local Fresh Lamb", category: "Protein", currentStock: 180, unit: "kg", dailyBurnRate: 60.0, daysCoverRemaining: 3.0, reorderPoint: 120, safetyStock: 50, status: "healthy", lastSapPoRef: "SAP-PO-45009170" },
+];
+
+export interface PhysicalInventoryReconciliationRecord {
+  itemCode: string;
+  name: string;
+  storageLocation: string;
+  bookStock: number;
+  physicalCount: number;
+  unit: string;
+  varianceQty: number;
+  variancePct: number;
+  unitCostSAR: number;
+  varianceSAR: number;
+  reasonCode: "Moisture / Thawing Loss" | "Trimming / Preparation" | "Counting Discrepancy" | "Normal Shelf Evaporation" | "Damaged / Spoilage";
+  sapAdjustmentDoc: string;
+  status: "reconciled_posted" | "audit_pending";
+}
+
+export const SAMPLE_PHYSICAL_RECONCILIATIONS: PhysicalInventoryReconciliationRecord[] = [
+  { itemCode: "MAT-CHK-01", name: "Fresh Chicken (Clean Cut)", storageLocation: "Walk-in Chiller 1", bookStock: 214.0, physicalCount: 210.0, unit: "kg", varianceQty: -4.0, variancePct: -1.9, unitCostSAR: 26.0, varianceSAR: -104.0, reasonCode: "Moisture / Thawing Loss", sapAdjustmentDoc: "MI07-DOC-2026-7719", status: "reconciled_posted" },
+  { itemCode: "MAT-RIC-02", name: "Basmati Sella Rice", storageLocation: "Dry Pantry 3", bookStock: 650.0, physicalCount: 650.0, unit: "kg", varianceQty: 0.0, variancePct: 0.0, unitCostSAR: 6.0, varianceSAR: 0.0, reasonCode: "Counting Discrepancy", sapAdjustmentDoc: "MI07-DOC-2026-7720", status: "reconciled_posted" },
+  { itemCode: "MAT-TOM-11", name: "Plum Tomatoes", storageLocation: "Walk-in Chiller 2", bookStock: 88.0, physicalCount: 85.0, unit: "kg", varianceQty: -3.0, variancePct: -3.4, unitCostSAR: 4.0, varianceSAR: -12.0, reasonCode: "Trimming / Preparation", sapAdjustmentDoc: "MI07-DOC-2026-7721", status: "reconciled_posted" },
+  { itemCode: "MAT-OIL-03", name: "Corn Cooking Oil", storageLocation: "Dry Store A", bookStock: 36.0, physicalCount: 36.0, unit: "L", varianceQty: 0.0, variancePct: 0.0, unitCostSAR: 12.0, varianceSAR: 0.0, reasonCode: "Counting Discrepancy", sapAdjustmentDoc: "MI07-DOC-2026-7722", status: "reconciled_posted" },
+];
+
 // ============================================================================
 // 3. FOOD COST & DMC (3D FINANCIAL SKYLINE & CPH BUDGET CEILING)
 // ============================================================================
