@@ -29,22 +29,33 @@ class Database {
 
         // pg's default closes idle connections after 10s, so any request after a short pause paid a fresh
         // TLS + auth handshake to Neon per parallel query (~7s cold vs ~2s warm). Keep them for 5 minutes.
-        this.pool = new Pool({ ...poolConfig, idleTimeoutMillis: 300_000, keepAlive: true });
+        this.pool = new Pool({
+            ...poolConfig,
+            idleTimeoutMillis: 300_000,
+            connectionTimeoutMillis: 15_000,
+            keepAlive: true,
+        });
 
         this.pool.on('error', (err) => {
             console.error('Unexpected error on idle client', err);
         });
 
-        // this.pool.on('connect', () => {
-        //     console.log('Database pool connected');
-        // });
-
-        // Test connection
-        try {
-            await this.pool.query('SELECT NOW()');
-        } catch (error) {
-            console.error('Database connection failed:', error);
-            throw error;
+        // Test connection with retries (Neon serverless compute endpoints sleep when idle)
+        let attempts = 3;
+        while (attempts > 0) {
+            try {
+                await this.pool.query('SELECT NOW()');
+                console.log('Database pool connected successfully.');
+                break;
+            } catch (error: any) {
+                attempts--;
+                if (attempts === 0) {
+                    console.error('Database connection failed after 3 attempts:', error);
+                    throw error;
+                }
+                console.warn(`Database connection attempt failed (${error?.message || error}). Waking up serverless endpoint, retrying in 2.5s...`);
+                await new Promise((resolve) => setTimeout(resolve, 2500));
+            }
         }
 
         return this.pool;
