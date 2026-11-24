@@ -19,7 +19,15 @@ export interface ValueMeasure {
   customLabel?: string;
 }
 
-export type DatasetId = "inmates" | "billing" | "movements" | "catering";
+export type DatasetId =
+  | "inmates"
+  | "billing"
+  | "movements"
+  | "catering"
+  | "catering_dmc"
+  | "catering_headcount"
+  | "catering_wastage"
+  | "catering_billing";
 
 export interface DatasetDefinition {
   id: DatasetId;

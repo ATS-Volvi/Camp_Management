@@ -3,6 +3,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { DatasetId } from "@/lib/dynamicReports/types";
 import { format } from "date-fns";
 import { resolveEmployeeHierarchy } from "@/lib/departmentLabels";
+import {
+  PROJECT_DMC_DATA,
+  SAMPLE_CLIENT_MEAL_CONSUMPTION,
+  SAMPLE_DAILY_WASTAGE_LOGS,
+  CURRENT_ARAMCO_BILLING_PACK,
+} from "@/data/enterpriseCateringSuiteData";
 
 export function useDynamicReportData(dataset: DatasetId) {
   return useQuery({
@@ -216,6 +222,85 @@ export function useDynamicReportData(dataset: DatasetId) {
             meal_count: Number(r.quantity) || 1,
             unit_price: Number(r.unit_price) || 5.2,
             total_cost: Number(r.total_cost) || 5.2,
+          }));
+        }
+
+        case "catering_dmc": {
+          const records: any[] = [];
+          PROJECT_DMC_DATA.forEach((p) => {
+            const sessions = [
+              { name: "Breakfast", cph: p.sessions.breakfast.cph, cost: p.sessions.breakfast.totalCostSAR },
+              { name: "Lunch", cph: p.sessions.lunch.cph, cost: p.sessions.lunch.totalCostSAR },
+              { name: "Dinner", cph: p.sessions.dinner.cph, cost: p.sessions.dinner.totalCostSAR },
+              { name: "Field Pack", cph: p.sessions.fieldPack.cph, cost: p.sessions.fieldPack.totalCostSAR },
+            ];
+            sessions.forEach((s) => {
+              records.push({
+                id: `${p.projectCode}_${s.name}`,
+                project: p.projectName,
+                client: p.contractClient,
+                meal_session: s.name,
+                budget_status: p.status === "over_budget" ? "Over Budget" : "Under Cap",
+                top_driver: p.topCostDriver,
+                headcount: p.headcount,
+                session_cph: s.cph,
+                total_cph: p.overallCphSAR,
+                budget_cap: p.budgetCeilingCphSAR,
+                daily_dmc_sar: s.cost,
+              });
+            });
+          });
+          return records;
+        }
+
+        case "catering_headcount": {
+          return SAMPLE_CLIENT_MEAL_CONSUMPTION.map((c) => ({
+            id: c.clientCode,
+            client: c.clientName,
+            contract_ref: c.contractRef,
+            attendance_status: c.status === "compliant" ? "Compliant" : "Variance Flagged",
+            entitled_headcount: c.entitledHeadcount,
+            scanned_dine_in: c.actualDineInHeadcount,
+            packed_meals: c.packedMealsDispatched,
+            advance_cancellations: c.advanceCancellations,
+            net_billed_pax: c.netBilledPax,
+            attendance_pct: c.attendanceRatePct,
+          }));
+        }
+
+        case "catering_wastage": {
+          return SAMPLE_DAILY_WASTAGE_LOGS.map((w) => ({
+            id: w.logId,
+            meal_session: w.mealSession,
+            station: w.responsibleStation,
+            disposal_method: w.haccpDisposalMethod,
+            chef_auditor: w.chefAuditor,
+            status: w.status === "within_target" ? "Within Target (<28g)" : "Exceeded Target",
+            prep_waste_kg: w.prepWasteKg,
+            buffet_overprod_kg: w.buffetOverproductionKg,
+            plate_scraps_kg: w.plateScrapKg,
+            total_waste_kg: w.totalWasteKg,
+            waste_grams_per_pax: w.wasteGramsPerPax,
+            financial_loss_sar: w.financialLossSAR,
+          }));
+        }
+
+        case "catering_billing": {
+          const layers = [
+            { layer: "1. Inmate Bed-Nights", count: 34500, rate: 45.0, subtotal: 1552500 },
+            { layer: "2. Scanned Dining Meals", count: 72400, rate: 12.0, subtotal: 868800 },
+            { layer: "3. Approved Field Lunches", count: 18200, rate: 14.5, subtotal: 263900 },
+            { layer: "4. Deducted Cancellations", count: 2150, rate: -10.0, subtotal: -21500 },
+          ];
+          return layers.map((l, i) => ({
+            id: `layer_${i + 1}`,
+            audit_layer: l.layer,
+            contract_number: CURRENT_ARAMCO_BILLING_PACK.contractNumber,
+            sap_doc: CURRENT_ARAMCO_BILLING_PACK.sapPostingDocument,
+            sap_status: "Verified Reconciled",
+            unit_count: l.count,
+            contract_rate: l.rate,
+            subtotal_sar: l.subtotal,
           }));
         }
 
