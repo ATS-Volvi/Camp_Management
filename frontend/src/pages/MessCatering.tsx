@@ -99,6 +99,13 @@ export default function MessCatering() {
 
         <div className="ml-auto flex items-center gap-2">
           <button
+            onClick={() => navigate("/catering/reports")}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold bg-[#0c2340] text-white border border-[#fe932c]/40 hover:bg-[#0c2340]/90 transition-all shadow-sm"
+          >
+            <BarChart3 size={14} className="text-[#fe932c]" />
+            Catering BI Reports
+          </button>
+          <button
             onClick={() => navigate("/catering/enterprise-hub")}
             className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold bg-[#fe932c]/15 text-[#fe932c] border border-[#fe932c]/40 hover:bg-[#fe932c]/25 transition-all shadow-sm"
           >

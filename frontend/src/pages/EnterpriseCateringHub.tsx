@@ -20,6 +20,7 @@ import {
   Building2,
   Layers,
   Filter,
+  BarChart3,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -192,6 +193,15 @@ export default function EnterpriseCateringHub() {
               VF01 Verified
             </span>
           </div>
+
+          <Button
+            size="sm"
+            onClick={() => navigate("/catering/reports")}
+            className="h-8 text-xs font-bold gap-1.5 bg-[#0c2340] hover:bg-[#0c2340]/90 text-white shadow-2xs border border-[#fe932c]/40"
+          >
+            <BarChart3 className="h-3.5 w-3.5 text-[#fe932c]" />
+            Catering BI Reports
+          </Button>
         </div>
       </div>
 

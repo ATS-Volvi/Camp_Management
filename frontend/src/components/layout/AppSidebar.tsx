@@ -50,6 +50,7 @@ const navGroups: {
     label: "Catering Division",
     icon: UtensilsCrossed,
     items: [
+      { label: "Catering BI Reports", icon: BarChart3, path: "/catering/reports" },
       { label: "Enterprise Catering Hub", icon: Sparkles, path: "/catering/enterprise-hub" },
       { label: "Pantry Command Center", icon: Compass, path: "/catering/pantry-command-center" },
       { label: "Mess & Catering", icon: UtensilsCrossed, path: "/mess-catering" },
@@ -65,6 +66,7 @@ const navGroups: {
     icon: BarChart3,
     items: [
       { label: "Dynamic Reports", icon: SlidersHorizontal, path: "/dynamic-reports" },
+      { label: "Catering BI Reports", icon: BarChart3, path: "/catering/reports" },
       { label: "AI Reports", icon: Sparkles, path: "/ai-reports" },
       { label: "Anomaly Report", icon: AlertTriangle, path: "/anomaly-report" },
       { label: "Food Safety Audit", icon: ShieldCheck, path: "/food-safety" },

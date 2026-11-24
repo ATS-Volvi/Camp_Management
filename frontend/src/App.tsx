@@ -49,6 +49,7 @@ import DepartmentLunch from "./pages/DepartmentLunch";
 import DepartmentLunchRates from "./pages/DepartmentLunchRates";
 import PantryCommandCenter from "./pages/PantryCommandCenter";
 import EnterpriseCateringHub from "./pages/EnterpriseCateringHub";
+import CateringDynamicReports from "./pages/CateringDynamicReports";
 import StaffKPI from "./pages/StaffKPI";
 import RoomCategoryMaster from "./pages/RoomCategoryMaster";
 import SupplierMaster from "./pages/SupplierMaster";
@@ -172,6 +173,22 @@ const App = () => (
                   element={
                     <ErrorBoundary fallbackTitle="Enterprise Catering Hub Error">
                       <EnterpriseCateringHub />
+                    </ErrorBoundary>
+                  }
+                />
+                <Route
+                  path="/catering/reports"
+                  element={
+                    <ErrorBoundary fallbackTitle="Catering Reports Error">
+                      <CateringDynamicReports />
+                    </ErrorBoundary>
+                  }
+                />
+                <Route
+                  path="/catering-reports"
+                  element={
+                    <ErrorBoundary fallbackTitle="Catering Reports Error">
+                      <CateringDynamicReports />
                     </ErrorBoundary>
                   }
                 />
