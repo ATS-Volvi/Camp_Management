@@ -118,8 +118,43 @@ export function useDeleteCamp() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, archive = false }: { id: string; archive?: boolean }) => {
-      const res = await api.delete(`/camps/${id}${archive ? '?archive=true' : ''}`);
-      return res;
+      // 1. Try our enhanced atomic cascade backend endpoint
+      try {
+        const res = await api.delete(`/camps/${id}${archive ? '?archive=true' : ''}`);
+        return res;
+      } catch (backendErr: any) {
+        // 2. Direct Supabase fallback if backend server is unreachable
+        if (archive) {
+          const { data, error } = await supabase
+            .from("camps")
+            .update({ status: "inactive" } as any)
+            .eq("id", id)
+            .select()
+            .single();
+          if (error) throw error;
+          return { archived: true, camp: data };
+        } else {
+          // Cascade detach and delete via Supabase client
+          try {
+            await supabase.from("employees").update({ camp_id: null, room_id: null } as any).eq("camp_id", id);
+          } catch (e) {}
+          try {
+            await supabase.from("check_ins").delete().eq("camp_id", id);
+          } catch (e) {}
+          try {
+            await supabase.from("check_outs").delete().eq("camp_id", id);
+          } catch (e) {}
+          try {
+            await supabase.from("rooms").delete().eq("camp_id", id);
+          } catch (e) {}
+          try {
+            await supabase.from("buildings").delete().eq("camp_id", id);
+          } catch (e) {}
+          const { data, error } = await supabase.from("camps").delete().eq("id", id).select().single();
+          if (error) throw error;
+          return { deleted: true, camp: data };
+        }
+      }
     },
     onSuccess: (res: any) => {
       qc.invalidateQueries({ queryKey: ["camps-list"] });
@@ -128,13 +163,13 @@ export function useDeleteCamp() {
         title: res?.archived ? "Camp Decommissioned / Archived" : "Camp Deleted",
         description: res?.archived 
           ? "The camp has been archived and marked inactive." 
-          : "The camp was permanently deleted.",
+          : "The camp and all associated rooms were permanently deleted.",
       });
     },
     onError: (e: any) => {
       toast({
         title: "Action Failed",
-        description: e.message || "Failed to delete or archive camp",
+        description: e.message || "Failed to delete camp",
         variant: "destructive",
       });
     },

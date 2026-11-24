@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { Plus, Search, MapPin, Building2, Users, BedDouble, ArrowUpRight, LayoutGrid, List, FileText, Sparkles, Sliders } from "lucide-react";
+import { Plus, Search, MapPin, Building2, Users, BedDouble, ArrowUpRight, LayoutGrid, List, FileText, Sparkles, Sliders, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,6 +10,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import AddCampDialog from "@/components/camps/AddCampDialog";
 import CampMasterSetupDialog from "@/components/camps/CampMasterSetupDialog";
 import RoomConfigMasterDialog from "@/components/camps/RoomConfigMasterDialog";
+import DeleteCampDialog from "@/components/camps/DeleteCampDialog";
 import CampsOverview from "@/components/camps/CampsOverview";
 import CampsReports from "@/components/camps/CampsReports";
 import { useCamps } from "@/hooks/useCampManagement";
@@ -20,6 +21,7 @@ export default function CampsList() {
   const [addOpen, setAddOpen] = useState(false);
   const [roomConfigMasterOpen, setRoomConfigMasterOpen] = useState(false);
   const [masterSetupCamp, setMasterSetupCamp] = useState<{ id: string; name: string } | null>(null);
+  const [deleteCampTarget, setDeleteCampTarget] = useState<any | null>(null);
   const [viewMode, setViewMode] = useState<"card" | "list">("list");
   const [activeTab, setActiveTab] = useState("overview");
 
@@ -152,15 +154,26 @@ export default function CampsList() {
                       <TableCell className="text-center font-medium text-green-600">{camp.vacantBeds}</TableCell>
                       <TableCell className="text-sm text-muted-foreground">{camp.managed_by || "—"}</TableCell>
                       <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
-                        <Button
-                          size="xs"
-                          variant="ghost"
-                          className="h-7 text-xs gap-1 text-primary hover:bg-primary/10"
-                          onClick={() => setMasterSetupCamp({ id: camp.id, name: camp.name })}
-                          title="Open Master Structure Builder"
-                        >
-                          <Sparkles size={13} /> Setup
-                        </Button>
+                        <div className="flex items-center justify-end gap-1">
+                          <Button
+                            size="xs"
+                            variant="ghost"
+                            className="h-7 text-xs gap-1 text-primary hover:bg-primary/10"
+                            onClick={() => setMasterSetupCamp({ id: camp.id, name: camp.name })}
+                            title="Open Master Structure Builder"
+                          >
+                            <Sparkles size={13} /> Setup
+                          </Button>
+                          <Button
+                            size="xs"
+                            variant="ghost"
+                            className="h-7 text-xs gap-1 text-destructive hover:bg-destructive/10"
+                            onClick={() => setDeleteCampTarget(camp)}
+                            title="Delete Camp"
+                          >
+                            <Trash2 size={13} /> Delete
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -218,14 +231,25 @@ export default function CampsList() {
                       <p className="text-xs text-muted-foreground truncate max-w-[130px]">
                         {camp.managed_by ? `Mgr: ${camp.managed_by}` : ""}
                       </p>
-                      <Button
-                        size="xs"
-                        variant="outline"
-                        className="h-7 text-xs gap-1 border-primary/30 text-primary hover:bg-primary/5"
-                        onClick={() => setMasterSetupCamp({ id: camp.id, name: camp.name })}
-                      >
-                        <Sparkles size={12} /> Master Setup
-                      </Button>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          size="xs"
+                          variant="outline"
+                          className="h-7 text-xs gap-1 border-primary/30 text-primary hover:bg-primary/5"
+                          onClick={() => setMasterSetupCamp({ id: camp.id, name: camp.name })}
+                        >
+                          <Sparkles size={12} /> Setup
+                        </Button>
+                        <Button
+                          size="xs"
+                          variant="ghost"
+                          className="h-7 text-xs text-destructive hover:bg-destructive/10 px-2"
+                          onClick={() => setDeleteCampTarget(camp)}
+                          title="Delete Camp"
+                        >
+                          <Trash2 size={13} />
+                        </Button>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -250,6 +274,18 @@ export default function CampsList() {
         open={roomConfigMasterOpen}
         onOpenChange={setRoomConfigMasterOpen}
       />
+
+      {deleteCampTarget && (
+        <DeleteCampDialog
+          open={!!deleteCampTarget}
+          onOpenChange={(isOpen) => {
+            if (!isOpen) setDeleteCampTarget(null);
+          }}
+          camp={deleteCampTarget}
+          totalOccupants={deleteCampTarget.totalOccupants || 0}
+          totalRooms={deleteCampTarget.totalRooms || 0}
+        />
+      )}
 
       {masterSetupCamp && (
         <CampMasterSetupDialog

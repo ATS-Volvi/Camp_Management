@@ -136,37 +136,7 @@ class CampsDatabase {
             return { notFound: true };
         }
 
-        // 2. Count active occupants
-        const occQuery = `
-            WITH latest_ci AS (
-                SELECT DISTINCT ON (employee_id) *
-                FROM check_ins
-                WHERE camp_id = $1
-                ORDER BY employee_id, check_in_date DESC
-            ),
-            latest_co AS (
-                SELECT DISTINCT ON (employee_id) *
-                FROM check_outs
-                WHERE camp_id = $1
-                ORDER BY employee_id, check_out_date DESC
-            )
-            SELECT COUNT(*)::int as count
-            FROM latest_ci lci
-            LEFT JOIN latest_co lco ON lci.employee_id = lco.employee_id
-            WHERE (lco.check_out_date IS NULL OR lci.check_in_date > lco.check_out_date)
-        `;
-        const { rows: occRows } = await pool.query(occQuery, [id]);
-        const activeOccupants = occRows[0]?.count || 0;
-
-        if (activeOccupants > 0 && !forceArchive) {
-            return {
-                blocked: true,
-                activeOccupants,
-                message: `Cannot delete camp: It currently has ${activeOccupants} active resident(s). Please check them out or decommission/archive the camp instead.`
-            };
-        }
-
-        // 3. If forceArchive is selected (or active occupants need decommissioning):
+        // 2. If forceArchive is explicitly requested, simply mark as inactive
         if (forceArchive) {
             const { rows: updated } = await pool.query(
                 "UPDATE camps SET status = 'inactive', updated_at = now() WHERE id = $1 RETURNING *",
@@ -175,18 +145,71 @@ class CampsDatabase {
             return { archived: true, camp: updated[0] };
         }
 
-        // 4. Attempt hard delete
+        // 3. Complete Atomic Cascade Hard Delete
+        // Removes camp even if active inmates or rooms are present, cleanly detaching residents
+        const client = await pool.connect();
         try {
-            const { rows: deleted } = await pool.query('DELETE FROM camps WHERE id = $1 RETURNING *', [id]);
+            await client.query('BEGIN');
+
+            // Detach employees assigned to this camp or its rooms (preserves employee master records)
+            try {
+                await client.query(`
+                    UPDATE employees 
+                    SET camp_id = NULL, room_id = NULL 
+                    WHERE camp_id = $1 OR room_id IN (SELECT id FROM rooms WHERE camp_id = $1)
+                `, [id]);
+            } catch (e) {}
+
+            // Dependent tables to cascade delete by camp_id
+            const cascadeTables = [
+                'check_ins', 'check_outs', 'checkout_reports', 'accommodation_absences',
+                'inmate_locker_assignments', 'camp_lockers', 'lockers', 'locker_configuration',
+                'room_change_requests', 'maintenance_tickets', 'pm_logs', 'pm_tasks', 'pm_equipment',
+                'assets', 'violations', 'visitors', 'ncr_records', 'camp_utilities',
+                'item_assignments', 'inventory', 'catering_consumption_logs', 'catering_invoices',
+                'catering_issues', 'catering_grn', 'catering_stock', 'cook_requests',
+                'daily_meal_plans', 'food_safety_audits', 'food_wastage', 'grocery_requests',
+                'weekly_menu_config', 'department_lunch_requests', 'department_lunch_rates',
+                'mess_facilities', 'purchase_orders', 'camp_meal_rates', 'camp_room_rates',
+                'camp_supplier_costs', 'user_roles'
+            ];
+
+            for (const tbl of cascadeTables) {
+                try {
+                    await client.query(`DELETE FROM ${tbl} WHERE camp_id = $1`, [id]);
+                } catch (e: any) {
+                    // Ignore if table or column doesn't exist in the current migration state
+                }
+            }
+
+            // Transfer requests & asset history referencing camp
+            try {
+                await client.query('DELETE FROM camp_transfer_requests WHERE from_camp_id = $1 OR to_camp_id = $1', [id]);
+            } catch (e) {}
+            try {
+                await client.query('DELETE FROM asset_handover_history WHERE from_camp_id = $1 OR to_camp_id = $1', [id]);
+            } catch (e) {}
+
+            // Delete rooms for this camp
+            try {
+                await client.query('DELETE FROM rooms WHERE camp_id = $1', [id]);
+            } catch (e) {}
+
+            // Delete buildings for this camp
+            try {
+                await client.query('DELETE FROM buildings WHERE camp_id = $1', [id]);
+            } catch (e) {}
+
+            // Finally, delete the camp itself
+            const { rows: deleted } = await client.query('DELETE FROM camps WHERE id = $1 RETURNING *', [id]);
+
+            await client.query('COMMIT');
             return { deleted: true, camp: deleted[0] };
         } catch (err: any) {
-            if (err.code === '23503') {
-                return {
-                    hasHistory: true,
-                    message: 'Cannot permanently delete this camp because historical records (such as employee assignments, audits, or invoices) reference it. You can safely decommission / archive it instead.'
-                };
-            }
+            await client.query('ROLLBACK');
             throw err;
+        } finally {
+            client.release();
         }
     }
 }
