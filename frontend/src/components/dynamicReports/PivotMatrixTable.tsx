@@ -11,9 +11,16 @@ interface PivotMatrixTableProps {
 }
 
 export default function PivotMatrixTable({ matrix, config }: PivotMatrixTableProps) {
+  const safeMatrix: PivotMatrixResult = matrix || {
+    rows: [],
+    columnHeaders: [],
+    columnLabels: {},
+    columnTotals: {},
+    grandTotal: { value: 0, formatted: "0" },
+  };
   const [collapsedKeys, setCollapsedKeys] = useState<Set<string>>(new Set());
   const [density, setDensity] = useState<"compact" | "standard">("standard");
-  const pagedRows = usePaged(matrix.rows || [], 25);
+  const pagedRows = usePaged(safeMatrix.rows || [], 25);
 
   const toggleCollapse = (key: string) => {
     setCollapsedKeys((prev) => {
@@ -35,11 +42,11 @@ export default function PivotMatrixTable({ matrix, config }: PivotMatrixTablePro
         }
       }
     }
-    collect(matrix.rows);
+    collect(safeMatrix.rows || []);
     setCollapsedKeys(allParentKeys);
   };
 
-  if (!matrix.rows || matrix.rows.length === 0 || matrix.columnHeaders.length === 0) {
+  if (!safeMatrix.rows || safeMatrix.rows.length === 0 || !safeMatrix.columnHeaders || safeMatrix.columnHeaders.length === 0) {
     return (
       <div className="bg-card border border-dashed border-border rounded-xl p-12 text-center space-y-3">
         <div className="mx-auto w-12 h-12 rounded-full bg-muted flex items-center justify-center text-muted-foreground">
@@ -86,7 +93,7 @@ export default function PivotMatrixTable({ matrix, config }: PivotMatrixTablePro
           </TableCell>
 
           {/* Matrix Cells */}
-          {matrix.columnHeaders.map((cKey) => {
+          {safeMatrix.columnHeaders.map((cKey) => {
             const cell = node.cells[cKey];
             return (
               <TableCell key={cKey} className={`text-right font-mono ${cellPad}`}>
@@ -116,7 +123,7 @@ export default function PivotMatrixTable({ matrix, config }: PivotMatrixTablePro
         <div className="flex items-center gap-2">
           <Layers size={14} className="text-muted-foreground" />
           <span className="text-xs font-bold text-foreground uppercase tracking-wider">
-            Pivot Matrix Report ({matrix.rows.length} Primary Groups)
+            Pivot Matrix Report ({safeMatrix.rows.length} Primary Groups)
           </span>
           <span className="text-[10px] text-muted-foreground font-semibold px-2 py-0.5 rounded-full bg-muted border border-border">
             Sticky Headers & Totals
@@ -181,12 +188,12 @@ export default function PivotMatrixTable({ matrix, config }: PivotMatrixTablePro
               <TableHead className={`font-bold text-foreground border-r border-border min-w-[200px] bg-muted/95 ${headerPad}`}>
                 Group / Category
               </TableHead>
-              {matrix.columnHeaders.map((cKey) => (
+              {safeMatrix.columnHeaders.map((cKey) => (
                 <TableHead
                   key={cKey}
                   className={`font-bold text-right text-foreground whitespace-nowrap min-w-[120px] bg-muted/95 ${headerPad}`}
                 >
-                  {matrix.columnLabels[cKey] || cKey}
+                  {safeMatrix.columnLabels[cKey] || cKey}
                 </TableHead>
               ))}
               <TableHead className={`font-bold text-right text-foreground bg-muted border-l border-border min-w-[130px] ${headerPad}`}>
@@ -204,8 +211,8 @@ export default function PivotMatrixTable({ matrix, config }: PivotMatrixTablePro
                 <TableCell className={`uppercase tracking-wider border-r border-slate-700 bg-[#0c2340] ${headerPad}`}>
                   Grand Total
                 </TableCell>
-                {matrix.columnHeaders.map((cKey) => {
-                  const colTotal = matrix.columnTotals[cKey];
+                {safeMatrix.columnHeaders.map((cKey) => {
+                  const colTotal = safeMatrix.columnTotals[cKey];
                   return (
                     <TableCell key={cKey} className={`text-right font-mono bg-[#0c2340] ${headerPad}`}>
                       {colTotal ? colTotal.formatted : "0"}
@@ -213,7 +220,7 @@ export default function PivotMatrixTable({ matrix, config }: PivotMatrixTablePro
                   );
                 })}
                 <TableCell className={`text-right font-mono bg-[#08182b] border-l border-slate-700 text-orange-400 ${headerPad}`}>
-                  {matrix.grandTotal ? matrix.grandTotal.formatted : "0"}
+                  {safeMatrix.grandTotal ? safeMatrix.grandTotal.formatted : "0"}
                 </TableCell>
               </TableRow>
             )}

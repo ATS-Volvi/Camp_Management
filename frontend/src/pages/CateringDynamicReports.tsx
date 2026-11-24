@@ -786,7 +786,7 @@ export default function CateringDynamicReports() {
 
               <div className="flex items-center gap-2">
                 <span className="text-[11px] text-muted-foreground font-mono">
-                  {matrixResult.rows.length} Row Nodes | {matrixResult.columnHeaders.length} Column Headers
+                  {(matrixResult?.rows?.length ?? 0)} Row Nodes | {(matrixResult?.columnHeaders?.length ?? 0)} Column Headers
                 </span>
                 <Button
                   size="sm"
@@ -817,10 +817,8 @@ export default function CateringDynamicReports() {
             {(canvasViewMode === "split" || canvasViewMode === "table") && (
               <div className="bg-card border border-border rounded-xl p-4 shadow-2xs">
                 <PivotMatrixTable
-                  result={matrixResult}
+                  matrix={matrixResult}
                   config={config}
-                  onExportExcel={handleExportExcel}
-                  onExportCsv={handleExportCsv}
                 />
               </div>
             )}
