@@ -43,14 +43,16 @@ function aggregateValues(values: number[], agg: AggregationFunction): number {
 }
 
 export function computePivotMatrix(
-  datasetRecords: Array<Record<string, any>>,
+  datasetRecords: Array<Record<string, any>> = [],
   config: ReportConfig,
   fieldMap: Record<string, FieldDefinition>
 ): PivotMatrixResult {
   const { rows, columns, values, filters } = config;
 
+  const safeRecords = datasetRecords || [];
+
   // 1. Filter Records
-  const filteredRecords = datasetRecords.filter((rec) => {
+  const filteredRecords = safeRecords.filter((rec) => {
     for (const [filterField, allowedValues] of Object.entries(filters || {})) {
       if (allowedValues && allowedValues.length > 0) {
         const val = String(rec[filterField] ?? "");

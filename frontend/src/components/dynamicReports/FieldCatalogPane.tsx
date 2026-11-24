@@ -19,12 +19,13 @@ interface FieldCatalogPaneProps {
 }
 
 export default function FieldCatalogPane({
-  fields,
+  fields = [],
   onAddField,
   collapsed = false,
   onToggleCollapse,
 }: FieldCatalogPaneProps) {
   const [search, setSearch] = useState("");
+  const safeFields = fields || [];
 
   if (collapsed) {
     return (
@@ -40,16 +41,16 @@ export default function FieldCatalogPane({
         </Button>
         <div className="writing-vertical text-[10px] font-bold text-muted-foreground uppercase tracking-widest py-2 select-none flex items-center gap-1.5">
           <Database size={11} className="text-primary" />
-          <span>Fields ({fields.length})</span>
+          <span>Fields ({safeFields.length})</span>
         </div>
       </div>
     );
   }
 
-  const filteredFields = fields.filter(
+  const filteredFields = safeFields.filter(
     (f) =>
-      f.label.toLowerCase().includes(search.toLowerCase()) ||
-      f.id.toLowerCase().includes(search.toLowerCase())
+      f?.label?.toLowerCase().includes(search.toLowerCase()) ||
+      f?.id?.toLowerCase().includes(search.toLowerCase())
   );
 
   const dimensions = filteredFields.filter((f) => f.category === "dimension");

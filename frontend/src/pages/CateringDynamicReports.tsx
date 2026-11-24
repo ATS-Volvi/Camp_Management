@@ -682,10 +682,13 @@ export default function CateringDynamicReports() {
         {!visualsCollapsed && (
           <div className="pt-2">
             <VisualizationsTopRibbon
-              activeType={config.chartType}
-              onChange={(t) => setConfig({ ...config, chartType: t })}
-              activeTheme={config.colorTheme || "powerbi"}
-              onThemeChange={(themeId) => setConfig({ ...config, colorTheme: themeId })}
+              config={config}
+              onConfigChange={(newConfig) => {
+                if (newConfig.chartType !== config.chartType && canvasViewMode === "table" && newConfig.chartType !== "none") {
+                  setCanvasViewMode("split");
+                }
+                setConfig(newConfig);
+              }}
             />
           </div>
         )}
@@ -717,7 +720,6 @@ export default function CateringDynamicReports() {
               config={config}
               fieldMap={fieldMap}
               onConfigChange={setConfig}
-              rawRecords={rawRecords}
             />
           </div>
         )}
@@ -739,9 +741,10 @@ export default function CateringDynamicReports() {
               </Badge>
             </div>
             <FieldCatalogPane
-              dataset={activeDatasetDef}
-              activeConfig={config}
+              fields={activeDatasetDef.fields}
               onAddField={handleAddField}
+              collapsed={fieldsCollapsed}
+              onToggleCollapse={() => setFieldsCollapsed(!fieldsCollapsed)}
             />
           </div>
         )}
