@@ -126,6 +126,8 @@ export default function CateringDynamicReports() {
           BUILT_IN_PRESETS.find((p) => p.id === "catering-3d-project-cph") ||
           BUILT_IN_PRESETS.find((p) => p.id === "catering-3d-session-donut") ||
           defaultCateringPreset;
+      } else if (lower.includes("dish") || lower.includes("recipe") || lower.includes("portion") || lower.includes("ingredient")) {
+        matched = BUILT_IN_PRESETS.find((p) => p.id === "catering-3d-dishes-cost-skyline") || defaultCateringPreset;
       } else if (lower.includes("waste") || lower.includes("haccp") || lower.includes("scrap")) {
         matched = BUILT_IN_PRESETS.find((p) => p.id === "catering-haccp-wastage-audit") || defaultCateringPreset;
       } else if (lower.includes("headcount") || lower.includes("entitle") || lower.includes("client")) {
@@ -564,6 +566,7 @@ export default function CateringDynamicReports() {
         <div className="flex items-center gap-2 mt-2.5 pt-2 border-t border-white/10 overflow-x-auto scrollbar-none">
           <span className="text-[10px] text-slate-400 shrink-0 font-medium">Quick Prompts:</span>
           {[
+            { label: "✨ 3D Dishes Cost Skyline", prompt: "Show 3D towers of dish cost per portion across meal sessions" },
             { label: "✨ 3D Project CPH Skyline", prompt: "Show 3D towers comparing project Cost Per Head across meal sessions" },
             { label: "✨ Daily DMC Variance", prompt: "Analyze project food cost and variance from budget cap" },
             { label: "✨ 3D Session Donut", prompt: "Display 3D donut for meal session expenditure distribution" },
@@ -604,6 +607,7 @@ export default function CateringDynamicReports() {
               </SelectTrigger>
               <SelectContent className="text-xs">
                 <SelectItem value="catering_dmc">💰 Food Cost & CPH (3D Ready)</SelectItem>
+                <SelectItem value="catering_dishes">🍲 Dishes & Standard Recipes (3D Ready)</SelectItem>
                 <SelectItem value="catering_headcount">👥 Meal Headcount & Entitlements</SelectItem>
                 <SelectItem value="catering_wastage">♻️ HACCP Food Wastage & Loss</SelectItem>
                 <SelectItem value="catering_billing">🏢 Aramco Billing (SAP VF01)</SelectItem>

@@ -555,6 +555,7 @@ export default function DynamicReports() {
                 <SelectItem value="billing">💰 Billing & Charges</SelectItem>
                 <SelectItem value="movements">🔄 In/Out Movements</SelectItem>
                 <SelectItem value="catering">🍽️ Mess & Catering</SelectItem>
+                <SelectItem value="catering_dishes">🍲 Dishes & Standard Recipes</SelectItem>
               </SelectContent>
             </Select>
           </CardContent>

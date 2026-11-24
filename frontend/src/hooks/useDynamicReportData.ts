@@ -9,6 +9,8 @@ import {
   SAMPLE_DAILY_WASTAGE_LOGS,
   CURRENT_ARAMCO_BILLING_PACK,
 } from "@/data/enterpriseCateringSuiteData";
+import { DISH_RECIPES, findRecipe } from "@/data/dishRecipes";
+import { MASTER_INGREDIENTS } from "@/data/ingredientMaster";
 
 export function useDynamicReportData(dataset: DatasetId) {
   return useQuery({
@@ -302,6 +304,198 @@ export function useDynamicReportData(dataset: DatasetId) {
             contract_rate: l.rate,
             subtotal_sar: l.subtotal,
           }));
+        }
+
+        case "catering_dishes": {
+          // 1. Fetch live saved custom dishes from Supabase menu_dishes
+          let dbDishes: any[] = [];
+          try {
+            const { data, error } = await supabase
+              .from("menu_dishes")
+              .select(`
+                id, name, description, meal_type, is_active,
+                menu_dish_ingredients(
+                  id, qty_per_person,
+                  ingredients(id, name, unit, unit_cost, category)
+                )
+              `)
+              .order("name");
+            if (!error && data) {
+              dbDishes = data;
+            }
+          } catch (e) {
+            console.warn("Failed fetching menu_dishes from Supabase, using standard dishes", e);
+          }
+
+          // Build ingredient unit cost lookup map from MASTER_INGREDIENTS
+          const costMap: Record<string, number> = {};
+          MASTER_INGREDIENTS.forEach((ing) => {
+            costMap[ing.name.toLowerCase()] = ing.unit_cost;
+          });
+
+          // Metadata classifier helper (Cuisine, Diet, Kitchen Station, Allergens)
+          const inferDishMetadata = (dishName: string, mealType: string) => {
+            const lower = dishName.toLowerCase();
+            let cuisine = "International";
+            if (lower.match(/biryani|masala|parota|dosa|dal|paneer|curry|sambar|idli|korma|chapati|tikka|roti|pulao/)) {
+              cuisine = "Indian / Subcontinental";
+            } else if (lower.match(/kabsa|mandi|hummus|shakshuka|falafel|ful|shawarma|tabbouleh|mutabbal|sayadieh|tagine/)) {
+              cuisine = "Arabic / Middle Eastern";
+            } else if (lower.match(/pasta|spaghetti|alfredo|pizza|burger|sandwich|lasagna|stroganoff|macaroni|steak/)) {
+              cuisine = "Continental / Western";
+            } else if (lower.match(/noodles|fried rice|manchurian|chilli chicken|teriyaki|stir fry/)) {
+              cuisine = "Pan-Asian";
+            }
+
+            let diet = "Non-Vegetarian";
+            if (lower.match(/vegetable|veg|dal|paneer|aloo|dosa|chana|salad|hummus|falafel|bread|cheese|croissant/)) {
+              diet = "Vegetarian";
+            }
+            if (lower.match(/fruit|salad|steamed rice|plain rice|boiled/)) {
+              diet = "Vegan / Low-Cal";
+            }
+
+            let station = "Hot Kitchen";
+            if (lower.match(/salad|hummus|fruit|dressing|raita|chutney|coleslaw/)) {
+              station = "Cold Larder / Pantry";
+            } else if (lower.match(/bread|croissant|toast|cake|muffin|pastry|pancake|parota|chapati/)) {
+              station = "Bakery & Dough";
+            } else if (lower.match(/biryani|stew|curry|gravy|soup|rice|kabsa/)) {
+              station = "Hot Kitchen";
+            } else if (lower.match(/grilled|fry|roast|steak|chicken|mutton|fish/)) {
+              station = "Grill & Butchery";
+            }
+
+            let allergens = "None";
+            if (lower.match(/bread|pasta|wheat|flour|parota|roti|croissant|noodles/)) allergens = "Gluten";
+            if (lower.match(/paneer|cheese|milk|butter|cream|yogurt|ghee/)) allergens = allergens === "None" ? "Dairy" : `${allergens}, Dairy`;
+            if (lower.match(/egg|omelette/)) allergens = allergens === "None" ? "Eggs" : `${allergens}, Eggs`;
+            if (lower.match(/fish|prawns/)) allergens = allergens === "None" ? "Seafood" : `${allergens}, Seafood`;
+
+            return { cuisine, diet, station, allergens };
+          };
+
+          const records: any[] = [];
+          const seenNames = new Set<string>();
+
+          // Process DB dishes first (reflects any dish added by the user in Mess & Catering)
+          for (const d of dbDishes) {
+            const name = d.name || "Unnamed Dish";
+            seenNames.add(name.toLowerCase());
+            const mealType = d.meal_type || "Lunch";
+            const meta = inferDishMetadata(name, mealType);
+            const ingredients = d.menu_dish_ingredients || [];
+
+            let portionCost = 0;
+            let portionGrams = 0;
+
+            if (ingredients.length > 0) {
+              ingredients.forEach((ing: any) => {
+                const qty = Number(ing.qty_per_person) || 0;
+                const unitCost = Number(ing.ingredients?.unit_cost) || costMap[ing.ingredients?.name?.toLowerCase()] || 8;
+                portionCost += qty * unitCost;
+                if (ing.ingredients?.unit === "kg") portionGrams += qty * 1000;
+                else if (ing.ingredients?.unit === "pieces") portionGrams += qty * 50;
+                else portionGrams += qty * 100;
+              });
+            } else {
+              const recipe = findRecipe(name);
+              if (recipe && recipe.length > 0) {
+                recipe.forEach((ing) => {
+                  const unitCost = costMap[ing.name.toLowerCase()] || 8;
+                  portionCost += ing.qty_per_person * unitCost;
+                  if (ing.unit === "kg") portionGrams += ing.qty_per_person * 1000;
+                  else if (ing.unit === "pieces") portionGrams += ing.qty_per_person * 50;
+                  else portionGrams += ing.qty_per_person * 100;
+                });
+              } else {
+                portionCost = mealType === "Breakfast" ? 4.5 : 8.5;
+                portionGrams = 320;
+              }
+            }
+
+            portionCost = Number(portionCost.toFixed(2));
+            portionGrams = Math.round(portionGrams) || 350;
+            const forecastPax = 450;
+            const totalBatchCost = Number((portionCost * forecastPax).toFixed(2));
+            const caloriesKcal = Math.round(portionGrams * (meta.diet === "Vegetarian" ? 1.4 : 1.9));
+
+            records.push({
+              id: d.id,
+              dish_name: name,
+              meal_type: mealType,
+              cuisine: meta.cuisine,
+              diet_type: meta.diet,
+              station: meta.station,
+              allergens: meta.allergens,
+              source: "Database Saved Dish",
+              status: d.is_active !== false ? "Active Menu" : "Archived",
+              ingredients_count: ingredients.length > 0 ? ingredients.length : (findRecipe(name)?.length || 4),
+              portion_grams: portionGrams,
+              cost_per_portion_sar: portionCost,
+              forecast_pax: forecastPax,
+              total_batch_cost_sar: totalBatchCost,
+              calories_kcal: caloriesKcal,
+            });
+          }
+
+          // Merge all standard catalog dishes from DISH_RECIPES that weren't already added
+          Object.entries(DISH_RECIPES).forEach(([dishKey, ings], index) => {
+            if (seenNames.has(dishKey.toLowerCase())) return;
+
+            const name = dishKey
+              .split(" ")
+              .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+              .join(" ");
+
+            let mealType = "Lunch";
+            const lowerKey = dishKey.toLowerCase();
+            if (lowerKey.match(/parota|dosa|toast|croissant|omelette|pancake|idli|falafel|ful medames|breakfast/)) {
+              mealType = "Breakfast";
+            } else if (lowerKey.match(/snack|cake|tea|sandwich/)) {
+              mealType = "Snack";
+            } else if (lowerKey.match(/biryani|kabsa|steak|stroganoff|dinner/)) {
+              mealType = "Dinner";
+            }
+
+            const meta = inferDishMetadata(name, mealType);
+            let portionCost = 0;
+            let portionGrams = 0;
+
+            ings.forEach((ing) => {
+              const unitCost = costMap[ing.name.toLowerCase()] || 8;
+              portionCost += ing.qty_per_person * unitCost;
+              if (ing.unit === "kg") portionGrams += ing.qty_per_person * 1000;
+              else if (ing.unit === "pieces") portionGrams += ing.qty_per_person * 50;
+              else portionGrams += ing.qty_per_person * 100;
+            });
+
+            portionCost = Number(portionCost.toFixed(2));
+            portionGrams = Math.round(portionGrams) || 320;
+            const forecastPax = 450;
+            const totalBatchCost = Number((portionCost * forecastPax).toFixed(2));
+            const caloriesKcal = Math.round(portionGrams * (meta.diet === "Vegetarian" ? 1.4 : 1.9));
+
+            records.push({
+              id: `standard_${index + 1}`,
+              dish_name: name,
+              meal_type: mealType,
+              cuisine: meta.cuisine,
+              diet_type: meta.diet,
+              station: meta.station,
+              allergens: meta.allergens,
+              source: "Standard Recipe Catalog",
+              status: "Active Menu",
+              ingredients_count: ings.length,
+              portion_grams: portionGrams,
+              cost_per_portion_sar: portionCost,
+              forecast_pax: forecastPax,
+              total_batch_cost_sar: totalBatchCost,
+              calories_kcal: caloriesKcal,
+            });
+          });
+
+          return records;
         }
 
         default:

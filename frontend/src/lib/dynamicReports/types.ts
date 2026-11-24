@@ -27,7 +27,8 @@ export type DatasetId =
   | "catering_dmc"
   | "catering_headcount"
   | "catering_wastage"
-  | "catering_billing";
+  | "catering_billing"
+  | "catering_dishes";
 
 export interface DatasetDefinition {
   id: DatasetId;
