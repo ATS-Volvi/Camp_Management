@@ -3,12 +3,14 @@ import { useNavigate } from "react-router-dom";
 import {
   UtensilsCrossed, Package, ClipboardList, BarChart3, Settings2,
   Plus, Trash2, Check, X, ChevronRight, AlertTriangle, Download,
-  Coffee, Sun, Moon, Users, Calculator, FileText, Truck, Sparkles, Recycle, ShoppingBasket, Wand2, Compass
+  Coffee, Sun, Moon, Users, Calculator, FileText, Truck, Sparkles, Recycle, ShoppingBasket, Wand2, Compass, Scale, LayoutGrid
 } from "lucide-react";
 import { MASTER_INGREDIENTS } from "@/data/ingredientMaster";
 import CateringNavHeader from "@/components/catering/CateringNavHeader";
 import GroceryConfigMaster from "@/components/catering/GroceryConfigMaster";
 import WeeklyMenuConfig from "@/components/catering/WeeklyMenuConfig";
+import BatchPrepScaler from "@/components/catering/BatchPrepScaler";
+import VisualPantryShelf from "@/components/catering/VisualPantryShelf";
 import { format } from "date-fns";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -68,7 +70,7 @@ export function matchesDishIngredient(itemName?: string | null, recipeIngredient
   return false;
 }
 
-type Tab = "dashboard" | "grocery-config" | "weekly-menu" | "menu" | "daily-plan" | "requests" | "inventory" | "costs" | "wastage";
+type Tab = "dashboard" | "batch-scaler" | "inventory" | "grocery-config" | "weekly-menu" | "menu" | "daily-plan" | "requests" | "costs" | "wastage";
 
 const STANDARD_MEALS: string[] = ["Breakfast", "Lunch", "Dinner"];
 const RAMADAN_MEALS: string[] = ["Suhoor", "Iftar"];
@@ -108,10 +110,14 @@ export default function MessCatering() {
     },
   });
 
+  const activeCamp = selectedCampId || (camps[0]?.id || "");
+  const { data: globalStock = [] } = useCateringStock(activeCamp || undefined);
+
   const tabs: { key: Tab; label: string; icon: any }[] = [
     { key: "dashboard", label: "Dashboard", icon: BarChart3 },
+    { key: "batch-scaler", label: "🧑‍🍳 Batch Prep Scaler", icon: Scale },
+    { key: "inventory", label: "📦 Pantry & Stock", icon: Package },
     { key: "grocery-config", label: "Dishes & Recipes", icon: ShoppingBasket },
-    { key: "inventory", label: "📦 Stock & Inventory (GRN)", icon: Package },
     { key: "weekly-menu", label: "Weekly Menu", icon: UtensilsCrossed },
     { key: "daily-plan", label: "Daily Plan", icon: Calculator },
     { key: "requests", label: "Requests", icon: ClipboardList },
@@ -168,6 +174,9 @@ export default function MessCatering() {
       </div>
 
       {tab === "dashboard" && <CateringDashboard campId={selectedCampId || undefined} camps={camps} />}
+      {tab === "batch-scaler" && (
+        <BatchPrepScaler campId={activeCamp} stock={globalStock} />
+      )}
       {tab === "grocery-config" && (
         <GroceryConfigMaster
           mealTypes={activeMealTypes}
@@ -176,7 +185,13 @@ export default function MessCatering() {
           onNavigateToStock={() => setTab("inventory")}
         />
       )}
-      {tab === "inventory" && <InventoryTab campId={selectedCampId} camps={camps} />}
+      {tab === "inventory" && (
+        <InventoryTab
+          campId={selectedCampId}
+          camps={camps}
+          onNavigateToScaler={() => setTab("batch-scaler")}
+        />
+      )}
       {tab === "weekly-menu" && <WeeklyMenuConfig campId={selectedCampId} camps={camps} mealTypes={activeMealTypes} />}
       {tab === "daily-plan" && <DailyPlan campId={selectedCampId} camps={camps} mealTypes={activeMealTypes} />}
       {tab === "requests" && <GroceryRequestsTab campId={selectedCampId} camps={camps} mealTypes={activeMealTypes} />}
@@ -1605,7 +1620,15 @@ function GroceryRequestsTab({ campId, camps, mealTypes }: { campId: string; camp
 // ==========================================
 // INVENTORY TAB
 // ==========================================
-function InventoryTab({ campId, camps }: { campId: string; camps: any[] }) {
+function InventoryTab({
+  campId,
+  camps,
+  onNavigateToScaler,
+}: {
+  campId: string;
+  camps: any[];
+  onNavigateToScaler?: () => void;
+}) {
   const [activeCampId, setActiveCampId] = useState(campId || (camps[0]?.id || ""));
   useEffect(() => {
     if (campId) setActiveCampId(campId);
@@ -1620,9 +1643,20 @@ function InventoryTab({ campId, camps }: { campId: string; camps: any[] }) {
 
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedDish, setSelectedDish] = useState("");
+  const [viewMode, setViewMode] = useState<"table" | "shelf">("shelf");
   const [showGRN, setShowGRN] = useState(false);
   const [showDirectAdjust, setShowDirectAdjust] = useState(false);
   const [adjustItem, setAdjustItem] = useState<{ ingredientId: string; name: string; unit: string; currentBalance: number; newBalance: number; minLevel: number } | null>(null);
+
+  const handleQuickSaveStock = async (ingredientId: string, newBalance: number, currentStockRow?: any) => {
+    if (!activeCampId) return;
+    await updateStockDirectly.mutateAsync({
+      campId: activeCampId,
+      ingredientId,
+      newBalance,
+      minLevel: Number(currentStockRow?.min_level || 5),
+    });
+  };
 
   // Extract all available dish names from DISH_RECIPES
   const dishOptions = useMemo(() => {
@@ -1737,6 +1771,15 @@ function InventoryTab({ campId, camps }: { campId: string; camps: any[] }) {
             </select>
           </div>
 
+          {onNavigateToScaler && (
+            <button
+              onClick={onNavigateToScaler}
+              className="text-xs bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-semibold px-3 py-1.5 rounded-lg flex items-center gap-1.5 shadow-2xs transition-all"
+            >
+              <Scale size={14} /> Batch Prep Scaler
+            </button>
+          )}
+
           <button
             onClick={() => {
               if (ingredients.length > 0) {
@@ -1774,6 +1817,34 @@ function InventoryTab({ campId, camps }: { campId: string; camps: any[] }) {
             <span className="text-xs bg-muted px-2 py-0.5 rounded-full text-muted-foreground font-mono">
               {filteredStock.length} items
             </span>
+
+            {/* View Mode Switcher: Pantry Shelf vs Table View */}
+            <div className="ml-2 flex items-center gap-1 bg-muted/70 p-0.5 rounded-xl border border-border/60">
+              <button
+                type="button"
+                onClick={() => setViewMode("shelf")}
+                className={`text-xs px-2.5 py-1 rounded-lg font-semibold flex items-center gap-1.5 transition-all ${
+                  viewMode === "shelf"
+                    ? "bg-card text-foreground shadow-xs font-bold"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <span>🗄️</span>
+                <span className="hidden sm:inline">Pantry Shelf</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode("table")}
+                className={`text-xs px-2.5 py-1 rounded-lg font-semibold flex items-center gap-1.5 transition-all ${
+                  viewMode === "table"
+                    ? "bg-card text-foreground shadow-xs font-bold"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <span>📋</span>
+                <span className="hidden sm:inline">Table View</span>
+              </button>
+            </div>
           </div>
 
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
@@ -1839,92 +1910,112 @@ function InventoryTab({ campId, camps }: { campId: string; camps: any[] }) {
           </div>
         )}
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b text-left text-muted-foreground text-xs uppercase tracking-wider">
-                <th className="pb-2 font-semibold">Ingredient</th>
-                <th className="pb-2 font-semibold">Category</th>
-                <th className="pb-2 font-semibold text-right">Opening</th>
-                <th className="pb-2 font-semibold text-right">In (GRN)</th>
-                <th className="pb-2 font-semibold text-right">Out (Kitchen)</th>
-                <th className="pb-2 font-semibold text-right">Current Stock</th>
-                <th className="pb-2 font-semibold text-right">Min Level</th>
-                <th className="pb-2 font-semibold text-center">Status</th>
-                <th className="pb-2 font-semibold text-right">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {filteredStock.map((s: any) => {
-                const balNum = Number(s.balance ?? 0);
-                const minNum = Number(s.min_level ?? s.ingredients?.reorder_level ?? 5);
-                const isLow = balNum <= minNum;
-                const matchedRecipeIngredient = selectedDishIngredients.find(ri =>
-                  matchesDishIngredient(s.ingredients?.name, ri.name)
-                );
+        {viewMode === "shelf" ? (
+          <VisualPantryShelf
+            stock={filteredStock}
+            onEditStock={s => {
+              setAdjustItem({
+                ingredientId: s.ingredient_id,
+                name: s.ingredients?.name || "Ingredient",
+                unit: s.ingredients?.unit || "kg",
+                currentBalance: Number(s.balance ?? 0),
+                newBalance: Number(s.balance ?? 0),
+                minLevel: Number(s.min_level ?? 5),
+              });
+              setShowDirectAdjust(true);
+            }}
+            onQuickSaveStock={handleQuickSaveStock}
+            selectedDishIngredients={selectedDishIngredients}
+            matchesDishFn={matchesDishIngredient}
+          />
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b text-left text-muted-foreground text-xs uppercase tracking-wider">
+                  <th className="pb-2 font-semibold">Ingredient</th>
+                  <th className="pb-2 font-semibold">Category</th>
+                  <th className="pb-2 font-semibold text-right">Opening</th>
+                  <th className="pb-2 font-semibold text-right">In (GRN)</th>
+                  <th className="pb-2 font-semibold text-right">Out (Kitchen)</th>
+                  <th className="pb-2 font-semibold text-right">Current Stock</th>
+                  <th className="pb-2 font-semibold text-right">Min Level</th>
+                  <th className="pb-2 font-semibold text-center">Status</th>
+                  <th className="pb-2 font-semibold text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {filteredStock.map((s: any) => {
+                  const balNum = Number(s.balance ?? 0);
+                  const minNum = Number(s.min_level ?? s.ingredients?.reorder_level ?? 5);
+                  const isLow = balNum <= minNum;
+                  const matchedRecipeIngredient = selectedDishIngredients.find(ri =>
+                    matchesDishIngredient(s.ingredients?.name, ri.name)
+                  );
 
-                return (
-                  <tr key={s.id} className="hover:bg-muted/40 transition-colors">
-                    <td className="py-2.5 font-bold text-foreground">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <span>{s.ingredients?.name}</span>
-                        {matchedRecipeIngredient && (
-                          <span className="text-[10px] px-1.5 py-0.5 rounded font-mono font-bold bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30">
-                            {matchedRecipeIngredient.qty_per_person} {matchedRecipeIngredient.unit}/pax
+                  return (
+                    <tr key={s.id} className="hover:bg-muted/40 transition-colors">
+                      <td className="py-2.5 font-bold text-foreground">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span>{s.ingredients?.name}</span>
+                          {matchedRecipeIngredient && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded font-mono font-bold bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30">
+                              {matchedRecipeIngredient.qty_per_person} {matchedRecipeIngredient.unit}/pax
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="text-xs text-muted-foreground">{s.ingredients?.category}</td>
+                      <td className="text-right font-mono text-muted-foreground">{s.opening_stock ?? 0}</td>
+                      <td className="text-right font-mono text-emerald-600">+{s.stock_in ?? 0}</td>
+                      <td className="text-right font-mono text-rose-600">-{s.stock_out ?? 0}</td>
+                      <td className={`text-right font-mono font-black text-base ${isLow ? "text-rose-600" : "text-foreground"}`}>
+                        {s.balance ?? 0} <span className="text-xs font-normal text-muted-foreground">{s.ingredients?.unit}</span>
+                      </td>
+                      <td className="text-right font-mono text-muted-foreground">{s.min_level ?? 5}</td>
+                      <td className="text-center">
+                        {isLow ? (
+                          <span className="text-[11px] font-bold bg-rose-500/15 text-rose-700 dark:text-rose-300 px-2.5 py-0.5 rounded-full">
+                            Low Stock
+                          </span>
+                        ) : (
+                          <span className="text-[11px] font-semibold bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 px-2.5 py-0.5 rounded-full">
+                            OK
                           </span>
                         )}
-                      </div>
-                    </td>
-                    <td className="text-xs text-muted-foreground">{s.ingredients?.category}</td>
-                    <td className="text-right font-mono text-muted-foreground">{s.opening_stock ?? 0}</td>
-                    <td className="text-right font-mono text-emerald-600">+{s.stock_in ?? 0}</td>
-                    <td className="text-right font-mono text-rose-600">-{s.stock_out ?? 0}</td>
-                    <td className={`text-right font-mono font-black text-base ${isLow ? "text-rose-600" : "text-foreground"}`}>
-                      {s.balance ?? 0} <span className="text-xs font-normal text-muted-foreground">{s.ingredients?.unit}</span>
-                    </td>
-                    <td className="text-right font-mono text-muted-foreground">{s.min_level ?? 5}</td>
-                    <td className="text-center">
-                      {isLow ? (
-                        <span className="text-[11px] font-bold bg-rose-500/15 text-rose-700 dark:text-rose-300 px-2.5 py-0.5 rounded-full">
-                          Low Stock
-                        </span>
-                      ) : (
-                        <span className="text-[11px] font-semibold bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 px-2.5 py-0.5 rounded-full">
-                          OK
-                        </span>
-                      )}
-                    </td>
-                    <td className="text-right">
-                      <button
-                        onClick={() => {
-                          setAdjustItem({
-                            ingredientId: s.ingredient_id,
-                            name: s.ingredients?.name || "Ingredient",
-                            unit: s.ingredients?.unit || "kg",
-                            currentBalance: s.balance ?? 0,
-                            newBalance: s.balance ?? 0,
-                            minLevel: s.min_level ?? 5,
-                          });
-                          setShowDirectAdjust(true);
-                        }}
-                        className="text-xs font-semibold px-2.5 py-1 bg-muted hover:bg-primary hover:text-primary-foreground rounded-md transition-colors"
-                      >
-                        ✏️ Edit Stock
-                      </button>
+                      </td>
+                      <td className="text-right">
+                        <button
+                          onClick={() => {
+                            setAdjustItem({
+                              ingredientId: s.ingredient_id,
+                              name: s.ingredients?.name || "Ingredient",
+                              unit: s.ingredients?.unit || "kg",
+                              currentBalance: s.balance ?? 0,
+                              newBalance: s.balance ?? 0,
+                              minLevel: s.min_level ?? 5,
+                            });
+                            setShowDirectAdjust(true);
+                          }}
+                          className="text-xs font-semibold px-2.5 py-1 bg-muted hover:bg-primary hover:text-primary-foreground rounded-md transition-colors"
+                        >
+                          ✏️ Edit Stock
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+                {filteredStock.length === 0 && (
+                  <tr>
+                    <td colSpan={9} className="py-8 text-center text-muted-foreground text-xs">
+                      No stock records found for this camp. Click <strong>"Quick Stock Count"</strong> or <strong>"Record Supplier GRN"</strong> above to enter quantities.
                     </td>
                   </tr>
-                );
-              })}
-              {filteredStock.length === 0 && (
-                <tr>
-                  <td colSpan={9} className="py-8 text-center text-muted-foreground text-xs">
-                    No stock records found for this camp. Click <strong>"Quick Stock Count"</strong> or <strong>"Record Supplier GRN"</strong> above to enter quantities.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* Quick Direct Stock Adjustment Modal */}
