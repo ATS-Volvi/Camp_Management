@@ -108,16 +108,16 @@ export const PANTRY_INGREDIENTS: IngredientStockItem[] = [
     id: "cooking_oil",
     name: "Pure Sunflower Oil",
     category: "Oils & Spices",
-    currentStock: 84, // 84 Liters
+    currentStock: 380, // 380 Cans -> Healthy buffer
     unit: "cans (4L)",
     avgDailyUsage: 40,
-    thresholdDays: 6, // 2.1 days left -> RED (CRITICAL STOCKOUT RISK!)
+    thresholdDays: 5, // ~9.5 days left -> GREEN
     supplierName: "Afia Edible Oils",
     supplierContact: "orders@afiaoils.sa",
     leadTimeDays: 3,
     unitPriceSAR: 48.0,
     icon: "🛢️",
-    color: "#ef4444",
+    color: "#10b981",
     storageType: "Dry Store",
   },
   {
@@ -156,16 +156,16 @@ export const PANTRY_INGREDIENTS: IngredientStockItem[] = [
     id: "onions",
     name: "Yellow Onions",
     category: "Produce",
-    currentStock: 88,
+    currentStock: 320,
     unit: "kg",
     avgDailyUsage: 55,
-    thresholdDays: 5, // 1.6 days left -> RED (CRITICAL STOCKOUT RISK!)
+    thresholdDays: 5, // ~5.8 days left -> AMBER / Healthy buffer
     supplierName: "Saudi Fresh Agri",
     supplierContact: "orders@freshagri.sa",
     leadTimeDays: 2,
     unitPriceSAR: 4.8,
     icon: "🧅",
-    color: "#ef4444",
+    color: "#f59e0b",
     storageType: "Dry Store",
   },
   {
