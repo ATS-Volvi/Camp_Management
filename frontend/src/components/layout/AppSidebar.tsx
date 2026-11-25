@@ -73,14 +73,21 @@ const cateringNavGroups: {
   items: { label: string; icon: typeof Home; path: string }[];
 }[] = [
   {
+    label: "Executive Dashboard",
+    icon: LayoutDashboard,
+    items: [
+      { label: "Catering Dashboard", icon: LayoutDashboard, path: "/catering/dashboard" },
+      { label: "Enterprise Operations Hub", icon: Sparkles, path: "/catering/enterprise-hub" },
+      { label: "Pantry Command Center", icon: Compass, path: "/catering/pantry-command-center" },
+    ],
+  },
+  {
     label: "Production & Recipes",
     icon: UtensilsCrossed,
     items: [
       { label: "Dishes & Menu Recipes", icon: UtensilsCrossed, path: "/mess-catering" },
       { label: "Batch Prep Scaler", icon: ChefHat, path: "/catering/batch-scaler" },
       { label: "End-of-Day Production & Waste", icon: Recycle, path: "/catering/production-waste" },
-      { label: "Pantry Command Center", icon: Compass, path: "/catering/pantry-command-center" },
-      { label: "Enterprise Operations Hub", icon: Sparkles, path: "/catering/enterprise-hub" },
     ],
   },
   {
@@ -125,6 +132,7 @@ const dashboardNav = [
   { label: "Contract Overview", icon: FileText, path: "/dashboards/contracts" },
   { label: "Expertise Board", icon: Gauge, path: "/dashboards/expertise" },
   { label: "Operations Dashboard", icon: Activity, path: "/dashboard" },
+  { label: "Catering Operations Dashboard", icon: ChefHat, path: "/catering/dashboard" },
 ];
 
 const adminNav = [

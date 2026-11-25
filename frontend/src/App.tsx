@@ -50,6 +50,7 @@ import DepartmentLunchRates from "./pages/DepartmentLunchRates";
 import PantryCommandCenter from "./pages/PantryCommandCenter";
 import EnterpriseCateringHub from "./pages/EnterpriseCateringHub";
 import CateringDynamicReports from "./pages/CateringDynamicReports";
+import CateringDashboardPage from "./pages/CateringDashboardPage";
 import VisualPantryShelfPage from "./pages/VisualPantryShelfPage";
 import BatchPrepScalerPage from "./pages/BatchPrepScalerPage";
 import ProductionWastePage from "./pages/ProductionWastePage";
@@ -154,6 +155,15 @@ const App = () => (
                 <Route path="/meal-management" element={<MealManagement />} />
                 <Route path="/food-cancellation" element={<FoodCancellation />} />
                 <Route path="/department-lunch" element={<DepartmentLunch />} />
+                <Route
+                  path="/catering/dashboard"
+                  element={
+                    <ErrorBoundary fallbackTitle="Catering Dashboard Error">
+                      <CateringDashboardPage />
+                    </ErrorBoundary>
+                  }
+                />
+                <Route path="/catering-dashboard" element={<Navigate to="/catering/dashboard" replace />} />
                 <Route
                   path="/catering/pantry-command-center"
                   element={

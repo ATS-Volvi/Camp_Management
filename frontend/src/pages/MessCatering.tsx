@@ -98,7 +98,7 @@ export const formatDateSafe = (dateVal: any, fmt: string = "dd MMM yyyy") => {
 
 export default function MessCatering() {
   const navigate = useNavigate();
-  const [tab, setTab] = useState<Tab>("dashboard");
+  const [tab, setTab] = useState<Tab>("inventory");
   const [selectedCampId, setSelectedCampId] = useState("");
   const [ramadanMode, setRamadanMode] = useState(false);
 
@@ -117,7 +117,6 @@ export default function MessCatering() {
   const { data: globalStock = [] } = useCateringStock(activeCamp || undefined);
 
   const tabs: { key: Tab; label: string; icon: any }[] = [
-    { key: "dashboard", label: "Dashboard", icon: BarChart3 },
     { key: "inventory", label: "📦 Pantry & Stock", icon: Package },
     { key: "batch-scaler", label: "🧑‍🍳 Batch Prep Scaler", icon: Scale },
     { key: "grocery-config", label: "Dishes & Recipes", icon: ShoppingBasket },
@@ -176,7 +175,22 @@ export default function MessCatering() {
         ))}
       </div>
 
-      {tab === "dashboard" && <CateringDashboard campId={selectedCampId || undefined} camps={camps} />}
+      {tab === "dashboard" && (
+        <Card className="border-amber-500/30 bg-amber-500/5">
+          <CardContent className="p-6 text-center space-y-3">
+            <h3 className="text-base font-bold text-foreground">Dedicated Catering Analytics Dashboard</h3>
+            <p className="text-xs text-muted-foreground max-w-md mx-auto">
+              Catering Operations Dashboard is now available as a dedicated executive page with real-time graphs, food spend trends, and category breakdowns.
+            </p>
+            <Button
+              onClick={() => navigate("/catering/dashboard")}
+              className="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-semibold text-xs"
+            >
+              Open Full Catering Dashboard →
+            </Button>
+          </CardContent>
+        </Card>
+      )}
       {tab === "inventory" && (
         <InventoryTab
           campId={selectedCampId}

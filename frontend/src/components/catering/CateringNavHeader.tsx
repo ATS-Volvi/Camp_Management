@@ -10,11 +10,12 @@ import {
   Compass,
   SlidersHorizontal,
   Sparkles,
+  LayoutDashboard,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 interface CateringNavHeaderProps {
-  activeTab: "grocery-config" | "pantry" | "enterprise-hub" | "reports";
+  activeTab: "dashboard" | "grocery-config" | "pantry" | "enterprise-hub" | "reports";
   campId?: string;
   camps?: any[];
   onCampChange?: (campId: string) => void;
@@ -31,6 +32,9 @@ export default function CateringNavHeader({
   const handleTabClick = (targetTab: string) => {
     const query = campId ? `?campId=${encodeURIComponent(campId)}` : "";
     switch (targetTab) {
+      case "dashboard":
+        navigate(`/catering/dashboard${query}`);
+        break;
       case "grocery-config":
         navigate(`/mess-catering${query}`);
         break;
@@ -47,6 +51,14 @@ export default function CateringNavHeader({
   };
 
   const navItems = [
+    {
+      id: "dashboard",
+      label: "Catering Dashboard",
+      shortLabel: "📊 Dashboard",
+      description: "Cost trends, graphs & operations KPIs",
+      icon: LayoutDashboard,
+      color: "text-[#fe932c]",
+    },
     {
       id: "grocery-config",
       label: "Dishes & Grocery Config",
