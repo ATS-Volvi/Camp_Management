@@ -22,6 +22,7 @@ export const isCateringRoute = (pathname: string) => {
     pathname.startsWith("/food-cancellation") ||
     pathname.startsWith("/department-lunch") ||
     pathname.startsWith("/cook-requests") ||
+    pathname.startsWith("/food-safety") ||
     pathname.startsWith("/pantry-command-center")
   );
 };

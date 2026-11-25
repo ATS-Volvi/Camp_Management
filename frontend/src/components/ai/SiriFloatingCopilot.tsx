@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import AIReportMessage from "@/components/ai-reports/AIReportMessage";
+import { isCateringRoute } from "@/components/layout/AppSidebar";
 
 interface Message {
   role: "user" | "assistant";
@@ -49,19 +50,7 @@ export default function SiriFloatingCopilot() {
   const location = useLocation();
   const navigate = useNavigate();
 
-  const isCatering = useMemo(() => {
-    const p = location.pathname;
-    return (
-      p.startsWith("/catering") ||
-      p.startsWith("/mess-catering") ||
-      p.startsWith("/grocery-inventory") ||
-      p.startsWith("/meal-management") ||
-      p.startsWith("/food-cancellation") ||
-      p.startsWith("/department-lunch") ||
-      p.startsWith("/cook-requests") ||
-      p.startsWith("/pantry-command-center")
-    );
-  }, [location.pathname]);
+  const isCatering = useMemo(() => isCateringRoute(location.pathname), [location.pathname]);
 
   const defaultGreeting = useMemo(() => {
     if (isCatering) {
