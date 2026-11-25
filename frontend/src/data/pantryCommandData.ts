@@ -1,3 +1,5 @@
+import { DISH_RECIPES } from "@/data/dishRecipes";
+
 // ============================================================================
 // PANTRY COMMAND CENTER - SAMPLE DATA & SIMULATION ENGINE
 // Enterprise Catering Food Stock & Threshold Intelligence for Camp-365
@@ -350,6 +352,158 @@ export const UPCOMING_DISHES: UpcomingDish[] = [
   },
 ];
 
+/**
+ * Maps any dish and its ingredient names to Pantry Ingredient IDs
+ */
+export function mapRecipeToPantryIngredientIds(dishName: string, ingredientNames?: string[]): string[] {
+  const ids = new Set<string>();
+  const lowerName = dishName.toLowerCase();
+
+  // Keyword-based detection from dish name
+  if (lowerName.includes("biryani") || lowerName.includes("rice") || lowerName.includes("kabsa") || lowerName.includes("dosa") || lowerName.includes("idli")) {
+    ids.add("rice");
+  }
+  if (lowerName.includes("chicken")) ids.add("chicken");
+  if (lowerName.includes("lamb") || lowerName.includes("mutton") || lowerName.includes("meat")) ids.add("lamb");
+  if (lowerName.includes("fish") || lowerName.includes("seafood")) ids.add("fish");
+  if (lowerName.includes("egg") || lowerName.includes("omelette") || lowerName.includes("pancake") || lowerName.includes("waffle") || lowerName.includes("french toast")) {
+    ids.add("eggs");
+  }
+  if (lowerName.includes("dal") || lowerName.includes("lentil") || lowerName.includes("foul") || lowerName.includes("ful")) {
+    ids.add("lentils");
+  }
+  if (lowerName.includes("chickpea") || lowerName.includes("falafel") || lowerName.includes("hummus")) {
+    ids.add("chickpeas");
+  }
+  if (lowerName.includes("parota") || lowerName.includes("bread") || lowerName.includes("toast") || lowerName.includes("croissant") || lowerName.includes("roti") || lowerName.includes("chapati") || lowerName.includes("naan") || lowerName.includes("pasta") || lowerName.includes("spaghetti")) {
+    ids.add("flour");
+  }
+  if (lowerName.includes("milk") || lowerName.includes("cheese") || lowerName.includes("butter") || lowerName.includes("paneer") || lowerName.includes("tea") || lowerName.includes("coffee")) {
+    ids.add("milk");
+  }
+  if (lowerName.includes("potato") || lowerName.includes("aloo")) {
+    ids.add("potatoes");
+  }
+
+  // Ingredient list detection
+  if (ingredientNames && ingredientNames.length > 0) {
+    for (const ing of ingredientNames) {
+      const l = ing.toLowerCase();
+      if (l.includes("rice") || l.includes("batter")) ids.add("rice");
+      if (l.includes("chicken") || l.includes("poultry")) ids.add("chicken");
+      if (l.includes("lamb") || l.includes("meat") || l.includes("mutton")) ids.add("lamb");
+      if (l.includes("fish")) ids.add("fish");
+      if (l.includes("oil") || l.includes("ghee")) ids.add("cooking_oil");
+      if (l.includes("onion")) ids.add("onions");
+      if (l.includes("tomato")) ids.add("tomatoes");
+      if (l.includes("egg")) ids.add("eggs");
+      if (l.includes("dal") || l.includes("lentil") || l.includes("bean")) ids.add("lentils");
+      if (l.includes("chickpea") || l.includes("tahini")) ids.add("chickpeas");
+      if (l.includes("potato")) ids.add("potatoes");
+      if (l.includes("flour") || l.includes("parota") || l.includes("bread") || l.includes("pita") || l.includes("semolina")) ids.add("flour");
+      if (l.includes("milk") || l.includes("cheese") || l.includes("butter") || l.includes("yogurt")) ids.add("milk");
+      if (l.includes("spice") || l.includes("chilli") || l.includes("pepper") || l.includes("salt") || l.includes("masala")) ids.add("spices");
+    }
+  }
+
+  // Kitchen staples
+  ids.add("cooking_oil");
+  ids.add("spices");
+  if (!ids.has("onions") && !ids.has("eggs") && !ids.has("flour")) ids.add("onions");
+
+  return Array.from(ids).slice(0, 5);
+}
+
+/**
+ * Builds upcoming dishes from both database menu dishes and the complete DISH_RECIPES catalog
+ */
+export function buildCatalogUpcomingDishes(
+  dbDishes: any[] = [],
+  campHeadcount: number = 1000,
+  campName?: string
+): UpcomingDish[] {
+  const result: UpcomingDish[] = [];
+  const seenNames = new Set<string>();
+
+  // Days progression for scheduling
+  const days = ["Today", "Tomorrow", "Day +2", "Day +3", "Day +4", "Day +5", "Day +6"];
+
+  // 1. First add all dishes saved in database
+  dbDishes.forEach((d, idx) => {
+    const name = d.name || "Custom Dish";
+    seenNames.add(name.toLowerCase());
+    const session = (d.meal_type || "Lunch") as "Breakfast" | "Lunch" | "Dinner";
+    const day = days[idx % days.length];
+
+    const portionsMultiplier = session === "Breakfast" ? 0.85 : session === "Lunch" ? 0.55 : 0.92;
+    const expectedPortions = Math.max(50, Math.round(campHeadcount * portionsMultiplier));
+
+    const ingNames = (d.menu_dish_ingredients || []).map((di: any) => di.ingredients?.name || "");
+    const keyIngredientIds = mapRecipeToPantryIngredientIds(name, ingNames);
+
+    result.push({
+      id: d.id || `db_dish_${idx}`,
+      name: d.name,
+      mealSession: session,
+      scheduledDay: day,
+      expectedPortions,
+      keyIngredientIds,
+    });
+  });
+
+  // 2. Add catalog dishes from DISH_RECIPES that aren't already added
+  let catIndex = 0;
+  Object.entries(DISH_RECIPES).forEach(([dishKey, ings]) => {
+    if (seenNames.has(dishKey.toLowerCase())) return;
+    seenNames.add(dishKey.toLowerCase());
+
+    const name = dishKey
+      .split(" ")
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(" ");
+
+    // Infer meal session
+    let session: "Breakfast" | "Lunch" | "Dinner" = "Lunch";
+    const lKey = dishKey.toLowerCase();
+    if (
+      lKey.includes("parota") || lKey.includes("dosa") || lKey.includes("omelette") ||
+      lKey.includes("toast") || lKey.includes("croissant") || lKey.includes("falafel") ||
+      lKey.includes("idli") || lKey.includes("pancake") || lKey.includes("poori") ||
+      lKey.includes("shakshuka") || lKey.includes("upma") || lKey.includes("waffle") ||
+      lKey.includes("ful") || lKey.includes("cheese")
+    ) {
+      session = "Breakfast";
+    } else if (
+      lKey.includes("biryani") || lKey.includes("kabsa") || lKey.includes("curry") ||
+      lKey.includes("bolognese") || lKey.includes("stroganoff") || lKey.includes("sayadieh")
+    ) {
+      session = "Lunch";
+    } else {
+      session = "Dinner";
+    }
+
+    const day = days[catIndex % days.length];
+    catIndex++;
+
+    const portionsMultiplier = session === "Breakfast" ? 0.85 : session === "Lunch" ? 0.55 : 0.92;
+    const expectedPortions = Math.max(50, Math.round(campHeadcount * portionsMultiplier));
+
+    const ingNames = ings.map((i) => i.name);
+    const keyIngredientIds = mapRecipeToPantryIngredientIds(name, ingNames);
+
+    result.push({
+      id: `cat_${dishKey.replace(/[^a-z0-9]/g, "_")}`,
+      name,
+      mealSession: session,
+      scheduledDay: day,
+      expectedPortions,
+      keyIngredientIds,
+    });
+  });
+
+  return result.length > 0 ? result : UPCOMING_DISHES;
+}
+
 // ----------------------------------------------------------------------------
 // 3. WHAT-IF SCENARIOS CONFIGURATION
 // ----------------------------------------------------------------------------
@@ -427,9 +581,12 @@ export interface PantrySimulationResult {
  */
 export function calculatePantrySimulation(
   daysAhead: number,
-  whatIfs: WhatIfState
+  whatIfs: WhatIfState,
+  customDishes?: UpcomingDish[],
+  campHeadcount?: number
 ): PantrySimulationResult {
   const workerMultiplier = whatIfs.extraWorkers200 ? 1.2 : 1.0;
+  const headcountScale = campHeadcount && campHeadcount > 0 ? campHeadcount / 1000 : 1.0;
 
   // 1. Compute each ingredient's dynamic state
   const ingredients: ComputedIngredientStatus[] = PANTRY_INGREDIENTS.map((item) => {
@@ -440,7 +597,7 @@ export function calculatePantrySimulation(
       else if (item.id === "milk") ramadanMultiplier = 1.20;
     }
 
-    const effectiveDailyUsage = Number((item.avgDailyUsage * workerMultiplier * ramadanMultiplier).toFixed(1));
+    const effectiveDailyUsage = Number((item.avgDailyUsage * headcountScale * workerMultiplier * ramadanMultiplier).toFixed(1));
     const consumedSoFar = effectiveDailyUsage * daysAhead;
     const remainingStock = Math.max(0, Number((item.currentStock - consumedSoFar).toFixed(1)));
     
@@ -506,7 +663,8 @@ export function calculatePantrySimulation(
   ingredients.forEach((ing) => ingredientMap.set(ing.item.id, ing));
 
   // 2. Compute Dish Health Rings
-  const dishes: ComputedDishHealth[] = UPCOMING_DISHES.map((dish) => {
+  const dishesList = customDishes && customDishes.length > 0 ? customDishes : UPCOMING_DISHES;
+  const dishes: ComputedDishHealth[] = dishesList.map((dish) => {
     const keyStatuses = dish.keyIngredientIds
       .map((id) => ingredientMap.get(id))
       .filter((s): s is ComputedIngredientStatus => Boolean(s));

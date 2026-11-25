@@ -99,21 +99,21 @@ export default function MessCatering() {
 
         <div className="ml-auto flex items-center gap-2">
           <button
-            onClick={() => navigate("/catering/reports")}
+            onClick={() => navigate(selectedCampId ? `/catering/reports?campId=${selectedCampId}` : "/catering/reports")}
             className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold bg-[#0c2340] text-white border border-[#fe932c]/40 hover:bg-[#0c2340]/90 transition-all shadow-sm"
           >
             <BarChart3 size={14} className="text-[#fe932c]" />
             Catering BI Reports
           </button>
           <button
-            onClick={() => navigate("/catering/enterprise-hub")}
+            onClick={() => navigate(selectedCampId ? `/catering/enterprise-hub?campId=${selectedCampId}` : "/catering/enterprise-hub")}
             className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold bg-[#fe932c]/15 text-[#fe932c] border border-[#fe932c]/40 hover:bg-[#fe932c]/25 transition-all shadow-sm"
           >
             <Sparkles size={14} className="text-[#fe932c]" />
             Enterprise Catering Hub
           </button>
           <button
-            onClick={() => navigate("/catering/pantry-command-center")}
+            onClick={() => navigate(selectedCampId ? `/catering/pantry-command-center?campId=${selectedCampId}` : "/catering/pantry-command-center")}
             className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 border border-cyan-500/30 hover:bg-cyan-500/25 transition-all shadow-sm"
           >
             <Compass size={14} className="text-cyan-500 animate-spin" style={{ animationDuration: "14s" }} />

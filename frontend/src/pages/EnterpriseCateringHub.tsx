@@ -1,5 +1,7 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import MenuProductionPlanning2D from "@/components/catering/enterprise/MenuProductionPlanning2D";
 import InventoryProcurement2D from "@/components/catering/enterprise/InventoryProcurement2D";
 import DmcCostDashboard2D from "@/components/catering/enterprise/DmcCostDashboard2D";
@@ -101,6 +103,33 @@ const PILLARS: PillarConfig[] = [
 
 export default function EnterpriseCateringHub() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // 1. Camps Query & Filter State
+  const { data: camps = [] } = useQuery({
+    queryKey: ["camps"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("camps").select("*").order("name");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const [selectedCampId, setSelectedCampId] = useState<string>(() => {
+    return searchParams.get("campId") || "";
+  });
+
+  const handleCampChange = (newCampId: string) => {
+    setSelectedCampId(newCampId);
+    if (newCampId) {
+      setSearchParams({ campId: newCampId });
+    } else {
+      setSearchParams({});
+    }
+  };
+
+  const selectedCamp = camps.find((c: any) => c.id === selectedCampId) || null;
+
   const [selectedFeature, setSelectedFeature] = useState<string>("all");
 
   const currentPillarIndex = PILLARS.findIndex((p) => p.id === selectedFeature);
@@ -242,6 +271,23 @@ export default function EnterpriseCateringHub() {
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Camp Filter Dropdown */}
+            <div className="flex items-center gap-1.5 ml-0 sm:ml-2">
+              <span className="text-xs font-bold text-muted-foreground shrink-0">Camp:</span>
+              <select
+                value={selectedCampId}
+                onChange={(e) => handleCampChange(e.target.value)}
+                className="h-9 px-2.5 rounded-lg text-xs font-semibold bg-muted/40 border border-border/80 text-foreground outline-hidden focus:ring-1 focus:ring-primary min-w-[180px]"
+              >
+                <option value="">All Camps (Network Master)</option>
+                {camps.map((c: any) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name} — {c.location || "KSA"}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
           {/* Right: Step Pagination Controls */}
@@ -362,7 +408,7 @@ export default function EnterpriseCateringHub() {
         {/* ------------------------------------------------------------------ */}
         {(selectedFeature === "all" || selectedFeature === "pillar-1") && (
           <div id="pillar-1">
-            <MenuProductionPlanning2D />
+            <MenuProductionPlanning2D campId={selectedCampId} camps={camps} />
           </div>
         )}
 

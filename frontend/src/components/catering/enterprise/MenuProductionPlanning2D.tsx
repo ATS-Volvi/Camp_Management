@@ -1,8 +1,14 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useCampOccupancy } from "@/hooks/useCatering";
+import { useMenuDishes } from "@/hooks/useMenuDishes";
+import { DISH_RECIPES } from "@/data/dishRecipes";
 import {
   ENTERPRISE_RECIPES,
   scaleRecipe,
   DishRecipeMaster,
+  RecipeIngredientBOM,
   SAMPLE_PORTION_SPECS,
   SAMPLE_PRODUCTION_LOGS,
   ProductionVarianceRecord,
@@ -40,17 +46,310 @@ import {
   CheckCircle,
   HelpCircle,
   Info,
+  Building2,
 } from "lucide-react";
 
 interface MenuProductionPlanning2DProps {
   className?: string;
+  campId?: string;
+  camps?: any[];
+  onCampChange?: (campId: string) => void;
 }
 
-export default function MenuProductionPlanning2D({ className }: MenuProductionPlanning2DProps) {
+// Extended initial production records that highlight configured dishes from the user's catalog
+const ENHANCED_INITIAL_PRODUCTION_LOGS: ProductionVarianceRecord[] = [
+  {
+    id: "PROD-2026-1124-B01",
+    date: "2026-11-24",
+    mealSession: "Breakfast",
+    dishId: "dish-aloo-parota",
+    dishName: "Aloo Parota",
+    forecastPax: 1250,
+    plannedPax: 600,
+    safetyBufferPct: 4.0,
+    targetCookPax: 624,
+    actualCookedPax: 625,
+    actualConsumedPax: 610,
+    leftoverPax: 15,
+    leftoverPct: 2.4,
+    costPerHeadSAR: 3.50,
+    varianceSAR: 52.50,
+    disposition: "blast_chill_reuse",
+    dispositionNotes: "Blast-chilled to 3°C within 45 mins. Safely packed for cold night duty pantry buffet.",
+    headChefSignOff: "Executive Chef Tariq Al-Sayed",
+    status: "reconciled",
+  },
+  {
+    id: "PROD-2026-1124-B02",
+    date: "2026-11-24",
+    mealSession: "Breakfast",
+    dishId: "dish-dosa-with-chutney---sambar",
+    dishName: "Dosa with Chutney & Sambar",
+    forecastPax: 1250,
+    plannedPax: 450,
+    safetyBufferPct: 3.0,
+    targetCookPax: 464,
+    actualCookedPax: 465,
+    actualConsumedPax: 460,
+    leftoverPax: 5,
+    leftoverPct: 1.1,
+    costPerHeadSAR: 2.80,
+    varianceSAR: 14.00,
+    disposition: "consumed_perfect",
+    dispositionNotes: "Live dosa griddle station closed at 09:30. 98.9% consumption efficiency.",
+    headChefSignOff: "Sous Chef Ramanathan",
+    status: "reconciled",
+  },
+  {
+    id: "PROD-2026-1123-L01",
+    date: "2026-11-23",
+    mealSession: "Lunch",
+    dishId: "dish-biryani",
+    dishName: "Chicken Dum Biryani",
+    forecastPax: 1250,
+    plannedPax: 650,
+    safetyBufferPct: 4.0,
+    targetCookPax: 676,
+    actualCookedPax: 680,
+    actualConsumedPax: 648,
+    leftoverPax: 32,
+    leftoverPct: 4.7,
+    costPerHeadSAR: 7.24,
+    varianceSAR: 231.68,
+    disposition: "blast_chill_reuse",
+    dispositionNotes: "Blast-chilled to 3°C within 90 minutes. Scheduled for tomorrow night shift curry supplement.",
+    headChefSignOff: "Executive Chef Tariq Al-Sayed",
+    status: "reconciled",
+  },
+  {
+    id: "PROD-2026-1123-L02",
+    date: "2026-11-23",
+    mealSession: "Lunch",
+    dishId: "dish-dal-tadka",
+    dishName: "Yellow Dal Tadka & Jeera Rice",
+    forecastPax: 1250,
+    plannedPax: 420,
+    safetyBufferPct: 3.5,
+    targetCookPax: 435,
+    actualCookedPax: 435,
+    actualConsumedPax: 430,
+    leftoverPax: 5,
+    leftoverPct: 1.1,
+    costPerHeadSAR: 2.15,
+    varianceSAR: 10.75,
+    disposition: "consumed_perfect",
+    dispositionNotes: "Near zero variance (1.1%). Serving line finished clean at 13:45.",
+    headChefSignOff: "Sous Chef Ramanathan",
+    status: "reconciled",
+  },
+  {
+    id: "PROD-2026-1123-B03",
+    date: "2026-11-23",
+    mealSession: "Breakfast",
+    dishId: "dish-falafel-wrap",
+    dishName: "Falafel Wrap",
+    forecastPax: 1250,
+    plannedPax: 380,
+    safetyBufferPct: 3.0,
+    targetCookPax: 391,
+    actualCookedPax: 395,
+    actualConsumedPax: 385,
+    leftoverPax: 10,
+    leftoverPct: 2.5,
+    costPerHeadSAR: 3.20,
+    varianceSAR: 32.00,
+    disposition: "blast_chill_reuse",
+    dispositionNotes: "Pita parcels blast chilled under Aramco food safety protocol.",
+    headChefSignOff: "Sous Chef Fadi",
+    status: "reconciled",
+  },
+  {
+    id: "PROD-2026-1122-D01",
+    date: "2026-11-22",
+    mealSession: "Dinner",
+    dishId: "dish-kabsa",
+    dishName: "Saudi Lamb Kabsa",
+    forecastPax: 1100,
+    plannedPax: 550,
+    safetyBufferPct: 5.0,
+    targetCookPax: 578,
+    actualCookedPax: 580,
+    actualConsumedPax: 562,
+    leftoverPax: 18,
+    leftoverPct: 3.1,
+    costPerHeadSAR: 15.55,
+    varianceSAR: 279.90,
+    disposition: "blast_chill_reuse",
+    dispositionNotes: "Tender shredded lamb reserved for tomorrow's lunch broth supplement.",
+    headChefSignOff: "Executive Chef Tariq Al-Sayed",
+    status: "reconciled",
+  },
+];
+
+export default function MenuProductionPlanning2D({
+  className,
+  campId,
+  camps: initialCamps,
+  onCampChange,
+}: MenuProductionPlanning2DProps) {
+  // Camp state
+  const [localCampId, setLocalCampId] = useState<string>(campId || "");
+  useEffect(() => {
+    if (campId !== undefined) setLocalCampId(campId);
+  }, [campId]);
+
+  // Fetch camps if not provided via props
+  const { data: fetchedCamps = [] } = useQuery({
+    queryKey: ["camps"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("camps").select("*").order("name");
+      if (error) throw error;
+      return data;
+    },
+    enabled: !initialCamps || initialCamps.length === 0,
+  });
+
+  const campsList = initialCamps && initialCamps.length > 0 ? initialCamps : fetchedCamps;
+  const currentCamp = campsList.find((c: any) => c.id === localCampId);
+
+  // Camp occupancy
+  const { data: occupancy } = useCampOccupancy(localCampId || null);
+
+  // Fetch database menu dishes
+  const { data: dbDishes = [] } = useMenuDishes();
+
+  // Dynamically compile ALL configured dishes into DishRecipeMaster format
+  const allMasterRecipes: DishRecipeMaster[] = useMemo(() => {
+    const list: DishRecipeMaster[] = [...ENTERPRISE_RECIPES];
+    const seenNames = new Set(ENTERPRISE_RECIPES.map((r) => r.name.toLowerCase()));
+
+    // 1. From database dishes
+    (dbDishes || []).forEach((d: any, idx: number) => {
+      const name = d.name || "Custom Dish";
+      if (seenNames.has(name.toLowerCase())) return;
+      seenNames.add(name.toLowerCase());
+
+      const session = (d.meal_type || "Breakfast") as "Breakfast" | "Lunch" | "Dinner";
+      const ings: RecipeIngredientBOM[] = (d.menu_dish_ingredients || []).map((di: any, iIdx: number) => ({
+        ingredientId: di.ingredient_id || `ing-db-${idx}-${iIdx}`,
+        name: di.ingredients?.name || "Ingredient",
+        category: (di.ingredients?.category || "Grain") as any,
+        unit: di.ingredients?.unit || "kg",
+        baseQtyPer100Pax: Number(((Number(di.qty_per_person) || 0.05) * 100).toFixed(2)),
+        unitCostSAR: Number(di.ingredients?.unit_cost) || 10,
+        warehouseStock: 150,
+        prepStation: "Hot Range",
+        colorHex: ["#f97316", "#eab308", "#84cc16", "#a855f7", "#06b6d4"][iIdx % 5],
+      }));
+
+      list.push({
+        id: d.id || `db-dish-${idx}`,
+        name,
+        arabicName: d.arabic_name || name,
+        cuisine: "Standard Camp Catering",
+        mealSession: session,
+        basePortions: 100,
+        prepTimeMinutes: 30,
+        cookingTimeMinutes: 45,
+        ingredients: ings.length > 0 ? ings : [
+          { ingredientId: "ing-staple-1", name: "Flour / Grain", category: "Grain", unit: "kg", baseQtyPer100Pax: 10, unitCostSAR: 5, warehouseStock: 120, prepStation: "Rice & Grain Prep", colorHex: "#eab308" },
+          { ingredientId: "ing-staple-2", name: "Cooking Oil", category: "Oil", unit: "L", baseQtyPer100Pax: 2.5, unitCostSAR: 12, warehouseStock: 40, prepStation: "Hot Range", colorHex: "#84cc16" },
+        ],
+        chefInstructions: ["Prepare ingredients under standard HACCP guidelines.", "Batch cook and test core temperature >= 75°C."],
+      });
+    });
+
+    // 2. From DISH_RECIPES (catalog)
+    Object.entries(DISH_RECIPES).forEach(([dishKey, ings], idx) => {
+      const name = dishKey.split(" ").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+      if (seenNames.has(name.toLowerCase())) return;
+      seenNames.add(name.toLowerCase());
+
+      const lKey = dishKey.toLowerCase();
+      const session: "Breakfast" | "Lunch" | "Dinner" =
+        lKey.includes("parota") || lKey.includes("dosa") || lKey.includes("omelette") ||
+        lKey.includes("toast") || lKey.includes("croissant") || lKey.includes("falafel") ||
+        lKey.includes("idli") || lKey.includes("pancake") || lKey.includes("poori") ||
+        lKey.includes("shakshuka") || lKey.includes("upma") || lKey.includes("waffle") ||
+        lKey.includes("ful") || lKey.includes("cheese")
+          ? "Breakfast"
+          : lKey.includes("biryani") || lKey.includes("kabsa") || lKey.includes("curry")
+          ? "Lunch"
+          : "Dinner";
+
+      const bomIngs: RecipeIngredientBOM[] = ings.map((ing, iIdx) => {
+        const lName = ing.name.toLowerCase();
+        let category: RecipeIngredientBOM["category"] = "Vegetable";
+        let prepStation: RecipeIngredientBOM["prepStation"] = "Cold Larder";
+        let cost = 8;
+
+        if (lName.includes("chicken") || lName.includes("meat") || lName.includes("lamb") || lName.includes("fish") || lName.includes("egg")) {
+          category = "Protein";
+          prepStation = "Butchery";
+          cost = 22;
+        } else if (lName.includes("rice") || lName.includes("flour") || lName.includes("batter") || lName.includes("parota") || lName.includes("bread")) {
+          category = "Grain";
+          prepStation = "Rice & Grain Prep";
+          cost = 6;
+        } else if (lName.includes("oil") || lName.includes("ghee")) {
+          category = "Oil";
+          prepStation = "Hot Range";
+          cost = 12;
+        } else if (lName.includes("milk") || lName.includes("cheese") || lName.includes("butter") || lName.includes("yogurt")) {
+          category = "Dairy";
+          prepStation = "Cold Larder";
+          cost = 14;
+        } else if (lName.includes("spice") || lName.includes("chilli") || lName.includes("salt") || lName.includes("powder")) {
+          category = "Spices";
+          prepStation = "Hot Range";
+          cost = 25;
+        }
+
+        return {
+          ingredientId: `ing-${dishKey.replace(/[^a-z0-9]/g, "_")}-${iIdx}`,
+          name: ing.name,
+          category,
+          unit: ing.unit,
+          baseQtyPer100Pax: Number((ing.qty_per_person * 100).toFixed(2)),
+          unitCostSAR: cost,
+          warehouseStock: Math.round(ing.qty_per_person * 100 * 2.2) || 80,
+          prepStation,
+          colorHex: ["#f97316", "#eab308", "#84cc16", "#a855f7", "#06b6d4", "#ec4899"][iIdx % 6],
+        };
+      });
+
+      list.push({
+        id: `dish-${dishKey.replace(/[^a-z0-9]/g, "_")}`,
+        name,
+        arabicName: name,
+        cuisine: session === "Breakfast" ? "Camp Breakfast Standard" : "Middle Eastern / Asian",
+        mealSession: session,
+        basePortions: 100,
+        prepTimeMinutes: 25,
+        cookingTimeMinutes: 35,
+        ingredients: bomIngs,
+        chefInstructions: [
+          `Assemble standard raw ingredients for ${name} under strict hygiene standards.`,
+          "Follow Aramco temperature control guidelines during preparation and batching.",
+          "Verify final taste profile and internal core temp >= 75°C prior to dining hall release.",
+        ],
+      });
+    });
+
+    return list;
+  }, [dbDishes]);
+
   // Master Recipe Selection & Scaling
   const [selectedRecipeId, setSelectedRecipeId] = useState<string>("dish-biryani");
   const [paxCount, setPaxCount] = useState<number>(650);
   const [safetyBufferPct, setSafetyBufferPct] = useState<number>(4.0);
+
+  // Sync pax count when camp occupancy loads
+  useEffect(() => {
+    if (occupancy && occupancy > 0) {
+      setPaxCount(Math.round(occupancy * 0.55));
+    }
+  }, [occupancy]);
 
   // Active Sub-Tab
   const [activeTab, setActiveTab] = useState<
@@ -58,8 +357,12 @@ export default function MenuProductionPlanning2D({ className }: MenuProductionPl
   >("planned-vs-actual");
 
   // Production Logs State
-  const [productionLogs, setProductionLogs] = useState<ProductionVarianceRecord[]>(SAMPLE_PRODUCTION_LOGS);
-  const [selectedLog, setSelectedLog] = useState<ProductionVarianceRecord>(productionLogs[0]);
+  const [productionLogs, setProductionLogs] = useState<ProductionVarianceRecord[]>(
+    ENHANCED_INITIAL_PRODUCTION_LOGS
+  );
+  const [selectedLog, setSelectedLog] = useState<ProductionVarianceRecord>(
+    ENHANCED_INITIAL_PRODUCTION_LOGS[0]
+  );
   const [showLogModal, setShowLogModal] = useState<boolean>(false);
   const [workOrderNotice, setWorkOrderNotice] = useState<string | null>(null);
 
@@ -77,11 +380,37 @@ export default function MenuProductionPlanning2D({ className }: MenuProductionPl
     "Chilled to 3°C in blast chiller; allocated to cold buffet salad."
   );
 
-  // Recipe calculation
-  const currentRecipe = ENTERPRISE_RECIPES.find((r) => r.id === selectedRecipeId) || ENTERPRISE_RECIPES[0];
+  // Recipe calculation from dynamic master catalog
+  const currentRecipe = useMemo(() => {
+    return allMasterRecipes.find((r) => r.id === selectedRecipeId) || allMasterRecipes[0] || ENTERPRISE_RECIPES[0];
+  }, [allMasterRecipes, selectedRecipeId]);
+
   const targetCookPax = Math.round(paxCount * (1 + safetyBufferPct / 100));
   const scaledData = scaleRecipe(currentRecipe, targetCookPax);
-  const portionSpecs: PortionControlSpec[] = SAMPLE_PORTION_SPECS[selectedRecipeId] || [];
+
+  // Portion specs
+  const portionSpecs: PortionControlSpec[] = useMemo(() => {
+    if (SAMPLE_PORTION_SPECS[selectedRecipeId]) {
+      return SAMPLE_PORTION_SPECS[selectedRecipeId];
+    }
+    // Dynamic portion spec for catalog dishes
+    return [
+      {
+        componentName: `${currentRecipe.name} (Main Portion)`,
+        targetServingGrams: currentRecipe.mealSession === "Breakfast" ? 220 : 350,
+        toleranceGrams: 15,
+        ladleScoopSize: "No. 8 Solid Serving Ladle (120ml) / Tong Portion",
+        targetTempServingC: 65,
+      },
+      {
+        componentName: "Side Garnish & Accompaniments",
+        targetServingGrams: 80,
+        toleranceGrams: 10,
+        ladleScoopSize: "No. 16 Sauce Dipper (60ml)",
+        targetTempServingC: 60,
+      },
+    ];
+  }, [selectedRecipeId, currentRecipe]);
 
   // Summary KPIs across production logs
   const totalPlannedPortions = productionLogs.reduce((acc, l) => acc + l.plannedPax, 0);
@@ -118,12 +447,12 @@ export default function MenuProductionPlanning2D({ className }: MenuProductionPl
     const varianceSAR = Number((leftover * cph).toFixed(2));
 
     const newRecord: ProductionVarianceRecord = {
-      id: `PROD-2026-1123-L0${productionLogs.length + 1}`,
+      id: `PROD-2026-1124-L0${productionLogs.length + 1}`,
       date: new Date().toISOString().split("T")[0],
       mealSession: currentRecipe.mealSession as "Breakfast" | "Lunch" | "Dinner",
       dishId: currentRecipe.id,
       dishName: currentRecipe.name,
-      forecastPax: 1250,
+      forecastPax: occupancy || 1250,
       plannedPax: paxCount,
       safetyBufferPct: safetyBufferPct,
       targetCookPax: targetCookPax,
@@ -179,31 +508,58 @@ export default function MenuProductionPlanning2D({ className }: MenuProductionPl
                 <Badge variant="outline" className="text-[11px] font-semibold bg-primary/5 text-primary border-primary/20">
                   Daily Reconciliation & Waste Control
                 </Badge>
+                {currentCamp && (
+                  <Badge className="bg-primary text-primary-foreground font-semibold text-xs gap-1">
+                    <Building2 className="h-3 w-3" /> {currentCamp.name} ({occupancy || 0} Pax)
+                  </Badge>
+                )}
               </div>
               <p className="text-xs text-muted-foreground mt-0.5 max-w-2xl">
                 Track planned portions against actual food cooked and consumed at dining hall turnstiles.
-                Ensures zero food waste through certified HACCP blast-chilling protocols.
+                Loaded with all configured dishes from your pantry & recipe master.
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-2 shrink-0 flex-wrap">
+            {/* Camp Selector Dropdown */}
+            <div className="flex items-center gap-1.5 bg-muted/60 px-2.5 py-1 rounded-lg border border-border/70 text-xs">
+              <Building2 className="h-3.5 w-3.5 text-primary" />
+              <span className="font-bold text-foreground">Camp:</span>
+              <select
+                value={localCampId}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setLocalCampId(val);
+                  if (onCampChange) onCampChange(val);
+                }}
+                className="bg-transparent font-semibold text-foreground outline-hidden cursor-pointer"
+              >
+                <option value="">All Camps (Master View)</option>
+                {campsList.map((c: any) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name} — {c.location || "KSA"}
+                  </option>
+                ))}
+              </select>
+            </div>
+
             <Button
               size="sm"
               variant="outline"
               onClick={handlePrintWorkOrder}
-              className="text-xs font-semibold gap-1.5 h-9"
+              className="text-xs font-semibold gap-1.5 h-8.5"
             >
               <Printer className="h-3.5 w-3.5 text-muted-foreground" />
-              Print Kitchen Order
+              Print Order
             </Button>
             <Button
               size="sm"
               onClick={() => setShowLogModal(true)}
-              className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold gap-1.5 text-xs h-9 shadow-xs"
+              className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold gap-1.5 text-xs h-8.5 shadow-xs"
             >
               <Plus className="h-4 w-4" />
-              Record Shift Production
+              Record Batch
             </Button>
           </div>
         </div>
@@ -228,7 +584,7 @@ export default function MenuProductionPlanning2D({ className }: MenuProductionPl
                 <Badge variant="secondary" className="text-[10px] py-0 px-1.5 font-medium">
                   +{totalCookedPortions - totalPlannedPortions} buffer portions
                 </Badge>
-                <span>for late arrivals</span>
+                <span>for field teams</span>
               </div>
             </div>
 
@@ -292,12 +648,12 @@ export default function MenuProductionPlanning2D({ className }: MenuProductionPl
             </div>
           </div>
 
-          {/* Visual Production Cycle Progress Bar (Layman Explanation) */}
+          {/* Visual Production Cycle Progress Bar */}
           <div className="mt-4 p-3 rounded-xl bg-muted/40 border border-border/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
             <div className="flex items-center gap-2 text-muted-foreground font-medium">
               <Info className="h-4 w-4 text-primary shrink-0" />
               <span>
-                <strong>Food Lifecycle Today:</strong> 1,620 planned portions ➔ 1,695 cooked (+4.6% safety buffer) ➔ 1,640 served (96.8%) ➔ <strong>55 portions safely blast-chilled</strong> for tomorrow's night shift.
+                <strong>{currentCamp ? currentCamp.name : "Camp Dining Operation"}:</strong> {totalPlannedPortions.toLocaleString()} planned portions ➔ {totalCookedPortions.toLocaleString()} cooked ➔ {totalConsumedPortions.toLocaleString()} served ({attendanceRate}%) ➔ <strong>{totalLeftoverPortions} portions safely blast-chilled</strong>.
               </span>
             </div>
             <div className="flex items-center gap-1.5 shrink-0 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
@@ -347,7 +703,7 @@ export default function MenuProductionPlanning2D({ className }: MenuProductionPl
             }`}
           >
             <Layers className={`h-4 w-4 ${activeTab === "bom-scaler" ? "text-primary" : ""}`} />
-            <span>2. Recipe & Ingredient Scaler</span>
+            <span>2. Recipe & Ingredient Scaler ({allMasterRecipes.length} Dishes)</span>
           </button>
 
           <button
@@ -731,34 +1087,58 @@ export default function MenuProductionPlanning2D({ className }: MenuProductionPl
               Standard Recipes & Scaled Bill of Materials (BOM)
             </h3>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Select an approved camp menu dish and adjust target portions to dynamically scale required raw ingredients.
+              Select any configured dish from your camp menu to dynamically scale required raw ingredients based on your camp headcount.
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-12 gap-5 items-center p-4 rounded-xl bg-muted/20 border border-border/60">
-            <div className="md:col-span-5 space-y-1.5">
+            <div className="md:col-span-6 space-y-1.5">
               <label className="text-xs font-bold text-foreground block">
-                Select Approved Master Recipe
+                Select Dish from Kitchen Master ({allMasterRecipes.length} Configured Dishes)
               </label>
               <select
                 value={selectedRecipeId}
                 onChange={(e) => setSelectedRecipeId(e.target.value)}
                 className="w-full text-xs font-semibold p-2.5 rounded-lg bg-card border border-border text-foreground"
               >
-                {ENTERPRISE_RECIPES.map((r) => (
-                  <option key={r.id} value={r.id}>
-                    {r.name} ({r.arabicName}) - {r.mealSession}
-                  </option>
-                ))}
+                <optgroup label="Breakfast Dishes">
+                  {allMasterRecipes
+                    .filter((r) => r.mealSession === "Breakfast")
+                    .map((r) => (
+                      <option key={r.id} value={r.id}>
+                        🍳 {r.name}
+                      </option>
+                    ))}
+                </optgroup>
+                <optgroup label="Lunch Dishes">
+                  {allMasterRecipes
+                    .filter((r) => r.mealSession === "Lunch")
+                    .map((r) => (
+                      <option key={r.id} value={r.id}>
+                        🍛 {r.name}
+                      </option>
+                    ))}
+                </optgroup>
+                <optgroup label="Dinner Dishes">
+                  {allMasterRecipes
+                    .filter((r) => r.mealSession === "Dinner")
+                    .map((r) => (
+                      <option key={r.id} value={r.id}>
+                        🍲 {r.name}
+                      </option>
+                    ))}
+                </optgroup>
               </select>
               <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-                <span>CPH: <strong>SAR {currentRecipe.baseCostPerHeadSAR.toFixed(2)}</strong></span>
+                <span>CPH: <strong>SAR {scaledData.costPerPersonSAR.toFixed(2)}</strong></span>
                 <span>•</span>
-                <span>Category: <strong>{currentRecipe.category}</strong></span>
+                <span>Session: <strong>{currentRecipe.mealSession}</strong></span>
+                <span>•</span>
+                <span>Ingredients: <strong>{scaledData.ingredients.length} items</strong></span>
               </div>
             </div>
 
-            <div className="md:col-span-7 space-y-2">
+            <div className="md:col-span-6 space-y-2">
               <div className="flex items-center justify-between text-xs">
                 <span className="font-bold text-foreground">Batch Portion Target:</span>
                 <strong className="text-foreground text-sm font-black">
@@ -767,16 +1147,16 @@ export default function MenuProductionPlanning2D({ className }: MenuProductionPl
               </div>
               <Slider
                 value={[paxCount]}
-                min={100}
-                max={2000}
+                min={50}
+                max={2500}
                 step={25}
                 onValueChange={(val) => setPaxCount(val[0])}
                 className="py-1 cursor-pointer"
               />
               <div className="flex items-center justify-between text-[10px] text-muted-foreground">
-                <span>100 portions</span>
-                <span>Batch Cost: SAR {(targetCookPax * currentRecipe.baseCostPerHeadSAR).toFixed(2)}</span>
-                <span>2,000 portions</span>
+                <span>50 portions</span>
+                <span>Estimated Batch Cost: SAR {scaledData.totalCostSAR.toFixed(2)}</span>
+                <span>2,500 portions</span>
               </div>
             </div>
           </div>
@@ -786,10 +1166,10 @@ export default function MenuProductionPlanning2D({ className }: MenuProductionPl
             <div className="flex items-center justify-between text-xs font-bold text-foreground">
               <span className="flex items-center gap-1.5">
                 <Utensils className="h-4 w-4 text-primary" />
-                Scaled Raw Ingredient Requirements
+                Scaled Raw Ingredient Requirements for {currentRecipe.name}
               </span>
               <span className="text-muted-foreground font-normal">
-                Warehouse Inventory vs Required
+                Camp Store Stock vs Required
               </span>
             </div>
 
@@ -861,7 +1241,7 @@ export default function MenuProductionPlanning2D({ className }: MenuProductionPl
             </Badge>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
             {portionSpecs.map((spec, i) => (
               <div
                 key={i}
@@ -919,35 +1299,40 @@ export default function MenuProductionPlanning2D({ className }: MenuProductionPl
               </div>
             </div>
             <Badge variant="outline" className="text-xs font-semibold">
-              Tanajib Main Camp (1,250 Inmates)
+              {currentCamp ? currentCamp.name : "Camp Dining Operation"} ({occupancy || 1250} Residents)
             </Badge>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-3.5 text-xs">
             {(
               [
-                { session: "Breakfast", rate: "84%", forecasted: 1050, menu: "Eggs, Foul, Bread, Fresh Fruit, Tea" },
-                { session: "Lunch (Dining)", rate: "52%", forecasted: 650, menu: "Chicken Dum Biryani & Cucumber Raita" },
-                { session: "Field Packed Lunch", rate: "40%", forecasted: 500, menu: "Sandwiches, Apples, Juice Packs" },
-                { session: "Dinner", rate: "94%", forecasted: 1175, menu: "Saudi Lamb Kabsa & Lentil Soup" },
+                { session: "Breakfast", rate: "84%", pct: 0.84, menu: "Aloo Parota, Eggs, Foul, Tea" },
+                { session: "Lunch (Dining)", rate: "52%", pct: 0.52, menu: "Chicken Dum Biryani & Raita" },
+                { session: "Field Packed Lunch", rate: "40%", pct: 0.40, menu: "Falafel Wraps, Juice Packs" },
+                { session: "Dinner", rate: "94%", pct: 0.94, menu: "Saudi Lamb Kabsa & Lentil Soup" },
               ] as const
-            ).map((s) => (
-              <div key={s.session} className="p-4 rounded-xl border border-border/70 bg-muted/20 space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <strong className="font-bold text-foreground text-xs">{s.session}</strong>
-                  <Badge variant="secondary" className="text-[10px] font-bold">
-                    {s.rate}
-                  </Badge>
+            ).map((s) => {
+              const basePax = occupancy || 1250;
+              const forecasted = Math.round(basePax * s.pct);
+
+              return (
+                <div key={s.session} className="p-4 rounded-xl border border-border/70 bg-muted/20 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <strong className="font-bold text-foreground text-xs">{s.session}</strong>
+                    <Badge variant="secondary" className="text-[10px] font-bold">
+                      {s.rate}
+                    </Badge>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-muted-foreground uppercase font-bold block">Forecast Diners</span>
+                    <strong className="text-lg font-black text-foreground">{forecasted.toLocaleString()} Pax</strong>
+                  </div>
+                  <div className="text-[11px] text-muted-foreground truncate border-t border-border/40 pt-1.5">
+                    Menu: {s.menu}
+                  </div>
                 </div>
-                <div>
-                  <span className="text-[10px] text-muted-foreground uppercase font-bold block">Forecast Diners</span>
-                  <strong className="text-lg font-black text-foreground">{s.forecasted.toLocaleString()} Pax</strong>
-                </div>
-                <div className="text-[11px] text-muted-foreground truncate border-t border-border/40 pt-1.5">
-                  Menu: {s.menu}
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           {/* Safety Buffer Setting */}
@@ -1014,7 +1399,7 @@ export default function MenuProductionPlanning2D({ className }: MenuProductionPl
                     value={newActualCooked}
                     onChange={(e) => setNewActualCooked(Number(e.target.value))}
                     className="w-full p-2.5 rounded-lg bg-card border border-border text-foreground font-semibold"
-                    min={100}
+                    min={50}
                     required
                   />
                 </div>

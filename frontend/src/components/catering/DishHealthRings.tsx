@@ -1,6 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { ComputedDishHealth, ComputedIngredientStatus } from "@/data/pantryCommandData";
-import { AlertCircle, CheckCircle, Clock, Utensils, ChevronDown, ChevronUp, Sparkles } from "lucide-react";
+import { AlertCircle, CheckCircle, Clock, Utensils, ChevronDown, ChevronUp, Sparkles, Search } from "lucide-react";
 
 interface DishHealthRingsProps {
   dishes: ComputedDishHealth[];
@@ -16,31 +16,73 @@ export default function DishHealthRings({
   onSelectIngredient,
 }: DishHealthRingsProps) {
   const [expandedDishId, setExpandedDishId] = useState<string | null>(null);
+  const [sessionFilter, setSessionFilter] = useState<"all" | "Breakfast" | "Lunch" | "Dinner">("all");
+  const [searchQuery, setSearchQuery] = useState<string>("");
 
   const toggleExpand = (id: string) => {
     setExpandedDishId((prev) => (prev === id ? null : id));
   };
 
+  const filteredDishes = useMemo(() => {
+    return dishes.filter((dh) => {
+      const matchesSession = sessionFilter === "all" || dh.dish.mealSession === sessionFilter;
+      const matchesSearch =
+        !searchQuery ||
+        dh.dish.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        dh.dish.mealSession.toLowerCase().includes(searchQuery.toLowerCase());
+      return matchesSession && matchesSearch;
+    });
+  }, [dishes, sessionFilter, searchQuery]);
+
   return (
     <div className="rounded-xl border border-border/70 bg-card p-4 shadow-sm space-y-3">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border/50 pb-2.5">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border/50 pb-3">
         <div className="flex items-center gap-2">
           <Utensils className="h-4 w-4 text-[#fe932c]" />
-          <h3 className="text-sm font-bold text-foreground tracking-tight">
-            Upcoming Menu Dishes & Meal Availability
-          </h3>
-          <span className="text-xs text-muted-foreground hidden sm:inline">
-            (Will we have enough food to cook these scheduled dishes?)
-          </span>
+          <div>
+            <h3 className="text-sm font-bold text-foreground tracking-tight">
+              Upcoming Menu Dishes & Meal Availability ({filteredDishes.length} Dishes)
+            </h3>
+            <p className="text-xs text-muted-foreground">
+              Will we have enough pantry inventory to cook these configured dishes?
+            </p>
+          </div>
         </div>
-        <span className="text-xs text-muted-foreground">
-          Click any dish to see its key ingredient stock
-        </span>
+
+        {/* Search & Filter Controls */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="relative">
+            <Search className="h-3.5 w-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <input
+              type="text"
+              placeholder="Search dishes..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-8 pr-2.5 py-1 text-xs rounded-lg border border-border bg-muted/40 focus:bg-background focus:outline-hidden focus:ring-1 focus:ring-primary w-36 sm:w-44 text-foreground"
+            />
+          </div>
+
+          <div className="flex items-center bg-muted/60 p-0.5 rounded-lg border border-border/60 text-xs">
+            {(["all", "Breakfast", "Lunch", "Dinner"] as const).map((s) => (
+              <button
+                key={s}
+                onClick={() => setSessionFilter(s)}
+                className={`px-2 py-0.5 rounded-md font-medium text-[11px] transition-all capitalize ${
+                  sessionFilter === s
+                    ? "bg-card text-foreground font-bold shadow-2xs"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {s}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
       {/* Grid of Dish Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-        {dishes.map((dh) => {
+        {filteredDishes.map((dh) => {
           const isExpanded = expandedDishId === dh.dish.id;
           const isRed = dh.overallStatus === "red";
           const isAmber = dh.overallStatus === "amber";

@@ -1,5 +1,7 @@
 import React, { useState, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { DATASET_DEFINITIONS, BUILT_IN_PRESETS } from "@/lib/dynamicReports/datasets";
 import { DatasetId, ReportConfig, PresetTemplate } from "@/lib/dynamicReports/types";
 import { computePivotMatrix } from "@/lib/dynamicReports/pivotEngine";
@@ -56,6 +58,32 @@ import { toast } from "sonner";
 
 export default function CateringDynamicReports() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Camps Query & Filter State
+  const { data: camps = [] } = useQuery({
+    queryKey: ["camps"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("camps").select("*").order("name");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const [selectedCampId, setSelectedCampId] = useState<string>(() => {
+    return searchParams.get("campId") || "";
+  });
+
+  const handleCampChange = (newCampId: string) => {
+    setSelectedCampId(newCampId);
+    if (newCampId) {
+      setSearchParams({ campId: newCampId });
+    } else {
+      setSearchParams({});
+    }
+  };
+
+  const selectedCamp = camps.find((c: any) => c.id === selectedCampId);
 
   // Saved & Built-in presets
   const [presets, setPresets] = useState<PresetTemplate[]>(() => getSavedReports());
@@ -160,10 +188,20 @@ export default function CateringDynamicReports() {
   // Query records for active dataset
   const { data: rawRecords = [], isLoading, refetch } = useDynamicReportData(config.dataset);
 
+  // Filter records by selected camp if one is chosen
+  const filteredRecords = useMemo(() => {
+    if (!selectedCampId || !selectedCamp) return rawRecords;
+    const campNameLower = selectedCamp.name.toLowerCase();
+    return rawRecords.filter((r: any) => {
+      const rCamp = String(r.camp || r.camp_name || "").toLowerCase();
+      return !rCamp || rCamp.includes(campNameLower) || campNameLower.includes(rCamp);
+    });
+  }, [rawRecords, selectedCampId, selectedCamp]);
+
   // Compute live matrix
   const matrixResult = useMemo(() => {
-    return computePivotMatrix(rawRecords, config, fieldMap);
-  }, [rawRecords, config, fieldMap]);
+    return computePivotMatrix(filteredRecords, config, fieldMap);
+  }, [filteredRecords, config, fieldMap]);
 
   // Handle dataset switch
   const handleDatasetChange = (newDataset: DatasetId) => {
@@ -282,7 +320,7 @@ export default function CateringDynamicReports() {
         <div>
           <div className="flex items-center gap-2 text-xs text-slate-300">
             <button
-              onClick={() => navigate("/mess-catering")}
+              onClick={() => navigate(selectedCampId ? `/mess-catering?campId=${selectedCampId}` : "/mess-catering")}
               className="hover:text-white flex items-center gap-1 transition-colors"
             >
               <ArrowLeft className="h-3.5 w-3.5" />
@@ -290,7 +328,7 @@ export default function CateringDynamicReports() {
             </button>
             <span>/</span>
             <button
-              onClick={() => navigate("/catering/enterprise-hub")}
+              onClick={() => navigate(selectedCampId ? `/catering/enterprise-hub?campId=${selectedCampId}` : "/catering/enterprise-hub")}
               className="hover:text-white transition-colors"
             >
               Enterprise Catering Hub
@@ -316,6 +354,23 @@ export default function CateringDynamicReports() {
 
         {/* Global Toolbar Commands */}
         <div className="flex flex-wrap items-center gap-2">
+          {/* Camp Filter Dropdown */}
+          <div className="flex items-center gap-1.5 bg-white/10 px-2.5 py-1 rounded-lg border border-white/20 text-xs text-white">
+            <span className="font-bold text-[#fe932c]">Camp:</span>
+            <select
+              value={selectedCampId}
+              onChange={(e) => handleCampChange(e.target.value)}
+              className="bg-[#0c2340] text-white text-xs font-semibold px-2 py-0.5 rounded border border-white/25 focus:ring-1 focus:ring-[#fe932c] outline-hidden cursor-pointer min-w-[170px]"
+            >
+              <option value="">All Camps (Network Master)</option>
+              {camps.map((c: any) => (
+                <option key={c.id} value={c.id}>
+                  {c.name} — {c.location || "KSA"}
+                </option>
+              ))}
+            </select>
+          </div>
+
           {/* Preset Selector Dropdown */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

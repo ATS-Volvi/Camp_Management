@@ -148,6 +148,7 @@ export const DATASET_DEFINITIONS: Record<string, DatasetDefinition> = {
     description: "Saved mess dishes, custom recipes, cost per portion, ingredient breakdowns, and kitchen station allocations",
     fields: [
       { id: "dish_name", label: "Dish Name", category: "dimension", dataType: "string" },
+      { id: "camp", label: "Camp / Facility", category: "dimension", dataType: "string" },
       { id: "meal_type", label: "Meal Session", category: "dimension", dataType: "string" },
       { id: "cuisine", label: "Cuisine Category", category: "dimension", dataType: "string" },
       { id: "diet_type", label: "Dietary Classification", category: "dimension", dataType: "string" },

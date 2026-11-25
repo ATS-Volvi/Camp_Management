@@ -1,10 +1,15 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useCampOccupancy } from "@/hooks/useCatering";
+import { useMenuDishes } from "@/hooks/useMenuDishes";
 import {
   calculatePantrySimulation,
   INITIAL_WHAT_IF_STATE,
   WhatIfState,
   ComputedIngredientStatus,
+  buildCatalogUpcomingDishes,
 } from "@/data/pantryCommandData";
 import PantrySkyline2D from "@/components/catering/PantrySkyline2D";
 import DishHealthRings from "@/components/catering/DishHealthRings";
@@ -21,21 +26,62 @@ import { Slider } from "@/components/ui/slider";
 
 export default function PantryCommandCenter() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
 
-  // 1. Interactive States
+  // 1. Camps Query & Filter State
+  const { data: camps = [] } = useQuery({
+    queryKey: ["camps"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("camps").select("*").order("name");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const [selectedCampId, setSelectedCampId] = useState<string>(() => {
+    return searchParams.get("campId") || "";
+  });
+
+  // Keep search params in sync
+  const handleCampChange = (newCampId: string) => {
+    setSelectedCampId(newCampId);
+    if (newCampId) {
+      setSearchParams({ campId: newCampId });
+    } else {
+      setSearchParams({});
+    }
+  };
+
+  const selectedCamp = useMemo(() => {
+    return camps.find((c: any) => c.id === selectedCampId) || null;
+  }, [camps, selectedCampId]);
+
+  // Camp occupancy for portion scaling
+  const { data: campOccupancy } = useCampOccupancy(selectedCampId || null);
+  const effectiveHeadcount = campOccupancy || (selectedCampId ? 850 : 1250);
+
+  // 2. Configured Dishes from Supabase
+  const { data: dbDishes = [] } = useMenuDishes();
+
+  // Generate dynamic upcoming dishes merging configured DB dishes and standard recipes
+  const dynamicDishes = useMemo(() => {
+    return buildCatalogUpcomingDishes(dbDishes, effectiveHeadcount, selectedCamp?.name);
+  }, [dbDishes, effectiveHeadcount, selectedCamp]);
+
+  // 3. Interactive States
   const [daysAhead, setDaysAhead] = useState<number>(0);
   const [whatIfs, setWhatIfs] = useState<WhatIfState>(INITIAL_WHAT_IF_STATE);
   const [selectedIngredientId, setSelectedIngredientId] = useState<string | null>(null);
   const [selectedDishFilter, setSelectedDishFilter] = useState<string>("all");
 
-  // 2. Demo Mode Guided Tour State
+  // 4. Demo Mode Guided Tour State
   const [isDemoMode, setIsDemoMode] = useState(false);
   const [demoStep, setDemoStep] = useState(0);
 
-  // Compute live simulation based on daysAhead and whatIfs
+  // Compute live simulation based on daysAhead, whatIfs, dynamicDishes and camp occupancy
   const simulation = useMemo(() => {
-    return calculatePantrySimulation(daysAhead, whatIfs);
-  }, [daysAhead, whatIfs]);
+    return calculatePantrySimulation(daysAhead, whatIfs, dynamicDishes, effectiveHeadcount);
+  }, [daysAhead, whatIfs, dynamicDishes, effectiveHeadcount]);
 
   // Derived selected ingredient (auto-updates cleanly with simulation changes)
   const selectedIngredient = useMemo(() => {
@@ -157,9 +203,28 @@ export default function PantryCommandCenter() {
 
         {/* Global Toolbar Commands */}
         <div className="flex flex-wrap items-center gap-2">
+          {/* Camp Filter Dropdown */}
+          <div className="flex items-center gap-2 bg-white/10 p-1 rounded-lg border border-white/20">
+            <span className="text-xs font-bold text-[#fe932c] flex items-center gap-1 pl-1.5">
+              Camp:
+            </span>
+            <select
+              value={selectedCampId}
+              onChange={(e) => handleCampChange(e.target.value)}
+              className="bg-[#0c2340] text-white text-xs font-semibold px-2.5 py-1.5 rounded-md border border-white/25 focus:ring-1 focus:ring-[#fe932c] outline-hidden cursor-pointer min-w-[190px]"
+            >
+              <option value="">All Camps (Enterprise)</option>
+              {camps.map((c: any) => (
+                <option key={c.id} value={c.id}>
+                  {c.name} — {c.location || "KSA"}
+                </option>
+              ))}
+            </select>
+          </div>
+
           <Button
             size="sm"
-            onClick={() => navigate("/catering/enterprise-hub")}
+            onClick={() => navigate(selectedCampId ? `/catering/enterprise-hub?campId=${selectedCampId}` : "/catering/enterprise-hub")}
             className="h-8 text-xs font-semibold gap-1.5 bg-cyan-600 hover:bg-cyan-700 text-white shadow-xs font-bold"
           >
             <Compass size={13} />

@@ -423,6 +423,7 @@ export function useDynamicReportData(dataset: DatasetId) {
             records.push({
               id: d.id,
               dish_name: name,
+              camp: d.camp_name || d.camp || "Tanajib Main Camp",
               meal_type: mealType,
               cuisine: meta.cuisine,
               diet_type: meta.diet,
@@ -479,6 +480,7 @@ export function useDynamicReportData(dataset: DatasetId) {
             records.push({
               id: `standard_${index + 1}`,
               dish_name: name,
+              camp: "Tanajib Main Camp",
               meal_type: mealType,
               cuisine: meta.cuisine,
               diet_type: meta.diet,
