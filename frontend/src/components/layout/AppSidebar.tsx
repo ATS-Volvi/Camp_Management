@@ -10,22 +10,10 @@ import { useEffect, useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import campLogo from "@/assets/camp-365-logo.png";
 
+import { isCateringRoute } from "@/lib/cateringRoute";
+
 const isPathActive = (pathname: string, path: string) =>
   pathname === path || pathname.startsWith(path + "/");
-
-export const isCateringRoute = (pathname: string) => {
-  return (
-    pathname.startsWith("/catering") ||
-    pathname.startsWith("/mess-catering") ||
-    pathname.startsWith("/grocery-inventory") ||
-    pathname.startsWith("/meal-management") ||
-    pathname.startsWith("/food-cancellation") ||
-    pathname.startsWith("/department-lunch") ||
-    pathname.startsWith("/cook-requests") ||
-    pathname.startsWith("/food-safety") ||
-    pathname.startsWith("/pantry-command-center")
-  );
-};
 
 // ============================================================================
 // ACCOMMODATION NAVIGATION GROUPS (Catering is strictly isolated into Catering-365)

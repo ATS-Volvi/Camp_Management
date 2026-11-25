@@ -21,7 +21,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import AIReportMessage from "@/components/ai-reports/AIReportMessage";
-import { isCateringRoute } from "@/components/layout/AppSidebar";
+import { isCateringRoute } from "@/lib/cateringRoute";
 
 interface Message {
   role: "user" | "assistant";
