@@ -15,6 +15,7 @@ import {
   ArrowRight,
   SlidersHorizontal,
   Compass,
+  ChefHat,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -48,6 +49,27 @@ export default function SiriFloatingCopilot() {
   const location = useLocation();
   const navigate = useNavigate();
 
+  const isCatering = useMemo(() => {
+    const p = location.pathname;
+    return (
+      p.startsWith("/catering") ||
+      p.startsWith("/mess-catering") ||
+      p.startsWith("/grocery-inventory") ||
+      p.startsWith("/meal-management") ||
+      p.startsWith("/food-cancellation") ||
+      p.startsWith("/department-lunch") ||
+      p.startsWith("/cook-requests") ||
+      p.startsWith("/pantry-command-center")
+    );
+  }, [location.pathname]);
+
+  const defaultGreeting = useMemo(() => {
+    if (isCatering) {
+      return "**Hello Executive Chef & Catering Manager! I am your Catering-365 AI Copilot.**\n\nI can calculate leave batch reductions, audit pantry DoC stockouts, prepare diabetic & medical dietary rosters, or optimize HACCP zero-waste production.";
+    }
+    return "**Hello! I am your Camp-365 AI Copilot.**\n\nAsk me anything about camp capacity, department workforce, bed tariffs, maintenance alerts, or ask me to build a custom dynamic report.";
+  }, [isCatering]);
+
   const [isOpen, setIsOpen] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
@@ -57,6 +79,16 @@ export default function SiriFloatingCopilot() {
         "**Hello! I am your Camp-365 AI Copilot.**\n\nAsk me anything about camp capacity, department workforce, bed tariffs, maintenance alerts, or ask me to build a custom dynamic report.",
     },
   ]);
+
+  // Update greeting when navigating into/out of Catering
+  useEffect(() => {
+    setMessages((prev) => {
+      if (prev.length === 1 && prev[0].role === "assistant") {
+        return [{ role: "assistant", content: defaultGreeting }];
+      }
+      return prev;
+    });
+  }, [defaultGreeting]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isListening, setIsListening] = useState(false);
@@ -89,6 +121,26 @@ export default function SiriFloatingCopilot() {
   // Context-aware suggested prompts based on the current page
   const contextualPrompts = useMemo(() => {
     const p = location.pathname;
+    if (isCatering) {
+      return [
+        {
+          label: "🌴 Leave Batch Deductions",
+          prompt: "Calculate meal batch reductions and grocery savings based on worker vacation leaves (e.g. 42 workers on leave = 840 SAR saved/day).",
+        },
+        {
+          label: "🩺 Diabetic & Medical Diets",
+          prompt: "Generate the medical and diabetic dietary roster including carbohydrate-controlled, hypertensive and allergen-free meal trays.",
+        },
+        {
+          label: "🛢️ 5-Day Stockout Risk",
+          prompt: "Scan pantry Days of Cover (DoC) across camps and highlight critical cooking ingredients running below 5 days safety stock.",
+        },
+        {
+          label: "❄️ HACCP Leftover Rescue",
+          prompt: "Audit food waste disposition and calculate value saved through HACCP chilled blast storage and zero-waste next-shift reuse.",
+        },
+      ];
+    }
     if (p.includes("dynamic-reports")) {
       return [
         { label: "📊 3D Department Matrix", prompt: "Build a 3D bar chart showing department workforce across camps" },
@@ -272,16 +324,32 @@ export default function SiriFloatingCopilot() {
             type="button"
             onClick={() => setIsOpen(true)}
             className="group relative flex items-center gap-2.5 px-3.5 py-2 rounded-full bg-slate-900/90 dark:bg-slate-950/90 text-white shadow-2xl backdrop-blur-xl border border-white/20 hover:scale-105 transition-all duration-300"
-            title="Open Camp Copilot (⌘J)"
+            title={isCatering ? "Open Catering Copilot (⌘J)" : "Open Camp Copilot (⌘J)"}
           >
             {/* Multi-layered animated glowing background orb */}
             <div className="relative flex items-center justify-center w-7 h-7 rounded-full overflow-hidden">
-              <span className="absolute inset-0 bg-gradient-to-tr from-cyan-400 via-indigo-500 to-fuchsia-500 animate-spin opacity-90 blur-[1px]" />
+              <span
+                className={`absolute inset-0 bg-gradient-to-tr ${
+                  isCatering
+                    ? "from-amber-400 via-orange-500 to-rose-500"
+                    : "from-cyan-400 via-indigo-500 to-fuchsia-500"
+                } animate-spin opacity-90 blur-[1px]`}
+              />
               <span className="absolute inset-0.5 bg-slate-950 rounded-full" />
-              <Sparkles size={14} className="relative z-10 text-cyan-300 animate-pulse" />
+              {isCatering ? (
+                <ChefHat size={14} className="relative z-10 text-amber-300 animate-pulse" />
+              ) : (
+                <Sparkles size={14} className="relative z-10 text-cyan-300 animate-pulse" />
+              )}
             </div>
-            <span className="text-xs font-semibold tracking-wide bg-gradient-to-r from-cyan-300 via-white to-fuchsia-300 bg-clip-text text-transparent">
-              Camp Copilot
+            <span
+              className={`text-xs font-semibold tracking-wide bg-gradient-to-r ${
+                isCatering
+                  ? "from-amber-300 via-orange-200 to-amber-400"
+                  : "from-cyan-300 via-white to-fuchsia-300"
+              } bg-clip-text text-transparent`}
+            >
+              {isCatering ? "Catering Copilot" : "Camp Copilot"}
             </span>
             <span className="text-[10px] bg-white/10 px-1.5 py-0.5 rounded border border-white/15 text-white/70">
               ⌘J
@@ -299,25 +367,46 @@ export default function SiriFloatingCopilot() {
               : "bottom-6 right-6 w-[430px] max-w-[94vw] h-[620px] max-h-[88vh]"
           }`}
           role="dialog"
-          aria-label="Camp Copilot AI Assistant"
+          aria-label={isCatering ? "Catering Copilot AI Assistant" : "Camp Copilot AI Assistant"}
         >
           {/* Header */}
           <div className="px-4 py-3 border-b bg-muted/40 flex items-center justify-between shrink-0">
             <div className="flex items-center gap-2.5">
               {/* Animated Siri Orb in Header */}
               <div className="relative flex items-center justify-center w-7 h-7 rounded-full overflow-hidden shrink-0 shadow-md">
-                <span className="absolute inset-0 bg-gradient-to-tr from-cyan-400 via-indigo-500 to-fuchsia-500 animate-spin blur-[1px]" />
+                <span
+                  className={`absolute inset-0 bg-gradient-to-tr ${
+                    isCatering
+                      ? "from-amber-400 via-orange-500 to-rose-500"
+                      : "from-cyan-400 via-indigo-500 to-fuchsia-500"
+                  } animate-spin blur-[1px]`}
+                />
                 <span className="absolute inset-0.5 bg-slate-950 rounded-full" />
-                <Sparkles size={13} className="relative z-10 text-cyan-300" />
+                {isCatering ? (
+                  <ChefHat size={13} className="relative z-10 text-amber-300" />
+                ) : (
+                  <Sparkles size={13} className="relative z-10 text-cyan-300" />
+                )}
               </div>
               <div>
                 <div className="flex items-center gap-1.5">
-                  <h3 className="text-xs font-bold leading-none">Camp Copilot AI</h3>
-                  <Badge variant="outline" className="text-[9px] px-1 py-0 h-4 border-cyan-500/30 text-cyan-500 font-mono">
-                    RAG v2.0
+                  <h3 className="text-xs font-bold leading-none">
+                    {isCatering ? "Catering Copilot AI" : "Camp Copilot AI"}
+                  </h3>
+                  <Badge
+                    variant="outline"
+                    className={`text-[9px] px-1 py-0 h-4 font-mono ${
+                      isCatering
+                        ? "border-amber-500/30 text-amber-500"
+                        : "border-cyan-500/30 text-cyan-500"
+                    }`}
+                  >
+                    {isCatering ? "Culinary RAG" : "RAG v2.0"}
                   </Badge>
                 </div>
-                <p className="text-[10px] text-muted-foreground mt-0.5">Live Operational Intelligence</p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">
+                  {isCatering ? "Executive Chef & Kitchen Intelligence" : "Live Operational Intelligence"}
+                </p>
               </div>
             </div>
 

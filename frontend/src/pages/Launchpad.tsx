@@ -1,17 +1,27 @@
-import { Building2, ShieldCheck, Users, Truck, Calculator, Target } from "lucide-react";
+import { Building2, ShieldCheck, Users, Truck, Calculator, Target, UtensilsCrossed } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 
 const apps = [
   {
     name: "Camp-365",
-    description: "Complete camp management — rooms, employees, catering, maintenance & more",
+    description: "Workforce accommodation — rooms, beds, inmates, key cards, maintenance & assets",
     icon: Building2,
     gradient: "from-emerald-500 to-teal-600",
     bgGlow: "bg-emerald-500/10",
     borderAccent: "border-emerald-500/30",
     internal: true,
     path: "/camp-hub",
+  },
+  {
+    name: "Catering-365",
+    description: "Industrial kitchen suite — recipes, BOM, pantry digital twin, production & CPH control",
+    icon: UtensilsCrossed,
+    gradient: "from-amber-500 to-orange-600",
+    bgGlow: "bg-amber-500/10",
+    borderAccent: "border-amber-500/30",
+    internal: true,
+    path: "/catering/pantry-command-center",
   },
   {
     name: "SafetyFirst LMS",
