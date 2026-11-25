@@ -1043,9 +1043,20 @@ export default function MenuProductionPlanning2D({
 
                 {/* Production Flow Tracker for This Dish */}
                 <div className="p-3.5 rounded-xl bg-muted/30 border border-border/60 space-y-2">
-                  <span className="text-[11px] font-bold text-muted-foreground block uppercase">
-                    Portion Journey for this Batch
-                  </span>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-muted-foreground block uppercase">
+                      Portion Journey for this Batch
+                    </span>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setShowLogModal(true)}
+                      className="h-6 px-2 text-[11px] font-bold text-primary hover:text-primary gap-1"
+                    >
+                      <ChefHat className="h-3 w-3" />
+                      Enter / Edit Shift Counts
+                    </Button>
+                  </div>
                   <div className="grid grid-cols-3 gap-2 text-center">
                     <div className="p-2 rounded-lg bg-card border border-border/60">
                       <span className="text-[10px] text-muted-foreground block">Planned</span>
