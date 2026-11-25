@@ -14,6 +14,16 @@ import { format } from "date-fns";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { usePriceHistory } from "@/hooks/useGroceryInventory";
 
+const formatDateSafe = (dateVal?: any, pattern: string = "dd MMM yyyy") => {
+  if (!dateVal) return "—";
+  try {
+    const d = new Date(dateVal);
+    return isNaN(d.getTime()) ? "—" : format(d, pattern);
+  } catch {
+    return "—";
+  }
+};
+
 export default function PriceHistoryTab() {
   const [chartSelection, setChartSelection] = useState<ChartSelection | null>(null);
   const [selectedItem, setSelectedItem] = useState<string>("");
@@ -35,7 +45,7 @@ export default function PriceHistoryTab() {
   // Chart data for selected item
   const chartData = [...itemHistory].reverse().map((h: any) => ({
     id: h.id,
-    date: format(new Date(h.effective_date), "dd MMM"),
+    date: formatDateSafe(h.effective_date, "dd MMM"),
     price: h.price,
   }));
 
@@ -137,7 +147,7 @@ export default function PriceHistoryTab() {
                 <TableRow key={h.id}>
                   <TableCell className="font-medium">{h.ingredients?.name || "—"}</TableCell>
                   <TableCell className="font-mono">{h.price?.toFixed(2)}</TableCell>
-                  <TableCell>{format(new Date(h.effective_date), "dd MMM yyyy")}</TableCell>
+                  <TableCell>{formatDateSafe(h.effective_date)}</TableCell>
                   <TableCell>
                     <Badge variant="outline" className="text-xs capitalize">{h.source}</Badge>
                   </TableCell>

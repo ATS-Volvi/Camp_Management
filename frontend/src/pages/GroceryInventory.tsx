@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Package, History, FileText, TrendingDown, BarChart3 } from "lucide-react";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import GroceryItemsTab from "@/components/grocery/GroceryItemsTab";
 import PriceHistoryTab from "@/components/grocery/PriceHistoryTab";
 import InvoiceUploadTab from "@/components/grocery/InvoiceUploadTab";
@@ -38,11 +39,31 @@ export default function GroceryInventory() {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="items"><GroceryItemsTab /></TabsContent>
-        <TabsContent value="prices"><PriceHistoryTab /></TabsContent>
-        <TabsContent value="invoices"><InvoiceUploadTab /></TabsContent>
-        <TabsContent value="consumption"><ConsumptionTab /></TabsContent>
-        <TabsContent value="reports"><GroceryReportsTab /></TabsContent>
+        <TabsContent value="items">
+          <ErrorBoundary fallbackTitle="Pantry Inventory Error">
+            <GroceryItemsTab />
+          </ErrorBoundary>
+        </TabsContent>
+        <TabsContent value="prices">
+          <ErrorBoundary fallbackTitle="Price History Error">
+            <PriceHistoryTab />
+          </ErrorBoundary>
+        </TabsContent>
+        <TabsContent value="invoices">
+          <ErrorBoundary fallbackTitle="Invoice Upload Error">
+            <InvoiceUploadTab />
+          </ErrorBoundary>
+        </TabsContent>
+        <TabsContent value="consumption">
+          <ErrorBoundary fallbackTitle="Consumption Log Error">
+            <ConsumptionTab />
+          </ErrorBoundary>
+        </TabsContent>
+        <TabsContent value="reports">
+          <ErrorBoundary fallbackTitle="Grocery Reports Error">
+            <GroceryReportsTab />
+          </ErrorBoundary>
+        </TabsContent>
       </Tabs>
     </div>
   );

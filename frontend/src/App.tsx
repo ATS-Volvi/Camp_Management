@@ -139,7 +139,14 @@ const App = () => (
                 <Route path="/change-password" element={<ChangePassword />} />
                 <Route path="/food-safety" element={<FoodSafetyAudit />} />
                 <Route path="/bottomline" element={<BottomlineReport />} />
-                <Route path="/grocery-inventory" element={<GroceryInventory />} />
+                <Route
+                  path="/grocery-inventory"
+                  element={
+                    <ErrorBoundary fallbackTitle="Grocery Inventory Error">
+                      <GroceryInventory />
+                    </ErrorBoundary>
+                  }
+                />
                 <Route path="/preventive-maintenance" element={<PreventiveMaintenance />} />
                 <Route path="/meal-management" element={<MealManagement />} />
                 <Route path="/food-cancellation" element={<FoodCancellation />} />

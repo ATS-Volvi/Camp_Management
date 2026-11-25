@@ -13,6 +13,16 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 
 const COLORS = ["hsl(var(--primary))", "#f59e0b", "#10b981", "#ef4444", "#8b5cf6", "#ec4899", "#06b6d4"];
 
+const formatDateSafe = (dateVal?: any) => {
+  if (!dateVal) return "—";
+  try {
+    const d = new Date(dateVal);
+    return isNaN(d.getTime()) ? "—" : format(d, "dd MMM yyyy");
+  } catch {
+    return "—";
+  }
+};
+
 export default function ConsumptionTab() {
   const [chartSelection, setChartSelection] = useState<ChartSelection | null>(null);
   const [campId, setCampId] = useState<string>("");
@@ -121,7 +131,7 @@ export default function ConsumptionTab() {
                 <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">No consumption records for this date</TableCell></TableRow>
               ) : logs.map((l: any) => (
                 <TableRow key={l.id}>
-                  <TableCell className="text-xs">{format(new Date(l.consumption_date), "dd MMM yyyy")}</TableCell>
+                  <TableCell className="text-xs">{formatDateSafe(l.consumption_date)}</TableCell>
                   <TableCell><Badge variant="outline" className="text-xs capitalize">{l.meal_type}</Badge></TableCell>
                   <TableCell className="font-medium">{l.ingredients?.name || "—"}</TableCell>
                   <TableCell className="text-xs">{l.ingredients?.category || "—"}</TableCell>

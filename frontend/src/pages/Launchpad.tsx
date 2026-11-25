@@ -5,13 +5,23 @@ import { useAuth } from "@/contexts/AuthContext";
 const apps = [
   {
     name: "Camp-365",
-    description: "Complete camp workforce & operations platform — accommodation, facilities & industrial catering",
+    description: "Workforce accommodation — rooms, beds, inmates, key cards, maintenance & assets",
     icon: Building2,
     gradient: "from-emerald-500 to-teal-600",
     bgGlow: "bg-emerald-500/10",
     borderAccent: "border-emerald-500/30",
     internal: true,
     path: "/camp-hub",
+  },
+  {
+    name: "Catering-365",
+    description: "Industrial kitchen suite — recipes, BOM, pantry digital twin, production & CPH control",
+    icon: UtensilsCrossed,
+    gradient: "from-amber-500 to-orange-600",
+    bgGlow: "bg-amber-500/10",
+    borderAccent: "border-amber-500/30",
+    internal: true,
+    path: "/catering/pantry-command-center",
   },
   {
     name: "SafetyFirst LMS",
@@ -136,7 +146,7 @@ export default function Launchpad() {
       </main>
 
       <footer className="py-4 text-center text-xs text-muted-foreground border-t border-border/30">
-        © folkslogic. 2024. All Rights Reserved.
+        © Expertise Contracting Company. 2024. All Rights Reserved.
       </footer>
     </div>
   );

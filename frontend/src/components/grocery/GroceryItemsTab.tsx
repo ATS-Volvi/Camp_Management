@@ -1,18 +1,3 @@
-import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import { Search, Plus, AlertTriangle, ArrowUpDown, Package } from "lucide-react";
-import { useGroceryItems, useIngredientCategories, useCateringStockSummary, useAddPriceEntry } from "@/hooks/useGroceryInventory";
-import { useUpsertIngredient } from "@/hooks/useCatering";
-import { useCamps } from "@/hooks/useInventory";
-import { format } from "date-fns";
-
 import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -32,8 +17,19 @@ import { supabase } from "@/integrations/supabase/client";
 import { DISH_RECIPES } from "@/data/dishRecipes";
 import { format } from "date-fns";
 
+const formatDateSafe = (dateVal?: any) => {
+  if (!dateVal) return "—";
+  try {
+    const d = new Date(dateVal);
+    return isNaN(d.getTime()) ? "—" : format(d, "dd MMM yyyy");
+  } catch {
+    return "—";
+  }
+};
+
 // Smart matcher to check if an inventory item belongs to a dish recipe ingredient
-function matchesDishIngredient(itemName: string, recipeIngredientName: string): boolean {
+function matchesDishIngredient(itemName?: string | null, recipeIngredientName?: string | null): boolean {
+  if (!itemName || !recipeIngredientName) return false;
   const normItem = itemName.toLowerCase().trim();
   const normRecipe = recipeIngredientName.toLowerCase().trim();
 
@@ -137,9 +133,9 @@ export default function GroceryItemsTab() {
   // Sort items
   const sorted = [...dishFilteredItems].sort((a, b) => {
     const dir = sortDir === "asc" ? 1 : -1;
-    if (sortField === "name") return a.name.localeCompare(b.name) * dir;
-    if (sortField === "unit_cost") return ((a.unit_cost || 0) - (b.unit_cost || 0)) * dir;
-    if (sortField === "category") return a.category.localeCompare(b.category) * dir;
+    if (sortField === "name") return (a.name || "").localeCompare(b.name || "") * dir;
+    if (sortField === "unit_cost") return ((Number(a.unit_cost) || 0) - (Number(b.unit_cost) || 0)) * dir;
+    if (sortField === "category") return (a.category || "").localeCompare(b.category || "") * dir;
     return 0;
   });
 
@@ -563,7 +559,7 @@ export default function GroceryItemsTab() {
 
                     {/* Last Updated */}
                     <TableCell className="text-xs text-muted-foreground font-mono">
-                      {format(new Date(item.updated_at), "dd MMM yyyy")}
+                      {formatDateSafe(item.updated_at)}
                     </TableCell>
                   </TableRow>
                 );

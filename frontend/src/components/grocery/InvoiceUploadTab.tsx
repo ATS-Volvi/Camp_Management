@@ -15,6 +15,16 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 
+const formatDateSafe = (dateVal?: any) => {
+  if (!dateVal) return "—";
+  try {
+    const d = new Date(dateVal);
+    return isNaN(d.getTime()) ? "—" : format(d, "dd MMM yyyy");
+  } catch {
+    return "—";
+  }
+};
+
 export default function InvoiceUploadTab() {
   const [campId, setCampId] = useState<string>("");
   const [addOpen, setAddOpen] = useState(false);
@@ -184,7 +194,7 @@ export default function InvoiceUploadTab() {
                   <TableCell className="font-medium">{inv.invoice_number || "—"}</TableCell>
                   <TableCell>{inv.camps?.name || "—"}</TableCell>
                   <TableCell>{inv.vendor_name || "—"}</TableCell>
-                  <TableCell>{format(new Date(inv.invoice_date), "dd MMM yyyy")}</TableCell>
+                  <TableCell>{formatDateSafe(inv.invoice_date)}</TableCell>
                   <TableCell className="font-mono">{Number(inv.total_amount || 0).toFixed(2)}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-1.5">
