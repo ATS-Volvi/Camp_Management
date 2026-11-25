@@ -68,7 +68,7 @@ export default function VisualPantryShelfPage() {
 
   // Quick stats
   const stats = useMemo(() => {
-    let totalItems = stock.length;
+    const totalItems = stock.length;
     let lowStock = 0;
     let totalValuation = 0;
 
