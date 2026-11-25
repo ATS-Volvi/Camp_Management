@@ -111,17 +111,6 @@ const cateringNavGroups: {
     ],
   },
 ];
-    icon: BarChart3,
-    items: [
-      { label: "Dynamic Reports", icon: SlidersHorizontal, path: "/dynamic-reports" },
-      { label: "Catering BI Reports", icon: BarChart3, path: "/catering/reports" },
-      { label: "AI Reports", icon: Sparkles, path: "/ai-reports" },
-      { label: "Anomaly Report", icon: AlertTriangle, path: "/anomaly-report" },
-      { label: "Food Safety Audit", icon: ShieldCheck, path: "/food-safety" },
-      { label: "Bottomline Report", icon: LineChart, path: "/bottomline" },
-    ],
-  },
-];
 
 const bottomNav = [
   { label: "Reports", icon: BarChart3, path: "/reports" },
