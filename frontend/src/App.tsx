@@ -50,6 +50,8 @@ import DepartmentLunchRates from "./pages/DepartmentLunchRates";
 import PantryCommandCenter from "./pages/PantryCommandCenter";
 import EnterpriseCateringHub from "./pages/EnterpriseCateringHub";
 import CateringDynamicReports from "./pages/CateringDynamicReports";
+import VisualPantryShelfPage from "./pages/VisualPantryShelfPage";
+import BatchPrepScalerPage from "./pages/BatchPrepScalerPage";
 import StaffKPI from "./pages/StaffKPI";
 import RoomCategoryMaster from "./pages/RoomCategoryMaster";
 import SupplierMaster from "./pages/SupplierMaster";
@@ -196,6 +198,33 @@ const App = () => (
                   element={
                     <ErrorBoundary fallbackTitle="Catering Reports Error">
                       <CateringDynamicReports />
+                    </ErrorBoundary>
+                  }
+                />
+                <Route
+                  path="/catering/pantry-shelf"
+                  element={
+                    <ErrorBoundary fallbackTitle="Visual Pantry Shelf Error">
+                      <VisualPantryShelfPage />
+                    </ErrorBoundary>
+                  }
+                />
+                <Route path="/pantry-shelf" element={<Navigate to="/catering/pantry-shelf" replace />} />
+                <Route path="/visual-pantry-shelf" element={<Navigate to="/catering/pantry-shelf" replace />} />
+                <Route
+                  path="/catering/batch-scaler"
+                  element={
+                    <ErrorBoundary fallbackTitle="Batch Prep Scaler Error">
+                      <BatchPrepScalerPage />
+                    </ErrorBoundary>
+                  }
+                />
+                <Route path="/batch-scaler" element={<Navigate to="/catering/batch-scaler" replace />} />
+                <Route
+                  path="/catering/ai-reports"
+                  element={
+                    <ErrorBoundary fallbackTitle="Culinary AI Reports Error">
+                      <AIReports defaultCategory="catering" />
                     </ErrorBoundary>
                   }
                 />

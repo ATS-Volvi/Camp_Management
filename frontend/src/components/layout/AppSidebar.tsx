@@ -76,15 +76,18 @@ const cateringNavGroups: {
     icon: UtensilsCrossed,
     items: [
       { label: "Dishes & Menu Recipes", icon: UtensilsCrossed, path: "/mess-catering" },
+      { label: "Batch Prep Scaler", icon: ChefHat, path: "/catering/batch-scaler" },
       { label: "Enterprise Operations Hub", icon: Sparkles, path: "/catering/enterprise-hub" },
       { label: "Pantry Command Center", icon: Compass, path: "/catering/pantry-command-center" },
       { label: "Catering BI Reports", icon: BarChart3, path: "/catering/reports" },
+      { label: "Culinary AI Directives", icon: Sparkles, path: "/catering/ai-reports" },
     ],
   },
   {
     label: "Pantry & Procurement",
     icon: Package,
     items: [
+      { label: "Visual Pantry Shelf", icon: Layers, path: "/catering/pantry-shelf" },
       { label: "Grocery Inventory & GRN", icon: Package, path: "/grocery-inventory" },
       { label: "Cook Requests & POs", icon: ChefHat, path: "/cook-requests" },
     ],
@@ -403,7 +406,7 @@ export default function AppSidebar() {
               <span>Main Launchpad</span>
             </NavLink>
             <NavLink
-              to="/ai-reports"
+              to="/catering/ai-reports"
               className="sidebar-link text-xs text-muted-foreground hover:text-foreground"
             >
               <Sparkles size={16} />

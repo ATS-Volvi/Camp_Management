@@ -8,6 +8,9 @@ export const isCateringRoute = (pathname: string): boolean => {
     pathname.startsWith("/department-lunch") ||
     pathname.startsWith("/cook-requests") ||
     pathname.startsWith("/food-safety") ||
-    pathname.startsWith("/pantry-command-center")
+    pathname.startsWith("/pantry-command-center") ||
+    pathname.startsWith("/pantry-shelf") ||
+    pathname.startsWith("/visual-pantry-shelf") ||
+    pathname.startsWith("/batch-scaler")
   );
 };

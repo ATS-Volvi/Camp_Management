@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Sparkles, Send, Loader2, RotateCcw, Plus, Bot, User, ArrowDown } from "lucide-react";
+import { Sparkles, Send, Loader2, RotateCcw, Plus, Bot, User, ArrowDown, ChefHat } from "lucide-react";
 import VoiceDictationButton from "@/components/maintenance/VoiceDictationButton";
 import { toast } from "@/hooks/use-toast";
 import AIReportMessage from "@/components/ai-reports/AIReportMessage";
@@ -81,10 +82,13 @@ const SUGGESTED_PROMPTS: PromptItem[] = [
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:3001/api";
 const CHAT_URL = `${BACKEND_URL}/ai/chat`;
 
-export default function AIReports() {
+export default function AIReports({ defaultCategory }: { defaultCategory?: string }) {
+  const location = useLocation();
+  const isCateringMode = defaultCategory === "catering" || location.pathname.startsWith("/catering");
+
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState<string>("all");
+  const [selectedCategory, setSelectedCategory] = useState<string>(isCateringMode ? "catering" : "all");
   const [isLoading, setIsLoading] = useState(false);
   const [showScrollDown, setShowScrollDown] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -191,10 +195,12 @@ export default function AIReports() {
       {/* Top bar */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-background/80 backdrop-blur-sm">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-            <Sparkles size={18} className="text-primary" />
+          <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${isCateringMode ? "bg-amber-500/15 text-amber-600 dark:text-amber-400" : "bg-primary/10 text-primary"}`}>
+            {isCateringMode ? <ChefHat size={18} /> : <Sparkles size={18} />}
           </div>
-          <span className="font-semibold text-foreground">LodgiX AI</span>
+          <span className="font-semibold text-foreground">
+            {isCateringMode ? "Expertise Catering-365 Culinary AI" : "Camp-365 AI"}
+          </span>
         </div>
         {hasMessages && (
           <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground gap-1.5" onClick={() => setMessages([])}>
@@ -208,23 +214,34 @@ export default function AIReports() {
         {!hasMessages ? (
           /* Welcome screen */
           <div className="flex flex-col items-center justify-center h-full px-4 max-w-3xl mx-auto">
-            <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mb-6">
-              <Sparkles size={32} className="text-primary" />
+            <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mb-6 shadow-md ${isCateringMode ? "bg-gradient-to-br from-amber-500/20 to-orange-500/20 text-amber-500 border border-amber-500/30" : "bg-primary/10 text-primary"}`}>
+              {isCateringMode ? <ChefHat size={32} /> : <Sparkles size={32} />}
             </div>
-            <h1 className="text-2xl font-semibold text-foreground mb-2">Camp-365 AI Reports & Copilot</h1>
-            <p className="text-muted-foreground text-sm mb-6 text-center">
-              Operational AI intelligence for workforce catering batch deductions, diabetic/medical diets, occupancy & financials.
+            <h1 className="text-2xl font-bold tracking-tight text-foreground mb-2">
+              {isCateringMode ? "Culinary AI Directives & Kitchen Intelligence" : "Camp-365 AI Reports & Copilot"}
+            </h1>
+            <p className="text-muted-foreground text-sm mb-6 text-center max-w-xl">
+              {isCateringMode
+                ? "Operational AI intelligence for workforce catering batch deductions, diabetic/medical diets, DMC meal costs & physical pantry alerts."
+                : "Operational AI intelligence for workforce accommodation, room occupancy, maintenance orders & financials."}
             </p>
 
             {/* Category Filter Pills */}
             <div className="flex items-center gap-1.5 mb-6 flex-wrap justify-center">
-              {[
-                { id: "all", label: "All Directives" },
-                { id: "catering", label: "🍽️ Catering & Kitchen" },
-                { id: "medical", label: "🩺 Medical & Diets" },
-                { id: "occupancy", label: "🏨 Occupancy" },
-                { id: "financial", label: "💰 Bottomline" },
-              ].map((cat) => (
+              {(isCateringMode
+                ? [
+                    { id: "catering", label: "🍽️ Catering & Kitchen" },
+                    { id: "medical", label: "🩺 Medical & Diets" },
+                    { id: "all", label: "All Directives" },
+                  ]
+                : [
+                    { id: "all", label: "All Directives" },
+                    { id: "catering", label: "🍽️ Catering & Kitchen" },
+                    { id: "medical", label: "🩺 Medical & Diets" },
+                    { id: "occupancy", label: "🏨 Occupancy" },
+                    { id: "financial", label: "💰 Bottomline" },
+                  ]
+              ).map((cat) => (
                 <button
                   key={cat.id}
                   onClick={() => setSelectedCategory(cat.id)}

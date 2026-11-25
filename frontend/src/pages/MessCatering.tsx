@@ -70,7 +70,7 @@ export function matchesDishIngredient(itemName?: string | null, recipeIngredient
   return false;
 }
 
-type Tab = "dashboard" | "batch-scaler" | "inventory" | "grocery-config" | "weekly-menu" | "menu" | "daily-plan" | "requests" | "costs" | "wastage";
+type Tab = "dashboard" | "shelf" | "batch-scaler" | "inventory" | "grocery-config" | "weekly-menu" | "menu" | "daily-plan" | "requests" | "costs" | "wastage";
 
 const STANDARD_MEALS: string[] = ["Breakfast", "Lunch", "Dinner"];
 const RAMADAN_MEALS: string[] = ["Suhoor", "Iftar"];
@@ -115,6 +115,7 @@ export default function MessCatering() {
 
   const tabs: { key: Tab; label: string; icon: any }[] = [
     { key: "dashboard", label: "Dashboard", icon: BarChart3 },
+    { key: "shelf", label: "🗄️ Visual Pantry Shelf", icon: Layers },
     { key: "batch-scaler", label: "🧑‍🍳 Batch Prep Scaler", icon: Scale },
     { key: "inventory", label: "📦 Pantry & Stock", icon: Package },
     { key: "grocery-config", label: "Dishes & Recipes", icon: ShoppingBasket },
@@ -174,6 +175,35 @@ export default function MessCatering() {
       </div>
 
       {tab === "dashboard" && <CateringDashboard campId={selectedCampId || undefined} camps={camps} />}
+      {tab === "shelf" && (
+        <Card className="border-border/70 shadow-xs">
+          <CardHeader className="pb-2 pt-4 px-5 flex flex-row items-center justify-between border-b border-border/50">
+            <div>
+              <CardTitle className="text-base font-bold flex items-center gap-2">
+                <Layers size={17} className="text-primary" />
+                Physical Pantry Shelf Matrix
+              </CardTitle>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Tactile warehouse shelf view with 5-bar stock meters and quick quantity steppers.
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setTab("inventory")}
+              className="text-xs"
+            >
+              Open Inventory Table
+            </Button>
+          </CardHeader>
+          <CardContent className="p-4 sm:p-5">
+            <VisualPantryShelf
+              stock={globalStock}
+              onEditStock={() => setTab("inventory")}
+            />
+          </CardContent>
+        </Card>
+      )}
       {tab === "batch-scaler" && (
         <BatchPrepScaler campId={activeCamp} stock={globalStock} />
       )}
