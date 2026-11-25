@@ -190,27 +190,25 @@ export default function GroceryItemsTab() {
       const now = new Date().toISOString();
 
       if (s && s.id) {
-        // Update existing stock row
+        // Update existing stock row (omit 'balance' since it is a GENERATED ALWAYS column)
         const { error } = await supabase
           .from("catering_stock")
           .update({
             opening_stock: newQty,
             stock_in: 0,
             stock_out: 0,
-            balance: newQty,
             updated_at: now,
           })
           .eq("id", s.id);
         if (error) throw error;
       } else {
-        // Insert new stock row for this camp & ingredient
+        // Insert new stock row for this camp & ingredient (omit 'balance')
         const { error } = await supabase.from("catering_stock").insert({
           camp_id: campId,
           ingredient_id: item.id,
           opening_stock: newQty,
           stock_in: 0,
           stock_out: 0,
-          balance: newQty,
           min_level: item.reorder_level || 5,
           updated_at: now,
         });
