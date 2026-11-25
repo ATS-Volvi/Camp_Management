@@ -483,36 +483,68 @@ export default function GroceryItemsTab() {
                     {/* Available Qty (EDITABLE) */}
                     <TableCell className="relative">
                       {isEditing ? (
-                        <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
-                          <Input
-                            type="number"
-                            step="any"
-                            value={editQtyValue}
-                            onChange={e => setEditQtyValue(e.target.value)}
-                            onKeyDown={e => {
-                              if (e.key === "Enter") handleSaveQty(item);
-                              if (e.key === "Escape") setEditingItemId(null);
-                            }}
-                            className="w-24 h-7 text-xs font-mono font-bold px-1.5 py-0.5 border-primary focus:ring-1 focus:ring-primary bg-background"
-                            autoFocus
-                            disabled={isSavingQty}
-                          />
-                          <button
-                            onClick={() => handleSaveQty(item)}
-                            disabled={isSavingQty}
-                            className="h-7 w-7 rounded bg-emerald-500 hover:bg-emerald-600 text-white flex items-center justify-center transition-colors shadow-2xs"
-                            title="Save quantity"
-                          >
-                            <Check size={13} />
-                          </button>
-                          <button
-                            onClick={() => setEditingItemId(null)}
-                            disabled={isSavingQty}
-                            className="h-7 w-7 rounded bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground flex items-center justify-center transition-colors"
-                            title="Cancel"
-                          >
-                            <X size={13} />
-                          </button>
+                        <div className="flex flex-col gap-1.5 p-1.5 bg-card border border-primary/40 rounded-xl shadow-lg min-w-[210px] z-20" onClick={e => e.stopPropagation()}>
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => setEditQtyValue(prev => String(Math.max(0, +(parseFloat(prev || "0") - 1).toFixed(1))))}
+                              className="h-7 w-7 rounded bg-muted hover:bg-muted/80 text-foreground font-bold text-xs flex items-center justify-center shrink-0 border"
+                              title="Decrease by 1"
+                            >
+                              -
+                            </button>
+                            <Input
+                              type="number"
+                              step="any"
+                              value={editQtyValue}
+                              onChange={e => setEditQtyValue(e.target.value)}
+                              onKeyDown={e => {
+                                if (e.key === "Enter") handleSaveQty(item);
+                                if (e.key === "Escape") setEditingItemId(null);
+                              }}
+                              className="w-20 h-7 text-xs font-mono font-bold text-center px-1 py-0.5 border-primary focus:ring-1 focus:ring-primary bg-background"
+                              autoFocus
+                              disabled={isSavingQty}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setEditQtyValue(prev => String(+(parseFloat(prev || "0") + 1).toFixed(1)))}
+                              className="h-7 w-7 rounded bg-muted hover:bg-muted/80 text-foreground font-bold text-xs flex items-center justify-center shrink-0 border"
+                              title="Increase by 1"
+                            >
+                              +
+                            </button>
+                            <button
+                              onClick={() => handleSaveQty(item)}
+                              disabled={isSavingQty}
+                              className="h-7 w-7 rounded bg-emerald-500 hover:bg-emerald-600 text-white flex items-center justify-center transition-colors shadow-2xs ml-0.5"
+                              title="Save quantity"
+                            >
+                              <Check size={13} />
+                            </button>
+                            <button
+                              onClick={() => setEditingItemId(null)}
+                              disabled={isSavingQty}
+                              className="h-7 w-7 rounded bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground flex items-center justify-center transition-colors"
+                              title="Cancel"
+                            >
+                              <X size={13} />
+                            </button>
+                          </div>
+
+                          {/* Sideways Scrollable Range Slider */}
+                          <div className="flex items-center gap-1.5 px-0.5">
+                            <input
+                              type="range"
+                              min="0"
+                              max={Math.max(100, Math.ceil((parseFloat(editQtyValue) || 0) * 1.5 / 25) * 25, (Number(item.reorder_level) || 25) * 2)}
+                              step={item.unit === "kg" || item.unit === "ltr" ? "0.5" : "1"}
+                              value={parseFloat(editQtyValue) || 0}
+                              onChange={e => setEditQtyValue(e.target.value)}
+                              className="w-full h-2 bg-muted rounded appearance-none cursor-pointer accent-primary"
+                            />
+                            <span className="text-[10px] font-mono text-muted-foreground shrink-0">{item.unit}</span>
+                          </div>
                         </div>
                       ) : (
                         <div className="flex items-center gap-2">

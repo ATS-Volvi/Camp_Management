@@ -1843,32 +1843,132 @@ function InventoryTab({ campId, camps }: { campId: string; camps: any[] }) {
                 </select>
               </div>
 
-              <div>
-                <label className="text-xs font-medium block mb-1">
-                  Actual Physical Stock Quantity ({adjustItem.unit})
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  required
-                  value={adjustItem.newBalance}
-                  onChange={e => setAdjustItem({ ...adjustItem, newBalance: +e.target.value })}
-                  className="w-full text-lg font-bold border rounded-lg px-3 py-2 bg-background"
-                  autoFocus
-                />
+              {/* Actual Physical Stock Quantity with Sideway Scrollable Slider */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold text-foreground">
+                    Actual Physical Stock Quantity ({adjustItem.unit})
+                  </label>
+                  <span className="text-xs font-mono font-bold text-primary">
+                    {adjustItem.newBalance} {adjustItem.unit}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setAdjustItem(prev =>
+                        prev
+                          ? { ...prev, newBalance: Math.max(0, +(Number(prev.newBalance || 0) - 1).toFixed(2)) }
+                          : null
+                      )
+                    }
+                    className="h-10 w-10 shrink-0 rounded-lg border border-border bg-muted/60 hover:bg-muted text-foreground font-bold text-base flex items-center justify-center transition-colors active:scale-95 shadow-xs"
+                    title="Decrease by 1"
+                  >
+                    -
+                  </button>
+
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    required
+                    value={adjustItem.newBalance}
+                    onChange={e => setAdjustItem({ ...adjustItem, newBalance: e.target.value === "" ? 0 : +e.target.value })}
+                    className="w-full text-xl font-mono font-bold text-center border border-border rounded-lg px-3 py-2 bg-background focus:ring-2 focus:ring-primary/30"
+                    autoFocus
+                  />
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setAdjustItem(prev =>
+                        prev
+                          ? { ...prev, newBalance: +(Number(prev.newBalance || 0) + 1).toFixed(2) }
+                          : null
+                      )
+                    }
+                    className="h-10 w-10 shrink-0 rounded-lg border border-border bg-muted/60 hover:bg-muted text-foreground font-bold text-base flex items-center justify-center transition-colors active:scale-95 shadow-xs"
+                    title="Increase by 1"
+                  >
+                    +
+                  </button>
+                </div>
+
+                {/* Sideway Scrollable Slider Bar */}
+                <div className="pt-1.5 space-y-1.5">
+                  <div className="flex items-center gap-2.5">
+                    <span className="text-[10px] font-mono text-muted-foreground w-6 text-left">0</span>
+                    <input
+                      type="range"
+                      min="0"
+                      max={Math.max(100, Math.ceil((Number(adjustItem.newBalance) || 0) * 1.5 / 25) * 25, (Number(adjustItem.minLevel) || 25) * 3)}
+                      step={adjustItem.unit === "kg" || adjustItem.unit === "ltr" ? "0.5" : "1"}
+                      value={adjustItem.newBalance || 0}
+                      onChange={e => setAdjustItem({ ...adjustItem, newBalance: parseFloat(e.target.value) || 0 })}
+                      className="w-full h-3 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
+                    />
+                    <span className="text-[10px] font-mono text-muted-foreground w-10 text-right">
+                      {Math.max(100, Math.ceil((Number(adjustItem.newBalance) || 0) * 1.5 / 25) * 25, (Number(adjustItem.minLevel) || 25) * 3)}
+                    </span>
+                  </div>
+
+                  {/* Quick Preset Step Buttons */}
+                  <div className="flex items-center justify-between text-xs pt-1">
+                    <span className="text-[10px] text-muted-foreground font-medium">Quick Step:</span>
+                    <div className="flex items-center gap-1 flex-wrap">
+                      {[-10, -5, -1, 1, 5, 10, 50].map(delta => (
+                        <button
+                          key={delta}
+                          type="button"
+                          onClick={() =>
+                            setAdjustItem(prev =>
+                              prev
+                                ? { ...prev, newBalance: Math.max(0, +(Number(prev.newBalance || 0) + delta).toFixed(2)) }
+                                : null
+                            )
+                          }
+                          className="px-2 py-0.5 rounded text-[10px] font-mono font-semibold bg-muted hover:bg-primary hover:text-primary-foreground border border-border/60 transition-colors"
+                        >
+                          {delta > 0 ? `+${delta}` : delta}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
               </div>
 
-              <div>
-                <label className="text-xs font-medium block mb-1">Safety Reorder Min Level ({adjustItem.unit})</label>
-                <input
-                  type="number"
-                  step="1"
-                  min="0"
-                  value={adjustItem.minLevel}
-                  onChange={e => setAdjustItem({ ...adjustItem, minLevel: +e.target.value })}
-                  className="w-full text-xs border rounded-lg px-3 py-2 bg-background"
-                />
+              {/* Safety Reorder Min Level with Range Slider */}
+              <div className="space-y-1.5 pt-1">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold text-foreground">
+                    Safety Reorder Min Level ({adjustItem.unit})
+                  </label>
+                  <span className="text-xs font-mono text-amber-600 dark:text-amber-400 font-bold">
+                    {adjustItem.minLevel} {adjustItem.unit}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    step="1"
+                    min="0"
+                    value={adjustItem.minLevel}
+                    onChange={e => setAdjustItem({ ...adjustItem, minLevel: e.target.value === "" ? 0 : +e.target.value })}
+                    className="w-24 text-sm font-mono font-bold border rounded-lg px-2.5 py-1.5 bg-background"
+                  />
+                  <input
+                    type="range"
+                    min="0"
+                    max={Math.max(100, (Number(adjustItem.minLevel) || 25) * 2)}
+                    step="1"
+                    value={adjustItem.minLevel || 0}
+                    onChange={e => setAdjustItem({ ...adjustItem, minLevel: parseInt(e.target.value) || 0 })}
+                    className="flex-1 h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-amber-500"
+                  />
+                </div>
               </div>
 
               <div className="flex justify-end gap-2 pt-2 border-t">
