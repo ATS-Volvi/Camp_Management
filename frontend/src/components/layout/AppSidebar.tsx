@@ -34,8 +34,6 @@ const accommodationNavGroups: {
       { label: "Bulk Check-Out", icon: Upload, path: "/check-out/bulk" },
       { label: "Locker Management", icon: Box, path: "/lockers" },
       { label: "Attendance", icon: ClipboardList, path: "/attendance" },
-      { label: "Inmates Report", icon: FileText, path: "/inmates-report" },
-      { label: "Employee Stays", icon: CalendarDays, path: "/employee-stays" },
       { label: "Visitor Management", icon: UserCheck, path: "/visitors" },
     ],
   },
@@ -52,12 +50,15 @@ const accommodationNavGroups: {
     ],
   },
   {
-    label: "Reports & Insights",
+    label: "Reports & Analytics",
     icon: BarChart3,
     items: [
       { label: "Dynamic Reports", icon: SlidersHorizontal, path: "/dynamic-reports" },
-      { label: "AI Reports", icon: Sparkles, path: "/ai-reports" },
-      { label: "Anomaly Report", icon: AlertTriangle, path: "/anomaly-report" },
+      { label: "AI Reports & Copilot", icon: Sparkles, path: "/ai-reports" },
+      { label: "General Reports", icon: BarChart3, path: "/reports" },
+      { label: "Inmates Report", icon: FileText, path: "/inmates-report" },
+      { label: "Employee Stays", icon: CalendarDays, path: "/employee-stays" },
+      { label: "Anomaly Audit Report", icon: AlertTriangle, path: "/anomaly-report" },
       { label: "Bottomline Report", icon: LineChart, path: "/bottomline" },
     ],
   },
@@ -78,10 +79,8 @@ const cateringNavGroups: {
       { label: "Dishes & Menu Recipes", icon: UtensilsCrossed, path: "/mess-catering" },
       { label: "Batch Prep Scaler", icon: ChefHat, path: "/catering/batch-scaler" },
       { label: "End-of-Day Production & Waste", icon: Recycle, path: "/catering/production-waste" },
-      { label: "Enterprise Operations Hub", icon: Sparkles, path: "/catering/enterprise-hub" },
       { label: "Pantry Command Center", icon: Compass, path: "/catering/pantry-command-center" },
-      { label: "Catering BI Reports", icon: BarChart3, path: "/catering/reports" },
-      { label: "Culinary AI Directives", icon: Sparkles, path: "/catering/ai-reports" },
+      { label: "Enterprise Operations Hub", icon: Sparkles, path: "/catering/enterprise-hub" },
     ],
   },
   {
@@ -103,10 +102,18 @@ const cateringNavGroups: {
       { label: "Food Safety & HACCP", icon: ShieldCheck, path: "/food-safety" },
     ],
   },
+  {
+    label: "Reports & Intelligence",
+    icon: BarChart3,
+    items: [
+      { label: "Catering BI Reports", icon: BarChart3, path: "/catering/reports" },
+      { label: "Culinary AI Directives", icon: Sparkles, path: "/catering/ai-reports" },
+      { label: "Food Waste & Yield Log", icon: Recycle, path: "/catering/production-waste" },
+    ],
+  },
 ];
 
 const bottomNav = [
-  { label: "Reports", icon: BarChart3, path: "/reports" },
   { label: "Activities", icon: Activity, path: "/activities" },
   { label: "Alerts & Notifications", icon: Bell, path: "/alerts" },
 ];
@@ -405,13 +412,6 @@ export default function AppSidebar() {
             >
               <Building2 size={16} />
               <span>Main Launchpad</span>
-            </NavLink>
-            <NavLink
-              to="/catering/ai-reports"
-              className="sidebar-link text-xs text-muted-foreground hover:text-foreground"
-            >
-              <Sparkles size={16} />
-              <span>Culinary AI Reports</span>
             </NavLink>
           </div>
         )}
