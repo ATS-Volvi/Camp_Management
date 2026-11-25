@@ -11,6 +11,7 @@ export const isCateringRoute = (pathname: string): boolean => {
     pathname.startsWith("/pantry-command-center") ||
     pathname.startsWith("/pantry-shelf") ||
     pathname.startsWith("/visual-pantry-shelf") ||
-    pathname.startsWith("/batch-scaler")
+    pathname.startsWith("/batch-scaler") ||
+    pathname.startsWith("/production-waste")
   );
 };

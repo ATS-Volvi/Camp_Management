@@ -11,6 +11,7 @@ import GroceryConfigMaster from "@/components/catering/GroceryConfigMaster";
 import WeeklyMenuConfig from "@/components/catering/WeeklyMenuConfig";
 import BatchPrepScaler from "@/components/catering/BatchPrepScaler";
 import VisualPantryShelf from "@/components/catering/VisualPantryShelf";
+import DailyProductionWasteLogger from "@/components/catering/DailyProductionWasteLogger";
 import { format } from "date-fns";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -2437,7 +2438,11 @@ function CostReports({ campId, camps }: { campId: string; camps: any[] }) {
 // ==========================================
 // WASTAGE TRACKING TAB
 // ==========================================
+// FOOD WASTAGE TAB (Portions & Reverse-BOM Yield Reconciliation)
+// ==========================================
 function WastageTab({ campId, camps, mealTypes }: { campId: string; camps: any[]; mealTypes: string[] }) {
+  const [mode, setMode] = useState<"portions" | "manual">("portions");
+  const { data: stock = [] } = useCateringStock(campId || undefined);
   const [wastageDate, setWastageDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const { data: wastageRecords = [] } = useFoodWastage(campId || undefined, undefined);
   const { data: ingredients = [] } = useIngredients();
@@ -2478,6 +2483,44 @@ function WastageTab({ campId, camps, mealTypes }: { campId: string; camps: any[]
 
   return (
     <div className="space-y-6">
+      {/* View Switcher: Portions vs Manual Raw */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-muted/60 p-2 rounded-xl border border-border/70">
+        <div className="flex items-center gap-1.5">
+          <Button
+            variant={mode === "portions" ? "default" : "ghost"}
+            size="sm"
+            onClick={() => setMode("portions")}
+            className="text-xs font-bold gap-1.5"
+          >
+            <ChefHat size={14} />
+            Dish Portions & Reverse-BOM (Recommended)
+          </Button>
+          <Button
+            variant={mode === "manual" ? "default" : "ghost"}
+            size="sm"
+            onClick={() => setMode("manual")}
+            className="text-xs font-semibold gap-1.5 text-muted-foreground hover:text-foreground"
+          >
+            <Recycle size={14} />
+            Raw Ingredients Manual Entry
+          </Button>
+        </div>
+        <span className="text-[11px] text-muted-foreground px-2">
+          {mode === "portions"
+            ? "Enter portions cooked & wasted per dish; BOM auto-calculates ingredients & deductions."
+            : "Directly log raw wasted kilograms per ingredient."}
+        </span>
+      </div>
+
+      {mode === "portions" ? (
+        <DailyProductionWasteLogger
+          campId={campId}
+          camps={camps}
+          stock={stock}
+          mealTypes={mealTypes}
+        />
+      ) : (
+        <div className="space-y-6">
       {/* Summary */}
       <div className="grid grid-cols-3 gap-4">
         <div className="stat-card">
@@ -2591,6 +2634,8 @@ function WastageTab({ campId, camps, mealTypes }: { campId: string; camps: any[]
           </table>
         </div>
       </div>
+        </div>
+      )}
     </div>
   );
 }

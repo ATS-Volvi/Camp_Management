@@ -3,7 +3,7 @@ import {
   Home, Upload, Building2, Truck, Users, Wrench, Package, Settings as SettingsIcon,
   BarChart3, Activity, Bell, HelpCircle, ChevronDown, Search, Box, LogIn, ClipboardList, Sparkles, UtensilsCrossed, UserCheck,
   Shield, UserCog, FileText, AlertTriangle, ChefHat, ShieldCheck, LineChart, Cog, Gauge, BedDouble, Link2, Ban,
-  LayoutDashboard, PieChart, CalendarDays, Briefcase, SlidersHorizontal, Compass, ArrowLeft, ArrowUpRight, Layers
+  LayoutDashboard, PieChart, CalendarDays, Briefcase, SlidersHorizontal, Compass, ArrowLeft, ArrowUpRight, Layers, Recycle
 } from "lucide-react";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useEffect, useState, useMemo } from "react";
@@ -77,6 +77,7 @@ const cateringNavGroups: {
     items: [
       { label: "Dishes & Menu Recipes", icon: UtensilsCrossed, path: "/mess-catering" },
       { label: "Batch Prep Scaler", icon: ChefHat, path: "/catering/batch-scaler" },
+      { label: "End-of-Day Production & Waste", icon: Recycle, path: "/catering/production-waste" },
       { label: "Enterprise Operations Hub", icon: Sparkles, path: "/catering/enterprise-hub" },
       { label: "Pantry Command Center", icon: Compass, path: "/catering/pantry-command-center" },
       { label: "Catering BI Reports", icon: BarChart3, path: "/catering/reports" },

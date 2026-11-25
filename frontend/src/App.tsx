@@ -52,6 +52,7 @@ import EnterpriseCateringHub from "./pages/EnterpriseCateringHub";
 import CateringDynamicReports from "./pages/CateringDynamicReports";
 import VisualPantryShelfPage from "./pages/VisualPantryShelfPage";
 import BatchPrepScalerPage from "./pages/BatchPrepScalerPage";
+import ProductionWastePage from "./pages/ProductionWastePage";
 import StaffKPI from "./pages/StaffKPI";
 import RoomCategoryMaster from "./pages/RoomCategoryMaster";
 import SupplierMaster from "./pages/SupplierMaster";
@@ -228,6 +229,15 @@ const App = () => (
                     </ErrorBoundary>
                   }
                 />
+                <Route
+                  path="/catering/production-waste"
+                  element={
+                    <ErrorBoundary fallbackTitle="Production & Waste Log Error">
+                      <ProductionWastePage />
+                    </ErrorBoundary>
+                  }
+                />
+                <Route path="/production-waste" element={<Navigate to="/catering/production-waste" replace />} />
                 <Route path="/admin/department-lunch-rates" element={<DepartmentLunchRates />} />
                 <Route path="/admin/room-categories" element={<RoomCategoryMaster />} />
                 <Route path="/admin/suppliers" element={<SupplierMaster />} />
