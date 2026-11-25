@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import CateringNavHeader from "@/components/catering/CateringNavHeader";
 import MenuProductionPlanning2D from "@/components/catering/enterprise/MenuProductionPlanning2D";
 import InventoryProcurement2D from "@/components/catering/enterprise/InventoryProcurement2D";
 import DmcCostDashboard2D from "@/components/catering/enterprise/DmcCostDashboard2D";
@@ -158,81 +159,14 @@ export default function EnterpriseCateringHub() {
   return (
     <div className="space-y-6 pb-16 font-sans max-w-7xl mx-auto">
       {/* ==================================================================== */}
-      {/* TOP HEADER & NAVIGATION                                              */}
+      {/* 1. UNIFIED CATERING SUITE GLOBAL NAVIGATION RIBBON                    */}
       {/* ==================================================================== */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border/60 pb-5">
-        <div>
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <button
-              onClick={() => navigate("/catering/pantry-command-center")}
-              className="hover:text-foreground flex items-center gap-1 transition-colors"
-            >
-              <ArrowLeft className="h-3.5 w-3.5" />
-              Pantry Command Center
-            </button>
-            <span>/</span>
-            <button
-              onClick={() => navigate("/mess-catering")}
-              className="hover:text-foreground transition-colors"
-            >
-              Mess Catering
-            </button>
-            <span>/</span>
-            <span className="text-foreground font-semibold">Enterprise Catering Hub</span>
-          </div>
-
-          <div className="flex items-center gap-3 mt-2 flex-wrap">
-            <div className="p-2.5 rounded-xl bg-[#0c2340] text-white shadow-sm border border-[#fe932c]/30">
-              <Compass className="h-6 w-6 text-[#fe932c]" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-2xl font-black tracking-tight text-foreground">
-                  Camp-365 Enterprise Catering Command Hub
-                </h1>
-                <Badge className="bg-[#fe932c] text-slate-950 font-black text-[10px] tracking-wider uppercase">
-                  Executive Suite
-                </Badge>
-              </div>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Centralized catering operations, 2D financial cost control, inter-site logistics, and Aramco SAP compliance.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Global Executive Stats Ribbon */}
-        <div className="flex items-center gap-2 flex-wrap">
-          <div className="px-3 py-1.5 rounded-xl border border-border/70 bg-card text-xs shadow-2xs">
-            <span className="text-muted-foreground block text-[10px] uppercase font-bold tracking-wider">Workforce Headcount</span>
-            <strong className="text-foreground font-black text-sm">3,710 Pax</strong>
-          </div>
-          <div className="px-3 py-1.5 rounded-xl border border-border/70 bg-card text-xs shadow-2xs">
-            <span className="text-muted-foreground block text-[10px] uppercase font-bold tracking-wider">Avg Daily CPH</span>
-            <strong className="text-emerald-600 dark:text-emerald-400 font-black text-sm">SAR 19.10</strong>
-          </div>
-          <div className="px-3 py-1.5 rounded-xl border border-border/70 bg-card text-xs shadow-2xs">
-            <span className="text-muted-foreground block text-[10px] uppercase font-bold tracking-wider">Inter-Camp Savings</span>
-            <strong className="text-[#fe932c] font-black text-sm">+SAR 3,550</strong>
-          </div>
-          <div className="px-3 py-1.5 rounded-xl border border-border/70 bg-card text-xs shadow-2xs">
-            <span className="text-muted-foreground block text-[10px] uppercase font-bold tracking-wider">SAP Outbox</span>
-            <span className="text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1 text-xs">
-              <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-              VF01 Verified
-            </span>
-          </div>
-
-          <Button
-            size="sm"
-            onClick={() => navigate("/catering/reports")}
-            className="h-8 text-xs font-bold gap-1.5 bg-[#0c2340] hover:bg-[#0c2340]/90 text-white shadow-2xs border border-[#fe932c]/40"
-          >
-            <BarChart3 className="h-3.5 w-3.5 text-[#fe932c]" />
-            Catering BI Reports
-          </Button>
-        </div>
-      </div>
+      <CateringNavHeader
+        activeTab="enterprise-hub"
+        campId={selectedCampId}
+        camps={camps}
+        onCampChange={handleCampChange}
+      />
 
       {/* ==================================================================== */}
       {/* FEATURE DROPDOWN SELECTOR & PAGINATION CONTROL BAR                  */}

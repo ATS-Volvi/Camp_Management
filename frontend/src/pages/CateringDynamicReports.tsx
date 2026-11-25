@@ -13,6 +13,7 @@ import DropZoneSection from "@/components/dynamicReports/DropZoneSection";
 import PivotMatrixTable from "@/components/dynamicReports/PivotMatrixTable";
 import PivotChartPreview from "@/components/dynamicReports/PivotChartPreview";
 import VisualizationsTopRibbon from "@/components/dynamicReports/VisualizationsTopRibbon";
+import CateringNavHeader from "@/components/catering/CateringNavHeader";
 import SaveReportModal from "@/components/dynamicReports/SaveReportModal";
 
 import { Button } from "@/components/ui/button";
@@ -314,63 +315,28 @@ export default function CateringDynamicReports() {
   return (
     <div className="space-y-4 pb-12 font-sans max-w-[1800px] mx-auto p-4 md:p-6 text-foreground">
       {/* ==================================================================== */}
-      {/* 1. TOP HEADER & BREADCRUMB (DYNAMIC REPORTS NAVY THEME)             */}
+      {/* 1. GLOBAL UNIFIED CATERING SUITE RIBBON                              */}
       {/* ==================================================================== */}
-      <div className="bg-[#0c2340] text-white rounded-xl p-4 shadow-sm flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2 text-xs text-slate-300">
-            <button
-              onClick={() => navigate(selectedCampId ? `/mess-catering?campId=${selectedCampId}` : "/mess-catering")}
-              className="hover:text-white flex items-center gap-1 transition-colors"
-            >
-              <ArrowLeft className="h-3.5 w-3.5" />
-              Mess Catering
-            </button>
-            <span>/</span>
-            <button
-              onClick={() => navigate(selectedCampId ? `/catering/enterprise-hub?campId=${selectedCampId}` : "/catering/enterprise-hub")}
-              className="hover:text-white transition-colors"
-            >
-              Enterprise Catering Hub
-            </button>
-            <span>/</span>
-            <span className="text-white font-semibold">Catering BI Reports</span>
-          </div>
+      <CateringNavHeader
+        activeTab="reports"
+        campId={selectedCampId}
+        camps={camps}
+        onCampChange={handleCampChange}
+      />
 
-          <div className="flex items-center gap-2.5 mt-2 flex-wrap">
-            <BarChart3 size={22} className="text-[#fe932c]" />
-            <h1 className="text-xl font-bold tracking-tight">Catering & Mess Dynamic BI Reports</h1>
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#fe932c]/20 text-[#fe932c] border border-[#fe932c]/30">
-              <Sparkles size={10} /> Power BI Suite
-            </span>
-            <Badge variant="outline" className="text-[10px] font-mono border-cyan-400/30 text-cyan-300">
-              3D WebGL Studio Ready
-            </Badge>
-          </div>
-          <p className="text-slate-300 text-xs mt-1">
-            Dynamic pivot analytics for food cost (DMC), Cost Per Head (CPH), headcount variance, HACCP wastage, and SAP reconciliation with interactive 3D studio.
-          </p>
+      {/* Preset & Report Controls Bar */}
+      <div className="bg-card border border-border/80 rounded-xl p-3 shadow-xs flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2 flex-wrap">
+          <Badge variant="outline" className="text-xs font-mono border-primary/30 text-primary gap-1">
+            <Sparkles size={11} /> Power BI Suite
+          </Badge>
+          <span className="text-xs text-muted-foreground hidden sm:inline">
+            Dynamic pivot analytics for food costs (DMC/CPH), headcount variance & 3D WebGL studio.
+          </span>
         </div>
 
         {/* Global Toolbar Commands */}
         <div className="flex flex-wrap items-center gap-2">
-          {/* Camp Filter Dropdown */}
-          <div className="flex items-center gap-1.5 bg-white/10 px-2.5 py-1 rounded-lg border border-white/20 text-xs text-white">
-            <span className="font-bold text-[#fe932c]">Camp:</span>
-            <select
-              value={selectedCampId}
-              onChange={(e) => handleCampChange(e.target.value)}
-              className="bg-[#0c2340] text-white text-xs font-semibold px-2 py-0.5 rounded border border-white/25 focus:ring-1 focus:ring-[#fe932c] outline-hidden cursor-pointer min-w-[170px]"
-            >
-              <option value="">All Camps (Network Master)</option>
-              {camps.map((c: any) => (
-                <option key={c.id} value={c.id}>
-                  {c.name} — {c.location || "KSA"}
-                </option>
-              ))}
-            </select>
-          </div>
-
           {/* Preset Selector Dropdown */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

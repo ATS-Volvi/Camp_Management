@@ -6,6 +6,7 @@ import {
   Coffee, Sun, Moon, Users, Calculator, FileText, Truck, Sparkles, Recycle, ShoppingBasket, Wand2, Compass
 } from "lucide-react";
 import { MASTER_INGREDIENTS } from "@/data/ingredientMaster";
+import CateringNavHeader from "@/components/catering/CateringNavHeader";
 import GroceryConfigMaster from "@/components/catering/GroceryConfigMaster";
 import WeeklyMenuConfig from "@/components/catering/WeeklyMenuConfig";
 import { format } from "date-fns";
@@ -78,55 +79,33 @@ export default function MessCatering() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <div className="text-sm text-muted-foreground">Home / Mess & Catering</div>
-        <h1 className="text-2xl font-bold text-foreground mt-1 flex items-center gap-2">
-          <UtensilsCrossed className="text-primary" size={24} /> Mess & Catering Management
-        </h1>
-      </div>
+      {/* 1. Global Unified Catering Suite Ribbon */}
+      <CateringNavHeader
+        activeTab="grocery-config"
+        campId={selectedCampId}
+        camps={camps}
+        onCampChange={setSelectedCampId}
+      />
 
-      {/* Camp Selector + Ramadan Toggle */}
-      <div className="flex items-center gap-4 flex-wrap">
-        <label className="text-sm font-medium text-foreground">Camp:</label>
-        <select
-          value={selectedCampId}
-          onChange={e => setSelectedCampId(e.target.value)}
-          className="border rounded-lg px-3 py-2 text-sm bg-card focus:ring-2 focus:ring-ring outline-none min-w-[250px]"
-        >
-          <option value="">All Camps</option>
-          {camps.map((c: any) => <option key={c.id} value={c.id}>{c.name} — {c.location}</option>)}
-        </select>
+      {/* Quick Action Ribbon: Ramadan Mode Toggle */}
+      <div className="flex items-center justify-between gap-4 flex-wrap bg-card p-3 rounded-xl border border-border/80 shadow-2xs">
+        <div className="flex items-center gap-2">
+          <UtensilsCrossed className="text-primary" size={18} />
+          <h2 className="text-sm font-bold text-foreground">
+            Dishes, Grocery Configuration & Menu Management
+          </h2>
+        </div>
 
-        <div className="ml-auto flex items-center gap-2">
-          <button
-            onClick={() => navigate(selectedCampId ? `/catering/reports?campId=${selectedCampId}` : "/catering/reports")}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold bg-[#0c2340] text-white border border-[#fe932c]/40 hover:bg-[#0c2340]/90 transition-all shadow-sm"
-          >
-            <BarChart3 size={14} className="text-[#fe932c]" />
-            Catering BI Reports
-          </button>
-          <button
-            onClick={() => navigate(selectedCampId ? `/catering/enterprise-hub?campId=${selectedCampId}` : "/catering/enterprise-hub")}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold bg-[#fe932c]/15 text-[#fe932c] border border-[#fe932c]/40 hover:bg-[#fe932c]/25 transition-all shadow-sm"
-          >
-            <Sparkles size={14} className="text-[#fe932c]" />
-            Enterprise Catering Hub
-          </button>
-          <button
-            onClick={() => navigate(selectedCampId ? `/catering/pantry-command-center?campId=${selectedCampId}` : "/catering/pantry-command-center")}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 border border-cyan-500/30 hover:bg-cyan-500/25 transition-all shadow-sm"
-          >
-            <Compass size={14} className="text-cyan-500 animate-spin" style={{ animationDuration: "14s" }} />
-            Pantry Command Center
-          </button>
+        <div className="flex items-center gap-2">
           <button
             onClick={() => setRamadanMode(!ramadanMode)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${ramadanMode
-              ? "bg-amber-500/15 text-amber-700 border border-amber-500/30"
-              : "bg-muted text-muted-foreground border border-transparent"
-              }`}
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+              ramadanMode
+                ? "bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30"
+                : "bg-muted text-muted-foreground border border-transparent hover:text-foreground"
+            }`}
           >
-            <Sparkles size={14} />
+            <Sparkles size={13} />
             {ramadanMode ? "🌙 Ramadan Mode ON" : "Ramadan Mode"}
           </button>
         </div>

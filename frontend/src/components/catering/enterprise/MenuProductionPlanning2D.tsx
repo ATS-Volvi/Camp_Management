@@ -47,6 +47,9 @@ import {
   HelpCircle,
   Info,
   Building2,
+  Package,
+  Edit3,
+  ShoppingCart,
 } from "lucide-react";
 
 interface MenuProductionPlanning2DProps {
@@ -380,13 +383,94 @@ export default function MenuProductionPlanning2D({
     "Chilled to 3°C in blast chiller; allocated to cold buffet salad."
   );
 
+  // Interactive Store Stock Overrides (lets users update or restock on the fly)
+  const [stockOverrides, setStockOverrides] = useState<Record<string, number>>({});
+  const [editingIngredient, setEditingIngredient] = useState<{
+    bom: RecipeIngredientBOM;
+    scaledQty: number;
+    currentStock: number;
+  } | null>(null);
+  const [editStockValue, setEditStockValue] = useState<number>(0);
+
   // Recipe calculation from dynamic master catalog
   const currentRecipe = useMemo(() => {
     return allMasterRecipes.find((r) => r.id === selectedRecipeId) || allMasterRecipes[0] || ENTERPRISE_RECIPES[0];
   }, [allMasterRecipes, selectedRecipeId]);
 
   const targetCookPax = Math.round(paxCount * (1 + safetyBufferPct / 100));
-  const scaledData = scaleRecipe(currentRecipe, targetCookPax);
+  const rawScaledData = scaleRecipe(currentRecipe, targetCookPax);
+
+  // Apply live stock overrides so user changes immediately turn red alerts to green
+  const scaledData = useMemo(() => {
+    const ingredients = rawScaledData.ingredients.map((item) => {
+      const customStock = stockOverrides[item.bom.ingredientId];
+      const stock = customStock !== undefined ? customStock : item.bom.warehouseStock;
+      const hasStockShortage = item.scaledQty > stock;
+      const shortageQty = hasStockShortage ? Number((item.scaledQty - stock).toFixed(2)) : 0;
+
+      return {
+        ...item,
+        bom: {
+          ...item.bom,
+          warehouseStock: stock,
+        },
+        hasStockShortage,
+        shortageQty,
+      };
+    });
+
+    return {
+      ...rawScaledData,
+      ingredients,
+    };
+  }, [rawScaledData, stockOverrides]);
+
+  const shortageItems = scaledData.ingredients.filter((i) => i.hasStockShortage);
+
+  // Quick 1-click restock all shortages
+  const handleRestockAllShortages = () => {
+    const newOverrides = { ...stockOverrides };
+    scaledData.ingredients.forEach((item) => {
+      if (item.hasStockShortage) {
+        newOverrides[item.bom.ingredientId] = Math.ceil(item.scaledQty * 1.15); // Cover requirement + 15% safety buffer
+      }
+    });
+    setStockOverrides(newOverrides);
+    setWorkOrderNotice(
+      `✅ Store inventory updated! Received delivery for ${shortageItems.length} short ingredients. All items now fully stocked for ${targetCookPax} portions.`
+    );
+    setTimeout(() => setWorkOrderNotice(null), 5000);
+  };
+
+  // Quick auto-generate PO
+  const handleCreateShortagePO = () => {
+    const totalShortageCost = shortageItems.reduce((acc, item) => acc + item.shortageQty * item.bom.unitCostSAR, 0);
+    setWorkOrderNotice(
+      `🛒 Purchase Order #PO-2026-${Math.floor(1000 + Math.random() * 9000)} generated for SAR ${totalShortageCost.toFixed(2)} (${shortageItems.length} items dispatched to vendor).`
+    );
+    setTimeout(() => setWorkOrderNotice(null), 5000);
+  };
+
+  // Open single stock edit modal
+  const handleOpenStockModal = (bom: RecipeIngredientBOM, scaledQty: number, currentStock: number) => {
+    setEditingIngredient({ bom, scaledQty, currentStock });
+    setEditStockValue(currentStock);
+  };
+
+  // Save single stock count
+  const handleSaveSingleStock = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingIngredient) return;
+    setStockOverrides((prev) => ({
+      ...prev,
+      [editingIngredient.bom.ingredientId]: Number(editStockValue),
+    }));
+    setWorkOrderNotice(
+      `📦 Physical store count for ${editingIngredient.bom.name} updated to ${editStockValue} ${editingIngredient.bom.unit}!`
+    );
+    setEditingIngredient(null);
+    setTimeout(() => setWorkOrderNotice(null), 4000);
+  };
 
   // Portion specs
   const portionSpecs: PortionControlSpec[] = useMemo(() => {
@@ -1163,21 +1247,64 @@ export default function MenuProductionPlanning2D({
 
           {/* Scaled BOM Table */}
           <div className="space-y-3">
-            <div className="flex items-center justify-between text-xs font-bold text-foreground">
+            {/* Shortage Alert & 1-Click Fast Restock Banner */}
+            {shortageItems.length > 0 && (
+              <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs animate-in fade-in">
+                <div className="flex items-start gap-2.5 text-rose-800 dark:text-rose-200">
+                  <AlertTriangle className="h-4 w-4 shrink-0 text-rose-600 mt-0.5" />
+                  <div>
+                    <strong className="block font-bold">
+                      Stock Shortage Detected for {targetCookPax} Portions!
+                    </strong>
+                    <span className="text-[11px] text-muted-foreground block mt-0.5">
+                      {shortageItems.length} ingredient{shortageItems.length > 1 ? "s" : ""} have less warehouse stock than required ({shortageItems.map((i) => i.bom.name).join(", ")}).
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <Button
+                    size="sm"
+                    onClick={handleRestockAllShortages}
+                    className="h-8 text-xs font-bold gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs"
+                  >
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    1-Click Restock All to Store
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleCreateShortagePO}
+                    className="h-8 text-xs font-bold gap-1.5 border-rose-300 dark:border-rose-800 text-rose-700 dark:text-rose-300 hover:bg-rose-500/10"
+                  >
+                    <ShoppingCart className="h-3.5 w-3.5" />
+                    Auto-Generate PO
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs font-bold text-foreground">
               <span className="flex items-center gap-1.5">
                 <Utensils className="h-4 w-4 text-primary" />
                 Scaled Raw Ingredient Requirements for {currentRecipe.name}
               </span>
-              <span className="text-muted-foreground font-normal">
-                Camp Store Stock vs Required
-              </span>
+              <div className="flex items-center gap-3 text-muted-foreground font-normal text-[11px]">
+                <span className="flex items-center gap-1">
+                  <span className="h-2 w-2 rounded-full bg-emerald-500" /> Sufficient
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="h-2 w-2 rounded-full bg-rose-500" /> Shortage
+                </span>
+                <span>• Click "Adjust / Restock" to update physical store counts</span>
+              </div>
             </div>
 
             <div className="divide-y divide-border/60 border border-border/60 rounded-xl overflow-hidden text-xs">
               {scaledData.ingredients.map((item) => (
                 <div
                   key={item.bom.ingredientId}
-                  className={`p-3.5 flex items-center justify-between transition-colors ${
+                  className={`p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 transition-colors ${
                     item.hasStockShortage ? "bg-rose-500/10" : "bg-card hover:bg-muted/30"
                   }`}
                 >
@@ -1191,26 +1318,42 @@ export default function MenuProductionPlanning2D({
                         {item.bom.name}
                       </strong>
                       <span className="text-[11px] text-muted-foreground">
-                        Prep Station: {item.bom.prepStation} • Category: {item.bom.category}
+                        Prep Station: {item.bom.prepStation} • Category: {item.bom.category} • Cost: SAR {item.bom.unitCostSAR}/{item.bom.unit}
                       </span>
                     </div>
                   </div>
 
-                  <div className="text-right">
-                    <strong className="text-sm font-black text-foreground block">
-                      {item.scaledQty.toLocaleString()} {item.bom.unit}
-                    </strong>
-                    <div className="text-[11px] mt-0.5">
-                      {item.hasStockShortage ? (
-                        <span className="text-rose-600 dark:text-rose-400 font-bold flex items-center gap-1 justify-end">
-                          <AlertTriangle className="h-3.5 w-3.5" /> Short by {item.shortageQty} {item.bom.unit} (Store has {item.bom.warehouseStock})
-                        </span>
-                      ) : (
-                        <span className="text-emerald-600 dark:text-emerald-400 font-medium">
-                          In Warehouse: {item.bom.warehouseStock} {item.bom.unit} (Sufficient)
-                        </span>
-                      )}
+                  <div className="flex items-center justify-between sm:justify-end gap-3 text-right">
+                    <div>
+                      <strong className="text-sm font-black text-foreground block">
+                        {item.scaledQty.toLocaleString()} {item.bom.unit}
+                      </strong>
+                      <div className="text-[11px] mt-0.5">
+                        {item.hasStockShortage ? (
+                          <span className="text-rose-600 dark:text-rose-400 font-bold flex items-center gap-1 justify-end">
+                            <AlertTriangle className="h-3 w-3" /> Short by {item.shortageQty} {item.bom.unit} (Store has {item.bom.warehouseStock})
+                          </span>
+                        ) : (
+                          <span className="text-emerald-600 dark:text-emerald-400 font-medium">
+                            In Store: {item.bom.warehouseStock} {item.bom.unit} (Sufficient)
+                          </span>
+                        )}
+                      </div>
                     </div>
+
+                    <Button
+                      size="sm"
+                      variant={item.hasStockShortage ? "default" : "outline"}
+                      onClick={() => handleOpenStockModal(item.bom, item.scaledQty, item.bom.warehouseStock)}
+                      className={`h-7 px-2.5 text-[11px] font-bold gap-1 shrink-0 ${
+                        item.hasStockShortage
+                          ? "bg-rose-600 hover:bg-rose-700 text-white"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      <Package className="h-3 w-3" />
+                      {item.hasStockShortage ? "Restock" : "Adjust"}
+                    </Button>
                   </div>
                 </div>
               ))}
@@ -1357,7 +1500,115 @@ export default function MenuProductionPlanning2D({
       )}
 
       {/* ================================================================== */}
-      {/* SHIFT RECONCILIATION MODAL DIALOG                                  */}
+      {/* INGREDIENT STORE STOCK ADJUSTMENT / FAST RESTOCK MODAL            */}
+      {/* ================================================================== */}
+      {editingIngredient && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-card w-full max-w-md rounded-2xl border border-border shadow-2xl p-5 space-y-4 animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between border-b border-border/60 pb-3">
+              <div className="flex items-center gap-2">
+                <Package className="h-5 w-5 text-primary" />
+                <h3 className="text-base font-bold text-foreground">
+                  Update Store Stock: {editingIngredient.bom.name}
+                </h3>
+              </div>
+              <button
+                onClick={() => setEditingIngredient(null)}
+                className="text-muted-foreground hover:text-foreground text-sm font-bold p-1"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveSingleStock} className="space-y-4 text-xs">
+              <div className="p-3 rounded-xl bg-muted/40 border border-border/60 space-y-2">
+                <div className="flex justify-between items-center text-muted-foreground">
+                  <span>Current Physical Count:</span>
+                  <strong className="text-foreground text-xs">
+                    {editingIngredient.currentStock} {editingIngredient.bom.unit}
+                  </strong>
+                </div>
+                <div className="flex justify-between items-center text-muted-foreground">
+                  <span>Batch Requirement for {targetCookPax} Pax:</span>
+                  <strong className="text-primary text-xs">
+                    {editingIngredient.scaledQty} {editingIngredient.bom.unit}
+                  </strong>
+                </div>
+                {editingIngredient.scaledQty > editingIngredient.currentStock && (
+                  <div className="flex justify-between items-center text-rose-600 dark:text-rose-400 font-bold border-t border-border/40 pt-1.5">
+                    <span>Shortage to cover:</span>
+                    <span>
+                      {(editingIngredient.scaledQty - editingIngredient.currentStock).toFixed(2)} {editingIngredient.bom.unit}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* 1-Click Fast Actions */}
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-bold text-muted-foreground block">
+                  Quick Restock Actions:
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setEditStockValue(Math.ceil(editingIngredient.scaledQty * 1.1))}
+                    className="text-[11px] font-bold h-8 border-emerald-500/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/10"
+                  >
+                    Set to Match ({Math.ceil(editingIngredient.scaledQty * 1.1)} {editingIngredient.bom.unit})
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setEditStockValue((prev) => prev + 500)}
+                    className="text-[11px] font-bold h-8 border-primary/40 text-primary hover:bg-primary/10"
+                  >
+                    +500 {editingIngredient.bom.unit} Delivery
+                  </Button>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-foreground block mb-1">
+                  Physical Store Stock ({editingIngredient.bom.unit})
+                </label>
+                <input
+                  type="number"
+                  step="any"
+                  value={editStockValue}
+                  onChange={(e) => setEditStockValue(Number(e.target.value))}
+                  className="w-full p-2.5 rounded-lg bg-card border border-border text-foreground font-bold text-sm"
+                  min={0}
+                  required
+                />
+                <span className="text-[10px] text-muted-foreground mt-1 block">
+                  Enter the actual quantity in the camp storeroom, or received from a delivery note.
+                </span>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-border/60">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => setEditingIngredient(null)}
+                  className="text-xs"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs"
+                >
+                  Save Store Stock Count
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
       {/* ================================================================== */}
       {showLogModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">

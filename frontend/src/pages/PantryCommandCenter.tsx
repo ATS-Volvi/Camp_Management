@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useCampOccupancy } from "@/hooks/useCatering";
 import { useMenuDishes } from "@/hooks/useMenuDishes";
+import CateringNavHeader from "@/components/catering/CateringNavHeader";
 import {
   calculatePantrySimulation,
   INITIAL_WHAT_IF_STATE,
@@ -178,80 +179,40 @@ export default function PantryCommandCenter() {
 
   return (
     <div className="space-y-5 max-w-[1600px] mx-auto p-4 md:p-6 text-foreground">
-      {/* 1. Dynamic Reports Signature Navy Command Ribbon */}
-      <div className="bg-[#0c2340] text-white rounded-xl p-4 shadow-sm flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => navigate("/mess-catering")}
-              className="h-7 text-xs text-slate-300 hover:text-white hover:bg-white/10 px-2 gap-1 mr-1"
-            >
-              <ArrowLeft size={13} /> Back
-            </Button>
-            <SlidersHorizontal size={20} className="text-[#fe932c]" />
-            <h1 className="text-xl font-bold tracking-tight">Pantry Command Center</h1>
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#fe932c]/20 text-[#fe932c] border border-[#fe932c]/30">
-              <Sparkles size={10} /> Food Stock Intelligence
-            </span>
-          </div>
-          <p className="text-slate-300 text-xs mt-1">
-            Tracks food stock in simple <strong>Days of Supply</strong> against safety limits. Visual progress indicators show what is safe, low, or needs urgent buying.
-          </p>
-        </div>
+      {/* 1. Global Unified Catering Suite Ribbon */}
+      <CateringNavHeader
+        activeTab="pantry"
+        campId={selectedCampId}
+        camps={camps}
+        onCampChange={handleCampChange}
+      />
 
-        {/* Global Toolbar Commands */}
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Camp Filter Dropdown */}
-          <div className="flex items-center gap-2 bg-white/10 p-1 rounded-lg border border-white/20">
-            <span className="text-xs font-bold text-[#fe932c] flex items-center gap-1 pl-1.5">
-              Camp:
-            </span>
-            <select
-              value={selectedCampId}
-              onChange={(e) => handleCampChange(e.target.value)}
-              className="bg-[#0c2340] text-white text-xs font-semibold px-2.5 py-1.5 rounded-md border border-white/25 focus:ring-1 focus:ring-[#fe932c] outline-hidden cursor-pointer min-w-[190px]"
-            >
-              <option value="">All Camps (Enterprise)</option>
-              {camps.map((c: any) => (
-                <option key={c.id} value={c.id}>
-                  {c.name} — {c.location || "KSA"}
-                </option>
-              ))}
-            </select>
-          </div>
+      {/* Guided Tour Banner / Controls */}
+      <div className="flex items-center justify-between gap-3 p-2 bg-muted/40 rounded-xl border border-border/60 text-xs">
+        <span className="text-muted-foreground flex items-center gap-1.5 pl-2">
+          <Sparkles className="h-4 w-4 text-[#fe932c]" />
+          <span>Food Inventory Intelligence · Tracks stock in simple <strong>Days of Supply</strong></span>
+        </span>
 
+        {isDemoMode ? (
           <Button
             size="sm"
-            onClick={() => navigate(selectedCampId ? `/catering/enterprise-hub?campId=${selectedCampId}` : "/catering/enterprise-hub")}
-            className="h-8 text-xs font-semibold gap-1.5 bg-cyan-600 hover:bg-cyan-700 text-white shadow-xs font-bold"
+            onClick={stopDemo}
+            className="h-7 text-xs font-semibold gap-1.5 bg-rose-600 hover:bg-rose-700 text-white shadow-xs"
           >
-            <Compass size={13} />
-            <span>Enterprise Catering Hub</span>
+            <Pause size={12} />
+            <span>Stop Tour</span>
           </Button>
-
-          {/* Guided Demo Tour Button */}
-          {isDemoMode ? (
-            <Button
-              size="sm"
-              onClick={stopDemo}
-              className="h-8 text-xs font-semibold gap-1.5 bg-rose-600 hover:bg-rose-700 text-white shadow-xs"
-            >
-              <Pause size={13} />
-              <span>Stop Tour</span>
-            </Button>
-          ) : (
-            <Button
-              size="sm"
-              onClick={startDemo}
-              className="h-8 text-xs font-semibold gap-1.5 bg-[#fe932c] hover:bg-[#e68222] text-slate-950 font-bold shadow-xs"
-            >
-              <Play size={13} />
-              <span>Guided Demo Tour (3 Min)</span>
-            </Button>
-          )}
-        </div>
+        ) : (
+          <Button
+            size="sm"
+            onClick={startDemo}
+            className="h-7 text-xs font-semibold gap-1.5 bg-[#fe932c] hover:bg-[#e68222] text-slate-950 font-bold shadow-xs"
+          >
+            <Play size={12} />
+            <span>Guided Demo Tour (3 Min)</span>
+          </Button>
+        )}
       </div>
 
       {/* 2. Layman-Friendly KPI Cards (Clean Dynamic Reports Theme) */}
