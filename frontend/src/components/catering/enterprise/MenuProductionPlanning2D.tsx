@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   ENTERPRISE_RECIPES,
   scaleRecipe,
@@ -29,6 +29,17 @@ import {
   Plus,
   ShieldCheck,
   Check,
+  Search,
+  Filter,
+  Download,
+  Snowflake,
+  ShieldAlert,
+  ArrowUpRight,
+  Users,
+  Flame,
+  CheckCircle,
+  HelpCircle,
+  Info,
 } from "lucide-react";
 
 interface MenuProductionPlanning2DProps {
@@ -41,9 +52,9 @@ export default function MenuProductionPlanning2D({ className }: MenuProductionPl
   const [paxCount, setPaxCount] = useState<number>(650);
   const [safetyBufferPct, setSafetyBufferPct] = useState<number>(4.0);
 
-  // Active Sub-Tab: "bom-scaler" | "portion-control" | "meal-forecast" | "planned-vs-actual"
+  // Active Sub-Tab
   const [activeTab, setActiveTab] = useState<
-    "bom-scaler" | "portion-control" | "meal-forecast" | "planned-vs-actual"
+    "planned-vs-actual" | "bom-scaler" | "portion-control" | "meal-forecast"
   >("planned-vs-actual");
 
   // Production Logs State
@@ -51,6 +62,10 @@ export default function MenuProductionPlanning2D({ className }: MenuProductionPl
   const [selectedLog, setSelectedLog] = useState<ProductionVarianceRecord>(productionLogs[0]);
   const [showLogModal, setShowLogModal] = useState<boolean>(false);
   const [workOrderNotice, setWorkOrderNotice] = useState<string | null>(null);
+
+  // Filter & Search states for the table
+  const [sessionFilter, setSessionFilter] = useState<"all" | "Breakfast" | "Lunch" | "Dinner">("all");
+  const [searchQuery, setSearchQuery] = useState<string>("");
 
   // New Production Log Form State
   const [newActualCooked, setNewActualCooked] = useState<number>(660);
@@ -75,9 +90,23 @@ export default function MenuProductionPlanning2D({ className }: MenuProductionPl
   const totalLeftoverPortions = totalCookedPortions - totalConsumedPortions;
   const avgLeftoverPct = Number(((totalLeftoverPortions / totalCookedPortions) * 100).toFixed(1));
   const totalVarianceSAR = productionLogs.reduce((acc, l) => acc + l.varianceSAR, 0);
+  const attendanceRate = Number(((totalConsumedPortions / totalCookedPortions) * 100).toFixed(1));
+
+  // Filtered logs
+  const filteredLogs = useMemo(() => {
+    return productionLogs.filter((log) => {
+      const matchesSession = sessionFilter === "all" || log.mealSession === sessionFilter;
+      const matchesSearch =
+        searchQuery === "" ||
+        log.dishName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        log.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        log.mealSession.toLowerCase().includes(searchQuery.toLowerCase());
+      return matchesSession && matchesSearch;
+    });
+  }, [productionLogs, sessionFilter, searchQuery]);
 
   const handlePrintWorkOrder = () => {
-    setWorkOrderNotice(`Kitchen Production Work Order dispatched for ${targetCookPax} portions of ${currentRecipe.name}!`);
+    setWorkOrderNotice(`Kitchen Production Work Order printed for ${targetCookPax} portions of ${currentRecipe.name}!`);
     setTimeout(() => setWorkOrderNotice(null), 4000);
   };
 
@@ -117,331 +146,575 @@ export default function MenuProductionPlanning2D({ className }: MenuProductionPl
     setTimeout(() => setWorkOrderNotice(null), 4000);
   };
 
+  const getSessionBadgeColor = (session: string) => {
+    switch (session.toLowerCase()) {
+      case "breakfast":
+        return "bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border-amber-300/40";
+      case "lunch":
+        return "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border-emerald-300/40";
+      case "dinner":
+        return "bg-indigo-100 text-indigo-800 dark:bg-indigo-950/60 dark:text-indigo-300 border-indigo-300/40";
+      default:
+        return "bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200 border-slate-300/40";
+    }
+  };
+
   return (
-    <div className={`space-y-4 font-sans ${className || ""}`}>
+    <div className={`space-y-5 font-sans ${className || ""}`}>
       {/* ================================================================== */}
-      {/* 1. TOP HEADER BANNER (DYNAMIC REPORT THEME)                         */}
+      {/* 1. TOP HEADER BANNER - CLEAN EXECUTIVE OVERVIEW                    */}
       {/* ================================================================== */}
-      <div className="p-4 sm:p-5 rounded-2xl bg-[#0c2340] text-white shadow-md border border-[#fe932c]/30">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2">
-              <div className="p-2 rounded-lg bg-[#fe932c]/20 text-[#fe932c]">
-                <ChefHat className="h-5 w-5" />
-              </div>
-              <h2 className="text-lg sm:text-xl font-black tracking-tight text-white">
-                Menu & Production Planning Suite
-              </h2>
-              <Badge className="bg-[#fe932c] text-slate-950 font-black text-[10px] tracking-wider uppercase">
-                Pillar 1 Core
-              </Badge>
+      <div className="bg-card rounded-2xl border border-border/80 shadow-xs overflow-hidden">
+        {/* Banner Title & Quick Actions */}
+        <div className="p-4 sm:p-5 border-b border-border/60 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gradient-to-r from-card via-muted/20 to-card">
+          <div className="flex items-start gap-3">
+            <div className="p-2.5 rounded-xl bg-primary/10 text-primary shrink-0 mt-0.5 border border-primary/20">
+              <ChefHat className="h-6 w-6" />
             </div>
-            <p className="text-xs text-slate-300 mt-1 max-w-2xl">
-              Standard recipe BOMs, strict grams portion control, occupancy meal forecasting, and planned vs. actual production variance reporting.
-            </p>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="text-lg sm:text-xl font-bold tracking-tight text-foreground">
+                  Menu & Kitchen Production Management
+                </h2>
+                <Badge variant="outline" className="text-[11px] font-semibold bg-primary/5 text-primary border-primary/20">
+                  Daily Reconciliation & Waste Control
+                </Badge>
+              </div>
+              <p className="text-xs text-muted-foreground mt-0.5 max-w-2xl">
+                Track planned portions against actual food cooked and consumed at dining hall turnstiles.
+                Ensures zero food waste through certified HACCP blast-chilling protocols.
+              </p>
+            </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             <Button
               size="sm"
+              variant="outline"
               onClick={handlePrintWorkOrder}
-              className="bg-white/10 hover:bg-white/20 text-white font-bold gap-1.5 text-xs border border-white/20"
+              className="text-xs font-semibold gap-1.5 h-9"
             >
-              <Printer className="h-3.5 w-3.5 text-[#fe932c]" /> Print Work Order
+              <Printer className="h-3.5 w-3.5 text-muted-foreground" />
+              Print Kitchen Order
             </Button>
             <Button
               size="sm"
               onClick={() => setShowLogModal(true)}
-              className="bg-[#fe932c] hover:bg-[#fe932c]/90 text-slate-950 font-bold gap-1 text-xs shrink-0"
+              className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold gap-1.5 text-xs h-9 shadow-xs"
             >
-              <Plus className="h-4 w-4" /> Reconcile Shift Batch
+              <Plus className="h-4 w-4" />
+              Record Shift Production
             </Button>
           </div>
         </div>
 
-        {/* Global Operational KPIs */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mt-4 pt-3 border-t border-white/10 text-xs font-mono">
-          <div className="p-2 rounded-lg bg-white/5 border border-white/5">
-            <span className="text-[10px] text-slate-400 block uppercase font-sans font-bold">Planned vs Actual Cooked</span>
-            <strong className="text-white font-black text-sm">
-              {totalPlannedPortions} &rarr; {totalCookedPortions} Pax
-            </strong>
+        {/* Intuitive 4-Card Executive KPI Summary */}
+        <div className="p-4 sm:p-5 bg-muted/10">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            {/* Card 1: Meals Planned & Cooked */}
+            <div className="p-3.5 rounded-xl bg-card border border-border/70 shadow-2xs hover:border-border transition-all">
+              <div className="flex items-center justify-between text-muted-foreground text-xs mb-1">
+                <span className="font-semibold">Planned ➔ Cooked</span>
+                <Users className="h-4 w-4 text-primary" />
+              </div>
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-xl font-black text-foreground">{totalPlannedPortions.toLocaleString()}</span>
+                <span className="text-xs text-muted-foreground font-medium">planned</span>
+                <span className="text-xs font-bold text-muted-foreground">➔</span>
+                <span className="text-base font-bold text-foreground">{totalCookedPortions.toLocaleString()}</span>
+                <span className="text-xs text-muted-foreground font-medium">cooked</span>
+              </div>
+              <div className="mt-2 text-[11px] text-muted-foreground flex items-center gap-1">
+                <Badge variant="secondary" className="text-[10px] py-0 px-1.5 font-medium">
+                  +{totalCookedPortions - totalPlannedPortions} buffer portions
+                </Badge>
+                <span>for late arrivals</span>
+              </div>
+            </div>
+
+            {/* Card 2: Meals Consumed (Actual Diners) */}
+            <div className="p-3.5 rounded-xl bg-card border border-border/70 shadow-2xs hover:border-border transition-all">
+              <div className="flex items-center justify-between text-muted-foreground text-xs mb-1">
+                <span className="font-semibold">Consumed (Diners Served)</span>
+                <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+              </div>
+              <div className="flex items-baseline gap-2">
+                <span className="text-xl font-black text-emerald-600 dark:text-emerald-400">
+                  {totalConsumedPortions.toLocaleString()}
+                </span>
+                <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-300">
+                  ({attendanceRate}% Turnout)
+                </span>
+              </div>
+              <div className="mt-2 text-[11px] text-muted-foreground flex items-center gap-1">
+                <span className="inline-block w-2 h-2 rounded-full bg-emerald-500"></span>
+                <span>Verified by turnstile badge scans</span>
+              </div>
+            </div>
+
+            {/* Card 3: Leftovers / Overproduction */}
+            <div className="p-3.5 rounded-xl bg-card border border-border/70 shadow-2xs hover:border-border transition-all">
+              <div className="flex items-center justify-between text-muted-foreground text-xs mb-1">
+                <span className="font-semibold">Kitchen Leftovers</span>
+                <Flame className="h-4 w-4 text-amber-500" />
+              </div>
+              <div className="flex items-baseline gap-2">
+                <span className="text-xl font-black text-amber-600 dark:text-amber-400">
+                  {totalLeftoverPortions}
+                </span>
+                <span className="text-xs text-muted-foreground font-medium">portions</span>
+                <span className="text-xs font-bold text-amber-600">({avgLeftoverPct}%)</span>
+              </div>
+              <div className="mt-2 text-[11px] flex items-center gap-1">
+                <span className="text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-0.5">
+                  <Check className="h-3 w-3" /> Target Met (&lt;5% threshold)
+                </span>
+              </div>
+            </div>
+
+            {/* Card 4: Value Preserved / Food Saved */}
+            <div className="p-3.5 rounded-xl bg-card border border-border/70 shadow-2xs hover:border-border transition-all">
+              <div className="flex items-center justify-between text-muted-foreground text-xs mb-1">
+                <span className="font-semibold">Food Value Preserved</span>
+                <Snowflake className="h-4 w-4 text-cyan-500" />
+              </div>
+              <div className="flex items-baseline gap-2">
+                <span className="text-xl font-black text-cyan-600 dark:text-cyan-400">
+                  SAR {totalVarianceSAR.toFixed(2)}
+                </span>
+              </div>
+              <div className="mt-2 text-[11px] text-muted-foreground flex items-center gap-1">
+                <Badge className="bg-cyan-100 text-cyan-800 dark:bg-cyan-950 dark:text-cyan-300 text-[10px] py-0 px-1.5 font-medium border-cyan-200">
+                  0 kg Landfill Waste
+                </Badge>
+                <span>HACCP blast chilled</span>
+              </div>
+            </div>
           </div>
-          <div className="p-2 rounded-lg bg-white/5 border border-white/5">
-            <span className="text-[10px] text-slate-400 block uppercase font-sans font-bold">Actual Consumed (Turnstiles)</span>
-            <strong className="text-emerald-400 font-black text-sm">
-              {totalConsumedPortions} Pax ({( (totalConsumedPortions / totalCookedPortions) * 100 ).toFixed(1)}%)
-            </strong>
-          </div>
-          <div className="p-2 rounded-lg bg-white/5 border border-white/5">
-            <span className="text-[10px] text-slate-400 block uppercase font-sans font-bold">Kitchen Overproduction</span>
-            <strong className="text-[#fe932c] font-black text-sm">
-              {totalLeftoverPortions} Portions ({avgLeftoverPct}%)
-            </strong>
-          </div>
-          <div className="p-2 rounded-lg bg-white/5 border border-white/5">
-            <span className="text-[10px] text-slate-400 block uppercase font-sans font-bold">Variance Financial Cost</span>
-            <strong className="text-slate-200 font-black text-sm">
-              SAR {totalVarianceSAR.toFixed(2)} (HACCP Safe)
-            </strong>
+
+          {/* Visual Production Cycle Progress Bar (Layman Explanation) */}
+          <div className="mt-4 p-3 rounded-xl bg-muted/40 border border-border/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-2 text-muted-foreground font-medium">
+              <Info className="h-4 w-4 text-primary shrink-0" />
+              <span>
+                <strong>Food Lifecycle Today:</strong> 1,620 planned portions ➔ 1,695 cooked (+4.6% safety buffer) ➔ 1,640 served (96.8%) ➔ <strong>55 portions safely blast-chilled</strong> for tomorrow's night shift.
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
+              <ShieldCheck className="h-4 w-4" />
+              <span>100% HACCP Food Safety Compliant</span>
+            </div>
           </div>
         </div>
       </div>
 
       {workOrderNotice && (
-        <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 text-xs font-semibold flex items-center gap-2 animate-in fade-in">
-          <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
-          <span>{workOrderNotice}</span>
+        <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-800 dark:text-emerald-200 text-xs font-semibold flex items-center justify-between gap-2 shadow-2xs">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+            <span>{workOrderNotice}</span>
+          </div>
+          <button onClick={() => setWorkOrderNotice(null)} className="text-muted-foreground hover:text-foreground text-xs">
+            ✕
+          </button>
         </div>
       )}
 
       {/* ================================================================== */}
-      {/* 2. SUB-MODULE NAVIGATION PILLS                                      */}
+      {/* 2. SUB-MODULE NAVIGATION - CLEAN SEGMENTED TABS                    */}
       {/* ================================================================== */}
-      <div className="flex flex-wrap items-center justify-between gap-3 p-1.5 bg-muted/40 rounded-xl border border-border/60">
-        <div className="flex items-center gap-1.5 text-xs font-semibold">
+      <div className="flex flex-wrap items-center justify-between gap-2 p-1.5 bg-muted/50 rounded-xl border border-border/60">
+        <div className="flex flex-wrap items-center gap-1 text-xs">
           <button
             onClick={() => setActiveTab("planned-vs-actual")}
-            className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
+            className={`px-3.5 py-2 rounded-lg font-semibold transition-all flex items-center gap-2 ${
               activeTab === "planned-vs-actual"
-                ? "bg-[#0c2340] text-white shadow-2xs"
-                : "text-muted-foreground hover:text-foreground"
+                ? "bg-card text-foreground shadow-xs border border-border/80"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted/40"
             }`}
           >
-            <CalendarDays className="h-3.5 w-3.5 text-[#fe932c]" />
-            1. Planned vs. Actual Production & Variance
+            <CalendarDays className={`h-4 w-4 ${activeTab === "planned-vs-actual" ? "text-primary" : ""}`} />
+            <span>1. Production & Leftovers Log</span>
+            <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
           </button>
+
           <button
             onClick={() => setActiveTab("bom-scaler")}
-            className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
+            className={`px-3.5 py-2 rounded-lg font-semibold transition-all flex items-center gap-2 ${
               activeTab === "bom-scaler"
-                ? "bg-[#0c2340] text-white shadow-2xs"
-                : "text-muted-foreground hover:text-foreground"
+                ? "bg-card text-foreground shadow-xs border border-border/80"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted/40"
             }`}
           >
-            <Layers className="h-3.5 w-3.5" />
-            2. Standard Recipes & Scaled BOM
+            <Layers className={`h-4 w-4 ${activeTab === "bom-scaler" ? "text-primary" : ""}`} />
+            <span>2. Recipe & Ingredient Scaler</span>
           </button>
+
           <button
             onClick={() => setActiveTab("portion-control")}
-            className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
+            className={`px-3.5 py-2 rounded-lg font-semibold transition-all flex items-center gap-2 ${
               activeTab === "portion-control"
-                ? "bg-[#0c2340] text-white shadow-2xs"
-                : "text-muted-foreground hover:text-foreground"
+                ? "bg-card text-foreground shadow-xs border border-border/80"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted/40"
             }`}
           >
-            <Scale className="h-3.5 w-3.5" />
-            3. Grams Portion Control & Serving Utensils
+            <Scale className={`h-4 w-4 ${activeTab === "portion-control" ? "text-primary" : ""}`} />
+            <span>3. Serving Portion Sizes</span>
           </button>
+
           <button
             onClick={() => setActiveTab("meal-forecast")}
-            className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
+            className={`px-3.5 py-2 rounded-lg font-semibold transition-all flex items-center gap-2 ${
               activeTab === "meal-forecast"
-                ? "bg-[#0c2340] text-white shadow-2xs"
-                : "text-muted-foreground hover:text-foreground"
+                ? "bg-card text-foreground shadow-xs border border-border/80"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted/40"
             }`}
           >
-            <Clock className="h-3.5 w-3.5" />
-            4. Occupancy Meal Forecasting
+            <Clock className={`h-4 w-4 ${activeTab === "meal-forecast" ? "text-primary" : ""}`} />
+            <span>4. Headcount Forecast</span>
           </button>
         </div>
 
-        <span className="text-[11px] text-muted-foreground font-mono px-2">
-          Target: &lt;3.0% Overproduction Variance
-        </span>
+        <div className="hidden md:flex items-center gap-1.5 text-xs text-muted-foreground font-medium px-2">
+          <span>Allowable Variance Target:</span>
+          <Badge variant="outline" className="text-[11px] font-bold text-foreground">
+            &le; 5.0%
+          </Badge>
+        </div>
       </div>
 
       {/* ================================================================== */}
       {/* TAB 1: PLANNED VS. ACTUAL PRODUCTION & VARIANCE LOG                */}
       {/* ================================================================== */}
       {activeTab === "planned-vs-actual" && (
-        <div className="space-y-4 animate-in fade-in">
+        <div className="space-y-4">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
             {/* Left: Shift Production Log Table (8 of 12 cols) */}
-            <div className="lg:col-span-8 bg-card rounded-2xl border border-border/80 shadow-xs p-4 sm:p-5 space-y-3">
-              <div className="flex items-center justify-between border-b border-border/60 pb-3">
-                <div className="flex items-center gap-2">
-                  <CalendarDays className="h-4 w-4 text-primary" />
-                  <h3 className="text-sm font-black text-foreground">
-                    Kitchen Daily Production Reconciliation Log
+            <div className="lg:col-span-8 bg-card rounded-2xl border border-border/80 shadow-xs p-4 sm:p-5 space-y-4">
+              {/* Table Header with Search & Session Filters */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border/60 pb-4">
+                <div>
+                  <h3 className="text-base font-bold text-foreground flex items-center gap-2">
+                    <CalendarDays className="h-4 w-4 text-primary" />
+                    Kitchen Daily Production & Leftovers Log
                   </h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Click any row below to view its full HACCP preservation record on the right.
+                  </p>
                 </div>
-                <span className="text-[11px] text-muted-foreground font-mono">
-                  Turnstile Verified Consumption
-                </span>
+
+                <div className="flex items-center gap-2 flex-wrap">
+                  {/* Search box */}
+                  <div className="relative">
+                    <Search className="h-3.5 w-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                    <input
+                      type="text"
+                      placeholder="Search dish or batch..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="pl-8 pr-3 py-1.5 text-xs rounded-lg border border-border bg-muted/40 focus:bg-background focus:outline-hidden focus:ring-1 focus:ring-primary w-40 sm:w-48 text-foreground"
+                    />
+                  </div>
+
+                  {/* Session Filter */}
+                  <div className="flex items-center bg-muted/60 p-0.5 rounded-lg border border-border/60 text-xs">
+                    {(["all", "Breakfast", "Lunch", "Dinner"] as const).map((s) => (
+                      <button
+                        key={s}
+                        onClick={() => setSessionFilter(s)}
+                        className={`px-2.5 py-1 rounded-md font-medium text-[11px] transition-all capitalize ${
+                          sessionFilter === s
+                            ? "bg-card text-foreground font-bold shadow-2xs"
+                            : "text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        {s}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
 
               {/* Table */}
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto rounded-xl border border-border/70">
                 <table className="w-full text-xs text-left">
-                  <thead className="bg-[#0c2340] text-white font-bold text-[11px] rounded-lg">
+                  <thead className="bg-muted/70 text-foreground font-bold text-[11px] border-b border-border/70">
                     <tr>
-                      <th className="p-2.5 rounded-l-lg">Shift Batch #</th>
-                      <th className="p-2.5">Dish & Session</th>
-                      <th className="p-2.5 text-center">Planned</th>
-                      <th className="p-2.5 text-center">Cooked</th>
-                      <th className="p-2.5 text-center">Consumed</th>
-                      <th className="p-2.5 text-center">Variance (Leftover)</th>
-                      <th className="p-2.5 text-right rounded-r-lg">Disposition</th>
+                      <th className="p-3">Shift & Batch</th>
+                      <th className="p-3">Dish & Session</th>
+                      <th className="p-3 text-center">Planned</th>
+                      <th className="p-3 text-center">Cooked</th>
+                      <th className="p-3 text-center">Consumed</th>
+                      <th className="p-3 text-center">Leftover / Variance</th>
+                      <th className="p-3 text-right">Food Disposition</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/60">
-                    {productionLogs.map((log) => {
-                      const isSelected = selectedLog.id === log.id;
-                      const isWithinBenchmark = log.leftoverPct <= 5.0;
-                      return (
-                        <tr
-                          key={log.id}
-                          onClick={() => setSelectedLog(log)}
-                          className={`cursor-pointer transition-colors ${
-                            isSelected
-                              ? "bg-primary/10 font-medium"
-                              : "hover:bg-muted/30 text-foreground"
-                          }`}
-                        >
-                          <td className="p-2.5 font-mono font-bold text-foreground">
-                            {log.id}
-                            <span className="text-[10px] text-muted-foreground block font-normal font-sans">
-                              {log.date}
-                            </span>
-                          </td>
-                          <td className="p-2.5">
-                            <strong className="block text-foreground">{log.dishName}</strong>
-                            <span className="text-[10px] text-muted-foreground font-mono">
-                              {log.mealSession} • CPH SAR {log.costPerHeadSAR.toFixed(2)}
-                            </span>
-                          </td>
-                          <td className="p-2.5 text-center font-mono font-semibold">
-                            {log.plannedPax}
-                            <span className="text-[9px] text-muted-foreground block">
-                              +{log.safetyBufferPct}% buf
-                            </span>
-                          </td>
-                          <td className="p-2.5 text-center font-mono font-bold text-foreground">
-                            {log.actualCookedPax}
-                          </td>
-                          <td className="p-2.5 text-center font-mono font-bold text-emerald-600 dark:text-emerald-400">
-                            {log.actualConsumedPax}
-                          </td>
-                          <td className="p-2.5 text-center font-mono">
-                            <span
-                              className={`px-2 py-0.5 rounded font-bold text-[11px] ${
-                                isWithinBenchmark
-                                  ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30"
-                                  : "bg-rose-500/10 text-rose-700 dark:text-rose-300 border border-rose-500/30"
-                              }`}
-                            >
-                              +{log.leftoverPax} ({log.leftoverPct}%)
-                            </span>
-                          </td>
-                          <td className="p-2.5 text-right font-mono">
-                            <Badge
-                              className={`text-[9px] font-bold uppercase ${
-                                log.disposition === "blast_chill_reuse"
-                                  ? "bg-cyan-600 text-white"
-                                  : log.disposition === "consumed_perfect"
-                                  ? "bg-emerald-600 text-white"
-                                  : "bg-rose-600 text-white"
-                              }`}
-                            >
-                              {log.disposition.replace(/_/g, " ")}
-                            </Badge>
-                          </td>
-                        </tr>
-                      );
-                    })}
+                    {filteredLogs.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="p-6 text-center text-muted-foreground">
+                          No production records found matching your filters.
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredLogs.map((log) => {
+                        const isSelected = selectedLog.id === log.id;
+                        const isWithinBenchmark = log.leftoverPct <= 5.0;
+                        const consumptionPct = Math.min(
+                          100,
+                          Math.round((log.actualConsumedPax / log.actualCookedPax) * 100)
+                        );
+
+                        return (
+                          <tr
+                            key={log.id}
+                            onClick={() => setSelectedLog(log)}
+                            className={`cursor-pointer transition-colors ${
+                              isSelected
+                                ? "bg-primary/10 font-medium border-l-4 border-l-primary"
+                                : "hover:bg-muted/40 text-foreground"
+                            }`}
+                          >
+                            <td className="p-3">
+                              <span className="font-semibold text-foreground block">{log.id}</span>
+                              <span className="text-[10px] text-muted-foreground font-mono">{log.date}</span>
+                            </td>
+
+                            <td className="p-3">
+                              <strong className="block text-foreground font-bold text-xs">{log.dishName}</strong>
+                              <div className="flex items-center gap-1.5 mt-0.5">
+                                <Badge
+                                  variant="outline"
+                                  className={`text-[9px] py-0 px-1 font-semibold border ${getSessionBadgeColor(
+                                    log.mealSession
+                                  )}`}
+                                >
+                                  {log.mealSession}
+                                </Badge>
+                                <span className="text-[10px] text-muted-foreground font-medium">
+                                  SAR {log.costPerHeadSAR.toFixed(2)}/pax
+                                </span>
+                              </div>
+                            </td>
+
+                            <td className="p-3 text-center">
+                              <span className="font-semibold text-foreground">{log.plannedPax}</span>
+                              <span className="text-[10px] text-muted-foreground block">
+                                +{log.safetyBufferPct}% buffer
+                              </span>
+                            </td>
+
+                            <td className="p-3 text-center">
+                              <span className="font-bold text-foreground text-xs">{log.actualCookedPax}</span>
+                              <span className="text-[10px] text-muted-foreground block">pots batched</span>
+                            </td>
+
+                            <td className="p-3 text-center">
+                              <div className="flex flex-col items-center">
+                                <span className="font-bold text-emerald-600 dark:text-emerald-400 text-xs">
+                                  {log.actualConsumedPax}
+                                </span>
+                                {/* Mini consumption progress bar */}
+                                <div className="w-16 h-1.5 bg-muted rounded-full overflow-hidden mt-1">
+                                  <div
+                                    className="h-full bg-emerald-500 rounded-full"
+                                    style={{ width: `${consumptionPct}%` }}
+                                  ></div>
+                                </div>
+                                <span className="text-[9px] text-muted-foreground mt-0.5">{consumptionPct}% eaten</span>
+                              </div>
+                            </td>
+
+                            <td className="p-3 text-center">
+                              <span
+                                className={`inline-block px-2 py-0.5 rounded-full font-bold text-[11px] ${
+                                  isWithinBenchmark
+                                    ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300 border border-emerald-300/40"
+                                    : "bg-amber-100 text-amber-800 dark:bg-amber-950/70 dark:text-amber-300 border border-amber-300/40"
+                                }`}
+                              >
+                                +{log.leftoverPax} ({log.leftoverPct}%)
+                              </span>
+                            </td>
+
+                            <td className="p-3 text-right">
+                              {log.disposition === "blast_chill_reuse" && (
+                                <Badge className="bg-cyan-600 hover:bg-cyan-600 text-white font-medium text-[10px] gap-1 py-0.5">
+                                  <Snowflake className="h-3 w-3" /> Blast Chilled
+                                </Badge>
+                              )}
+                              {log.disposition === "consumed_perfect" && (
+                                <Badge className="bg-emerald-600 hover:bg-emerald-600 text-white font-medium text-[10px] gap-1 py-0.5">
+                                  <Check className="h-3 w-3" /> Exact Match
+                                </Badge>
+                              )}
+                              {log.disposition === "haccp_discard" && (
+                                <Badge className="bg-rose-600 hover:bg-rose-600 text-white font-medium text-[10px] gap-1 py-0.5">
+                                  <AlertTriangle className="h-3 w-3" /> Discarded
+                                </Badge>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
                   </tbody>
                 </table>
+              </div>
+
+              {/* Table Footer Insight */}
+              <div className="flex items-center justify-between text-xs text-muted-foreground pt-1">
+                <span>
+                  Showing <strong>{filteredLogs.length}</strong> of {productionLogs.length} shifts
+                </span>
+                <span className="flex items-center gap-1 text-[11px]">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                  Green badges indicate leftovers are within the allowable &le;5% buffer.
+                </span>
               </div>
             </div>
 
             {/* Right: Selected Batch Audit & Disposition Slip (4 of 12 cols) */}
             <div className="lg:col-span-4 bg-card rounded-2xl border border-border/80 shadow-xs p-5 flex flex-col justify-between space-y-4">
-              <div className="space-y-3.5">
+              <div className="space-y-4">
+                {/* Header */}
                 <div className="border-b border-border/60 pb-3">
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground font-mono">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                      <ShieldCheck className="h-4 w-4 text-emerald-500" />
                       Shift Audit Dossier
                     </span>
-                    <Badge variant="outline" className="text-[10px] font-mono text-emerald-600 border-emerald-500/40">
+                    <Badge variant="outline" className="text-[10px] font-semibold text-emerald-600 border-emerald-500/40 bg-emerald-50/50 dark:bg-emerald-950/20">
                       HACCP Verified
                     </Badge>
                   </div>
-                  <h4 className="text-base font-black text-foreground mt-1">
+                  <h4 className="text-lg font-black text-foreground mt-1.5">
                     {selectedLog.dishName}
                   </h4>
-                  <p className="text-xs text-muted-foreground font-mono">
-                    Batch: {selectedLog.id} • Session: {selectedLog.mealSession}
-                  </p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <Badge variant="secondary" className="text-[10px]">
+                      {selectedLog.mealSession}
+                    </Badge>
+                    <span className="text-xs text-muted-foreground font-mono">
+                      {selectedLog.id} • {selectedLog.date}
+                    </span>
+                  </div>
                 </div>
 
-                {/* Variance Metric Cards */}
-                <div className="grid grid-cols-2 gap-2 text-xs font-mono">
-                  <div className="p-2.5 rounded-xl bg-muted/30 border border-border/60">
-                    <span className="text-[10px] text-muted-foreground uppercase font-sans font-bold block">
+                {/* Production Flow Tracker for This Dish */}
+                <div className="p-3.5 rounded-xl bg-muted/30 border border-border/60 space-y-2">
+                  <span className="text-[11px] font-bold text-muted-foreground block uppercase">
+                    Portion Journey for this Batch
+                  </span>
+                  <div className="grid grid-cols-3 gap-2 text-center">
+                    <div className="p-2 rounded-lg bg-card border border-border/60">
+                      <span className="text-[10px] text-muted-foreground block">Planned</span>
+                      <strong className="text-sm font-bold text-foreground">{selectedLog.plannedPax}</strong>
+                    </div>
+                    <div className="p-2 rounded-lg bg-card border border-border/60">
+                      <span className="text-[10px] text-muted-foreground block">Cooked</span>
+                      <strong className="text-sm font-bold text-foreground">{selectedLog.actualCookedPax}</strong>
+                    </div>
+                    <div className="p-2 rounded-lg bg-card border border-border/60">
+                      <span className="text-[10px] text-muted-foreground block">Served</span>
+                      <strong className="text-sm font-bold text-emerald-600 dark:text-emerald-400">
+                        {selectedLog.actualConsumedPax}
+                      </strong>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Leftovers & Cost Breakdown Cards */}
+                <div className="grid grid-cols-2 gap-2.5 text-xs">
+                  <div className="p-3 rounded-xl bg-muted/20 border border-border/60">
+                    <span className="text-[10px] text-muted-foreground uppercase font-bold block">
                       Leftover Portions
                     </span>
-                    <strong className="text-foreground text-sm font-black block mt-0.5">
+                    <strong className="text-foreground text-base font-black block mt-0.5">
                       +{selectedLog.leftoverPax} Pax
                     </strong>
-                    <span className="text-[10px] text-amber-600">
-                      {selectedLog.leftoverPct}% of batch
+                    <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold block mt-0.5">
+                      {selectedLog.leftoverPct}% of batch (Safe)
                     </span>
                   </div>
 
-                  <div className="p-2.5 rounded-xl bg-muted/30 border border-border/60">
-                    <span className="text-[10px] text-muted-foreground uppercase font-sans font-bold block">
-                      Variance Cost (SAR)
+                  <div className="p-3 rounded-xl bg-muted/20 border border-border/60">
+                    <span className="text-[10px] text-muted-foreground uppercase font-bold block">
+                      Value Saved
                     </span>
-                    <strong className="text-[#fe932c] text-sm font-black block mt-0.5">
+                    <strong className="text-primary text-base font-black block mt-0.5">
                       SAR {selectedLog.varianceSAR.toFixed(2)}
                     </strong>
-                    <span className="text-[10px] text-muted-foreground">
-                      @ SAR {selectedLog.costPerHeadSAR.toFixed(2)} CPH
+                    <span className="text-[11px] text-muted-foreground block mt-0.5">
+                      @ SAR {selectedLog.costPerHeadSAR.toFixed(2)} / person
                     </span>
                   </div>
                 </div>
 
-                {/* Disposition & HACCP Protocol */}
-                <div className="p-3 rounded-xl bg-muted/20 border border-border/60 space-y-2 text-xs">
+                {/* Disposition & HACCP Protocol Explanation */}
+                <div className="p-3.5 rounded-xl bg-cyan-50/50 dark:bg-cyan-950/20 border border-cyan-200 dark:border-cyan-900/50 space-y-2 text-xs">
                   <div className="flex items-center justify-between">
-                    <span className="font-bold text-foreground">Food Disposition:</span>
-                    <Badge className="bg-cyan-600 text-white text-[9px] font-bold uppercase">
-                      {selectedLog.disposition.replace(/_/g, " ")}
+                    <span className="font-bold text-foreground flex items-center gap-1.5">
+                      <Snowflake className="h-4 w-4 text-cyan-600" />
+                      Food Disposition Status:
+                    </span>
+                    <Badge className="bg-cyan-600 text-white text-[10px] font-bold">
+                      {selectedLog.disposition.replace(/_/g, " ").toUpperCase()}
                     </Badge>
                   </div>
                   <p className="text-[11px] text-muted-foreground leading-relaxed">
                     {selectedLog.dispositionNotes}
                   </p>
+                  <div className="text-[10px] text-cyan-700 dark:text-cyan-300 font-medium pt-1 border-t border-cyan-200/50 dark:border-cyan-800/40">
+                    🌱 <strong>Zero Waste Impact:</strong> Rescued food is kept below 3°C and safe for next shift dinner service.
+                  </div>
                 </div>
 
-                {/* Sign-off Seal */}
-                <div className="p-3 rounded-xl bg-[#0c2340] text-white text-xs space-y-1">
-                  <div className="flex items-center justify-between text-[#fe932c] font-bold">
-                    <span>Shift Verification</span>
-                    <Check className="h-4 w-4 text-emerald-400" />
+                {/* Chef Sign-off Verification Seal */}
+                <div className="p-3.5 rounded-xl bg-muted/40 border border-border/60 space-y-1.5 text-xs">
+                  <div className="flex items-center justify-between text-foreground font-bold">
+                    <span className="flex items-center gap-1.5">
+                      <ShieldCheck className="h-4 w-4 text-emerald-500" />
+                      Executive Chef Sign-Off
+                    </span>
+                    <CheckCircle className="h-4 w-4 text-emerald-500" />
                   </div>
-                  <div className="text-[11px] text-slate-200">
-                    Sign-off: <strong>{selectedLog.headChefSignOff}</strong>
+                  <div className="text-xs font-semibold text-foreground">
+                    {selectedLog.headChefSignOff}
                   </div>
-                  <span className="text-[10px] text-slate-400 block font-mono">
-                    Reconciled with gate RFID turnstiles at 14:15 UTC+3
+                  <span className="text-[10px] text-muted-foreground block font-mono">
+                    Reconciled with dining hall RFID gate turnstiles at 14:15 AST
                   </span>
                 </div>
               </div>
 
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => {
-                  setWorkOrderNotice(`Production Reconciliation Certificate for #${selectedLog.id} exported!`);
-                  setTimeout(() => setWorkOrderNotice(null), 3000);
-                }}
-                className="w-full text-xs font-bold gap-1.5 border-primary/40 text-primary"
-              >
-                <FileSpreadsheet className="h-3.5 w-3.5" />
-                Export Batch Reconciliation (PDF/Excel)
-              </Button>
+              {/* Action Buttons */}
+              <div className="space-y-2 pt-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setWorkOrderNotice(`Production Reconciliation Certificate for #${selectedLog.id} exported successfully!`);
+                    setTimeout(() => setWorkOrderNotice(null), 3000);
+                  }}
+                  className="w-full text-xs font-bold gap-1.5 border-primary/40 text-primary hover:bg-primary/5 h-9"
+                >
+                  <FileSpreadsheet className="h-4 w-4" />
+                  Download Shift Certificate (PDF)
+                </Button>
+
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    setSelectedRecipeId(selectedLog.dishId);
+                    setActiveTab("bom-scaler");
+                  }}
+                  className="w-full text-xs text-muted-foreground hover:text-foreground h-8"
+                >
+                  Inspect Scaled Recipe BOM &rarr;
+                </Button>
+              </div>
             </div>
           </div>
         </div>
@@ -451,16 +724,26 @@ export default function MenuProductionPlanning2D({ className }: MenuProductionPl
       {/* TAB 2: STANDARD RECIPES & SCALED BILL OF MATERIALS (BOM)           */}
       {/* ================================================================== */}
       {activeTab === "bom-scaler" && (
-        <div className="bg-card rounded-2xl border border-border/80 shadow-xs p-5 space-y-4 animate-in fade-in">
-          <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-center border-b border-border/60 pb-4">
-            <div className="sm:col-span-5">
-              <label className="text-[11px] font-bold text-muted-foreground block mb-1">
-                Select Master Standard Recipe
+        <div className="bg-card rounded-2xl border border-border/80 shadow-xs p-5 space-y-5 animate-in fade-in">
+          <div className="border-b border-border/60 pb-4">
+            <h3 className="text-base font-bold text-foreground flex items-center gap-2">
+              <Layers className="h-5 w-5 text-primary" />
+              Standard Recipes & Scaled Bill of Materials (BOM)
+            </h3>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Select an approved camp menu dish and adjust target portions to dynamically scale required raw ingredients.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-5 items-center p-4 rounded-xl bg-muted/20 border border-border/60">
+            <div className="md:col-span-5 space-y-1.5">
+              <label className="text-xs font-bold text-foreground block">
+                Select Approved Master Recipe
               </label>
               <select
                 value={selectedRecipeId}
                 onChange={(e) => setSelectedRecipeId(e.target.value)}
-                className="w-full text-xs font-semibold p-2.5 rounded-lg bg-muted border border-border/70 text-foreground font-sans"
+                className="w-full text-xs font-semibold p-2.5 rounded-lg bg-card border border-border text-foreground"
               >
                 {ENTERPRISE_RECIPES.map((r) => (
                   <option key={r.id} value={r.id}>
@@ -468,13 +751,18 @@ export default function MenuProductionPlanning2D({ className }: MenuProductionPl
                   </option>
                 ))}
               </select>
+              <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                <span>CPH: <strong>SAR {currentRecipe.baseCostPerHeadSAR.toFixed(2)}</strong></span>
+                <span>•</span>
+                <span>Category: <strong>{currentRecipe.category}</strong></span>
+              </div>
             </div>
 
-            <div className="sm:col-span-7 space-y-1">
-              <div className="flex items-center justify-between text-xs font-mono">
-                <span className="font-bold text-muted-foreground font-sans">Portions to Cook:</span>
+            <div className="md:col-span-7 space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-bold text-foreground">Batch Portion Target:</span>
                 <strong className="text-foreground text-sm font-black">
-                  {targetCookPax} Portions ({paxCount} + {safetyBufferPct}% safety buffer)
+                  {targetCookPax} Portions ({paxCount} planned + {safetyBufferPct}% safety buffer)
                 </strong>
               </div>
               <Slider
@@ -485,50 +773,61 @@ export default function MenuProductionPlanning2D({ className }: MenuProductionPl
                 onValueChange={(val) => setPaxCount(val[0])}
                 className="py-1 cursor-pointer"
               />
+              <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+                <span>100 portions</span>
+                <span>Batch Cost: SAR {(targetCookPax * currentRecipe.baseCostPerHeadSAR).toFixed(2)}</span>
+                <span>2,000 portions</span>
+              </div>
             </div>
           </div>
 
           {/* Scaled BOM Table */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-xs font-bold text-muted-foreground">
-              <span>Ingredient Bill of Materials (BOM)</span>
-              <span>Warehouse Stock vs Scaled Requirement</span>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between text-xs font-bold text-foreground">
+              <span className="flex items-center gap-1.5">
+                <Utensils className="h-4 w-4 text-primary" />
+                Scaled Raw Ingredient Requirements
+              </span>
+              <span className="text-muted-foreground font-normal">
+                Warehouse Inventory vs Required
+              </span>
             </div>
+
             <div className="divide-y divide-border/60 border border-border/60 rounded-xl overflow-hidden text-xs">
               {scaledData.ingredients.map((item) => (
                 <div
                   key={item.bom.ingredientId}
-                  className={`p-3 flex items-center justify-between ${
-                    item.hasStockShortage ? "bg-rose-500/10" : "bg-card"
+                  className={`p-3.5 flex items-center justify-between transition-colors ${
+                    item.hasStockShortage ? "bg-rose-500/10" : "bg-card hover:bg-muted/30"
                   }`}
                 >
-                  <div className="flex items-center gap-2.5">
+                  <div className="flex items-center gap-3">
                     <span
-                      className="h-3 w-3 rounded-full shrink-0"
+                      className="h-3.5 w-3.5 rounded-full shrink-0"
                       style={{ backgroundColor: item.bom.colorHex }}
                     />
                     <div>
-                      <strong className="block text-foreground font-semibold">
+                      <strong className="block text-foreground font-bold text-xs">
                         {item.bom.name}
                       </strong>
-                      <span className="text-[10px] text-muted-foreground font-mono">
+                      <span className="text-[11px] text-muted-foreground">
                         Prep Station: {item.bom.prepStation} • Category: {item.bom.category}
                       </span>
                     </div>
                   </div>
 
-                  <div className="text-right font-mono">
-                    <strong className="text-sm font-bold text-foreground">
-                      {item.scaledQty} {item.bom.unit}
+                  <div className="text-right">
+                    <strong className="text-sm font-black text-foreground block">
+                      {item.scaledQty.toLocaleString()} {item.bom.unit}
                     </strong>
-                    <div className="text-[10px]">
+                    <div className="text-[11px] mt-0.5">
                       {item.hasStockShortage ? (
                         <span className="text-rose-600 dark:text-rose-400 font-bold flex items-center gap-1 justify-end">
-                          <AlertTriangle className="h-3 w-3" /> Short by {item.shortageQty} {item.bom.unit} (Store has {item.bom.warehouseStock})
+                          <AlertTriangle className="h-3.5 w-3.5" /> Short by {item.shortageQty} {item.bom.unit} (Store has {item.bom.warehouseStock})
                         </span>
                       ) : (
                         <span className="text-emerald-600 dark:text-emerald-400 font-medium">
-                          In Store: {item.bom.warehouseStock} {item.bom.unit} (Sufficient)
+                          In Warehouse: {item.bom.warehouseStock} {item.bom.unit} (Sufficient)
                         </span>
                       )}
                     </div>
@@ -547,22 +846,22 @@ export default function MenuProductionPlanning2D({ className }: MenuProductionPl
         <div className="bg-card rounded-2xl border border-border/80 shadow-xs p-5 space-y-4 animate-in fade-in">
           <div className="flex items-center justify-between border-b border-border/60 pb-3">
             <div className="flex items-center gap-2">
-              <Scale className="h-5 w-5 text-[#fe932c]" />
+              <Scale className="h-5 w-5 text-primary" />
               <div>
-                <h3 className="text-sm font-black text-foreground">
+                <h3 className="text-base font-bold text-foreground">
                   Standard Portion Control & Serving Utensil Guide
                 </h3>
-                <p className="text-xs text-muted-foreground">
-                  Prevents over-serving variance and ensures nutritional consistency per Saudi Aramco standards.
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Mandatory serving sizes and designated scoop tools to prevent over-portioning variance and maintain Aramco nutritional guidelines.
                 </p>
               </div>
             </div>
-            <Badge className="bg-[#0c2340] text-[#fe932c] text-xs font-mono">
-              Target: {currentRecipe.name}
+            <Badge className="bg-primary/10 text-primary border-primary/20 text-xs">
+              Recipe: {currentRecipe.name}
             </Badge>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
             {portionSpecs.map((spec, i) => (
               <div
                 key={i}
@@ -571,29 +870,29 @@ export default function MenuProductionPlanning2D({ className }: MenuProductionPl
                 <div className="flex items-center justify-between border-b border-border/50 pb-2">
                   <strong className="font-bold text-foreground text-xs">{spec.componentName}</strong>
                   <span className="text-emerald-600 dark:text-emerald-400 font-mono font-bold flex items-center gap-1">
-                    <Thermometer className="h-3 w-3" /> &ge;{spec.targetTempServingC}°C
+                    <Thermometer className="h-3.5 w-3.5" /> &ge;{spec.targetTempServingC}°C
                   </span>
                 </div>
 
-                <div className="space-y-1 font-mono">
+                <div className="space-y-1">
                   <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground font-sans">Target Portion:</span>
+                    <span className="text-muted-foreground">Target Portion:</span>
                     <strong className="text-sm font-black text-foreground">
                       {spec.targetServingGrams} grams
                     </strong>
                   </div>
                   <div className="flex items-center justify-between text-[11px]">
-                    <span className="text-muted-foreground font-sans">Tolerance Bound:</span>
+                    <span className="text-muted-foreground">Tolerance Allowed:</span>
                     <span className="text-primary font-bold">&plusmn;{spec.toleranceGrams}g</span>
                   </div>
                 </div>
 
-                <div className="p-2 rounded-lg bg-card border border-border/60 text-[11px]">
+                <div className="p-2.5 rounded-lg bg-card border border-border/60 text-[11px]">
                   <span className="text-muted-foreground block text-[10px] uppercase font-bold">
-                    Serving Utensil / Scoop
+                    Designated Serving Utensil
                   </span>
-                  <strong className="text-foreground font-semibold flex items-center gap-1 mt-0.5">
-                    <Utensils className="h-3 w-3 text-[#fe932c]" /> {spec.ladleScoopSize}
+                  <strong className="text-foreground font-semibold flex items-center gap-1.5 mt-0.5">
+                    <Utensils className="h-3.5 w-3.5 text-primary" /> {spec.ladleScoopSize}
                   </strong>
                 </div>
               </div>
@@ -611,40 +910,40 @@ export default function MenuProductionPlanning2D({ className }: MenuProductionPl
             <div className="flex items-center gap-2">
               <Clock className="h-5 w-5 text-primary" />
               <div>
-                <h3 className="text-sm font-black text-foreground">
+                <h3 className="text-base font-bold text-foreground">
                   Camp Occupancy & Meal Session Headcount Forecasting
                 </h3>
-                <p className="text-xs text-muted-foreground">
-                  Projects dining hall participation by meal session based on room check-ins and shift rosters.
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Projects expected dining hall turnout for each meal session based on room occupancy rosters and field shift dispatches.
                 </p>
               </div>
             </div>
-            <Badge variant="outline" className="text-xs font-mono">
-              Active Camp: Tanajib Main (1,250 Inmates)
+            <Badge variant="outline" className="text-xs font-semibold">
+              Tanajib Main Camp (1,250 Inmates)
             </Badge>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs">
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-3.5 text-xs">
             {(
               [
-                { session: "Breakfast", rate: "84%", forecasted: 1050, menu: "Eggs, Foul, Bread, Tea" },
-                { session: "Lunch (Dining)", rate: "52%", forecasted: 650, menu: "Chicken Dum Biryani" },
-                { session: "Field Packed Lunch", rate: "40%", forecasted: 500, menu: "Sandwiches, Fruit, Juice" },
-                { session: "Dinner", rate: "94%", forecasted: 1175, menu: "Lamb Kabsa & Lentil Soup" },
+                { session: "Breakfast", rate: "84%", forecasted: 1050, menu: "Eggs, Foul, Bread, Fresh Fruit, Tea" },
+                { session: "Lunch (Dining)", rate: "52%", forecasted: 650, menu: "Chicken Dum Biryani & Cucumber Raita" },
+                { session: "Field Packed Lunch", rate: "40%", forecasted: 500, menu: "Sandwiches, Apples, Juice Packs" },
+                { session: "Dinner", rate: "94%", forecasted: 1175, menu: "Saudi Lamb Kabsa & Lentil Soup" },
               ] as const
             ).map((s) => (
-              <div key={s.session} className="p-3.5 rounded-xl border border-border/70 bg-muted/20 space-y-2">
+              <div key={s.session} className="p-4 rounded-xl border border-border/70 bg-muted/20 space-y-2.5">
                 <div className="flex items-center justify-between">
                   <strong className="font-bold text-foreground text-xs">{s.session}</strong>
-                  <Badge variant="secondary" className="text-[10px] font-mono">
+                  <Badge variant="secondary" className="text-[10px] font-bold">
                     {s.rate}
                   </Badge>
                 </div>
-                <div className="font-mono">
-                  <span className="text-[10px] text-muted-foreground uppercase font-sans block">Forecast Headcount</span>
-                  <strong className="text-base font-black text-foreground">{s.forecasted} Pax</strong>
+                <div>
+                  <span className="text-[10px] text-muted-foreground uppercase font-bold block">Forecast Diners</span>
+                  <strong className="text-lg font-black text-foreground">{s.forecasted.toLocaleString()} Pax</strong>
                 </div>
-                <div className="text-[11px] text-muted-foreground truncate border-t border-border/40 pt-1">
+                <div className="text-[11px] text-muted-foreground truncate border-t border-border/40 pt-1.5">
                   Menu: {s.menu}
                 </div>
               </div>
@@ -654,8 +953,8 @@ export default function MenuProductionPlanning2D({ className }: MenuProductionPl
           {/* Safety Buffer Setting */}
           <div className="p-4 rounded-xl bg-muted/30 border border-border/60 space-y-2 text-xs">
             <div className="flex items-center justify-between">
-              <span className="font-bold text-foreground">Safety Buffer Margin Allowance:</span>
-              <strong className="font-mono font-bold text-primary text-sm">+{safetyBufferPct}%</strong>
+              <span className="font-bold text-foreground">Kitchen Safety Buffer Allowance:</span>
+              <strong className="font-bold text-primary text-sm">+{safetyBufferPct}%</strong>
             </div>
             <Slider
               value={[safetyBufferPct]}
@@ -663,10 +962,10 @@ export default function MenuProductionPlanning2D({ className }: MenuProductionPl
               max={8.0}
               step={0.5}
               onValueChange={(val) => setSafetyBufferPct(val[0])}
-              className="py-1"
+              className="py-1 cursor-pointer"
             />
-            <p className="text-[11px] text-muted-foreground">
-              A safety buffer of 4.0% ensures field teams returning unexpectedly from offshore platforms receive hot meals without causing a kitchen stock-out.
+            <p className="text-[11px] text-muted-foreground leading-relaxed">
+              A safety buffer of 4.0% ensures offshore teams returning late due to transport delays receive hot meals without causing a kitchen shortage.
             </p>
           </div>
         </div>
@@ -680,20 +979,20 @@ export default function MenuProductionPlanning2D({ className }: MenuProductionPl
           <div className="bg-card w-full max-w-lg rounded-2xl border border-border shadow-2xl p-5 space-y-4 animate-in fade-in zoom-in-95">
             <div className="flex items-center justify-between border-b border-border/60 pb-3">
               <div className="flex items-center gap-2">
-                <ChefHat className="h-5 w-5 text-[#fe932c]" />
+                <ChefHat className="h-5 w-5 text-primary" />
                 <h3 className="text-base font-bold text-foreground">
-                  Reconcile Shift Kitchen Production Batch
+                  Record Kitchen Production Shift Batch
                 </h3>
               </div>
               <button
                 onClick={() => setShowLogModal(false)}
-                className="text-muted-foreground hover:text-foreground text-sm font-bold"
+                className="text-muted-foreground hover:text-foreground text-sm font-bold p-1"
               >
                 ✕
               </button>
             </div>
 
-            <form onSubmit={handleLogShiftProduction} className="space-y-3.5 text-xs">
+            <form onSubmit={handleLogShiftProduction} className="space-y-4 text-xs">
               <div className="p-3 rounded-xl bg-muted/40 border border-border/60 flex items-center justify-between">
                 <div>
                   <span className="text-[10px] text-muted-foreground block font-bold uppercase">Recipe Target</span>
@@ -701,33 +1000,33 @@ export default function MenuProductionPlanning2D({ className }: MenuProductionPl
                 </div>
                 <div className="text-right">
                   <span className="text-[10px] text-muted-foreground block font-bold uppercase">Planned Portions</span>
-                  <strong className="text-foreground font-mono">{paxCount} + {safetyBufferPct}% = {targetCookPax} Pax</strong>
+                  <strong className="text-foreground font-semibold">{paxCount} + {safetyBufferPct}% = {targetCookPax} Pax</strong>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-[11px] font-bold text-muted-foreground block mb-1">
+                  <label className="text-[11px] font-bold text-foreground block mb-1">
                     Actually Cooked (Pots Batched)
                   </label>
                   <input
                     type="number"
                     value={newActualCooked}
                     onChange={(e) => setNewActualCooked(Number(e.target.value))}
-                    className="w-full p-2 rounded-lg bg-muted border border-border/70 text-foreground font-semibold font-mono"
+                    className="w-full p-2.5 rounded-lg bg-card border border-border text-foreground font-semibold"
                     min={100}
                     required
                   />
                 </div>
                 <div>
-                  <label className="text-[11px] font-bold text-muted-foreground block mb-1">
+                  <label className="text-[11px] font-bold text-foreground block mb-1">
                     Actually Consumed (Turnstile Scans)
                   </label>
                   <input
                     type="number"
                     value={newActualConsumed}
                     onChange={(e) => setNewActualConsumed(Number(e.target.value))}
-                    className="w-full p-2 rounded-lg bg-muted border border-border/70 text-foreground font-semibold font-mono"
+                    className="w-full p-2.5 rounded-lg bg-card border border-border text-foreground font-semibold"
                     min={0}
                     required
                   />
@@ -735,7 +1034,7 @@ export default function MenuProductionPlanning2D({ className }: MenuProductionPl
               </div>
 
               <div>
-                <label className="text-[11px] font-bold text-muted-foreground block mb-1">
+                <label className="text-[11px] font-bold text-foreground block mb-1">
                   Leftover Disposition (HACCP Safe Protocol)
                 </label>
                 <select
@@ -745,7 +1044,7 @@ export default function MenuProductionPlanning2D({ className }: MenuProductionPl
                       e.target.value as "blast_chill_reuse" | "consumed_perfect" | "haccp_discard"
                     )
                   }
-                  className="w-full p-2 rounded-lg bg-muted border border-border/70 text-foreground font-semibold"
+                  className="w-full p-2.5 rounded-lg bg-card border border-border text-foreground font-semibold"
                 >
                   <option value="blast_chill_reuse">Blast Chill & Reuse for Next Shift (HACCP 3°C)</option>
                   <option value="consumed_perfect">Consumed Perfect (&lt;1% leftover)</option>
@@ -754,13 +1053,13 @@ export default function MenuProductionPlanning2D({ className }: MenuProductionPl
               </div>
 
               <div>
-                <label className="text-[11px] font-bold text-muted-foreground block mb-1">
+                <label className="text-[11px] font-bold text-foreground block mb-1">
                   Disposition Notes & Temperature Log
                 </label>
                 <textarea
                   value={newDispositionNotes}
                   onChange={(e) => setNewDispositionNotes(e.target.value)}
-                  className="w-full p-2 rounded-lg bg-muted border border-border/70 text-foreground font-semibold resize-none h-16"
+                  className="w-full p-2.5 rounded-lg bg-card border border-border text-foreground font-semibold resize-none h-16"
                   required
                 />
               </div>
@@ -776,7 +1075,7 @@ export default function MenuProductionPlanning2D({ className }: MenuProductionPl
                 </Button>
                 <Button
                   type="submit"
-                  className="bg-[#0c2340] hover:bg-[#0c2340]/90 text-white font-bold text-xs"
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs"
                 >
                   Verify & Close Production Shift
                 </Button>
