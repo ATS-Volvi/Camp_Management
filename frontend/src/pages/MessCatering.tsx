@@ -1939,16 +1939,6 @@ function InventoryTab({ campId, camps }: { campId: string; camps: any[] }) {
           </div>
         </div>
       )}
-            ))}
-          </div>
-
-          <input value={grnNotes} onChange={e => setGrnNotes(e.target.value)} placeholder="Notes (optional)" className="w-full border rounded px-2 py-1.5 text-sm bg-card mb-3" />
-          <div className="flex gap-2">
-            <button onClick={handleCreateGRN} disabled={createGRN.isPending} className="text-xs bg-primary text-primary-foreground px-4 py-1.5 rounded">Save GRN</button>
-            <button onClick={() => { setShowGRN(false); setGrnItems([]); }} className="text-xs px-3 py-1.5 rounded border">Cancel</button>
-          </div>
-        </div>
-      )}
 
       {/* Recent GRNs */}
       <div className="stat-card">
