@@ -7,15 +7,75 @@ import AIReportMessage from "@/components/ai-reports/AIReportMessage";
 
 type Message = { role: "user" | "assistant"; content: string };
 
-const SUGGESTED_PROMPTS = [
-  { label: "📊 Occupancy Report", prompt: "Show camp-wise occupancy summary with capacity utilization rates" },
-  { label: "👥 Supplier Distribution", prompt: "Which all camps the employees of each supplier are distributed? Show camp-wise breakdown" },
-  { label: "💰 Breakfast Cost", prompt: "What is the cost of breakfast across all camps? Show per-head cost comparison" },
-  { label: "📈 Bottomline Analysis", prompt: "Which camp is giving better bottomline? Compare revenue vs costs for all camps" },
-  { label: "🚫 Blacklisted Staff", prompt: "List all blacklisted employees with reasons and camp details" },
-  { label: "🔧 Maintenance Summary", prompt: "Generate maintenance ticket summary by priority, status and cost analysis" },
-  { label: "🏠 Room Utilization", prompt: "Which rooms have been empty for more than a month? Show block-wise vacancy report" },
-  { label: "📦 Inventory Alerts", prompt: "Show inventory items below minimum alert level with reorder recommendations" },
+interface PromptItem {
+  category: "catering" | "medical" | "occupancy" | "financial" | "operations";
+  label: string;
+  prompt: string;
+}
+
+const SUGGESTED_PROMPTS: PromptItem[] = [
+  // Catering & Kitchen Directives
+  {
+    category: "catering",
+    label: "🌴 Leave Batch Reduction",
+    prompt: "How many workers are on authorized leave this week, and how many kilograms should we reduce from our daily meal batches to prevent food waste?",
+  },
+  {
+    category: "catering",
+    label: "💰 Breakfast & Meal Cost",
+    prompt: "What is the cost of breakfast across all camps? Show per-head cost comparison and DMC adherence.",
+  },
+  {
+    category: "catering",
+    label: "📦 Pantry Inventory Alerts",
+    prompt: "Show inventory items below minimum alert level with reorder recommendations and supplier lead times.",
+  },
+
+  // Medical & Dietary Special Requests
+  {
+    category: "medical",
+    label: "🩺 Diabetic & Medical Diets",
+    prompt: "Show active diabetic, low-sodium, and medical dietary requirements across camps with meal station prep rules.",
+  },
+  {
+    category: "medical",
+    label: "⚠️ Allergen & Celiac Shield",
+    prompt: "List active food allergies (gluten/celiac, peanut, lactose) and segregated prep line guidelines for our mess halls.",
+  },
+
+  // Occupancy & Operations
+  {
+    category: "occupancy",
+    label: "📊 Camp Occupancy Summary",
+    prompt: "Show camp-wise occupancy summary with capacity utilization rates and vacant bed headroom.",
+  },
+  {
+    category: "occupancy",
+    label: "👥 Supplier Distribution",
+    prompt: "Which all camps the employees of each supplier are distributed? Show camp-wise breakdown.",
+  },
+  {
+    category: "occupancy",
+    label: "🏠 Room Vacancy Over 30d",
+    prompt: "Which rooms have been empty for more than a month? Show block-wise vacancy report.",
+  },
+
+  // Finance & Bottomline
+  {
+    category: "financial",
+    label: "📈 Bottomline & Revenue",
+    prompt: "Which camp is giving better bottomline? Compare revenue vs costs for all camps.",
+  },
+  {
+    category: "operations",
+    label: "🔧 Maintenance Work Orders",
+    prompt: "Generate maintenance ticket summary by priority, status and cost analysis.",
+  },
+  {
+    category: "operations",
+    label: "🚫 Blacklisted Personnel",
+    prompt: "List all blacklisted employees with reasons and camp details.",
+  },
 ];
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:3001/api";
@@ -24,6 +84,7 @@ const CHAT_URL = `${BACKEND_URL}/ai/chat`;
 export default function AIReports() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [isLoading, setIsLoading] = useState(false);
   const [showScrollDown, setShowScrollDown] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -150,21 +211,54 @@ export default function AIReports() {
             <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mb-6">
               <Sparkles size={32} className="text-primary" />
             </div>
-            <h1 className="text-2xl font-semibold text-foreground mb-2">Camp-365 AI Reports</h1>
-            <p className="text-muted-foreground text-sm mb-8 text-center">
-              Ask anything about your camp operations — type or use voice 🎙️ to query occupancy, costs, suppliers, maintenance & more.
+            <h1 className="text-2xl font-semibold text-foreground mb-2">Camp-365 AI Reports & Copilot</h1>
+            <p className="text-muted-foreground text-sm mb-6 text-center">
+              Operational AI intelligence for workforce catering batch deductions, diabetic/medical diets, occupancy & financials.
             </p>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 w-full">
-              {SUGGESTED_PROMPTS.map((s) => (
+
+            {/* Category Filter Pills */}
+            <div className="flex items-center gap-1.5 mb-6 flex-wrap justify-center">
+              {[
+                { id: "all", label: "All Directives" },
+                { id: "catering", label: "🍽️ Catering & Kitchen" },
+                { id: "medical", label: "🩺 Medical & Diets" },
+                { id: "occupancy", label: "🏨 Occupancy" },
+                { id: "financial", label: "💰 Bottomline" },
+              ].map((cat) => (
+                <button
+                  key={cat.id}
+                  onClick={() => setSelectedCategory(cat.id)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                    selectedCategory === cat.id
+                      ? "bg-primary text-primary-foreground shadow-2xs"
+                      : "bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground"
+                  }`}
+                >
+                  {cat.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 w-full">
+              {SUGGESTED_PROMPTS.filter(
+                (s) => selectedCategory === "all" || s.category === selectedCategory
+              ).map((s) => (
                 <button
                   key={s.prompt}
                   onClick={() => sendPrompt(s.prompt)}
-                  className="text-left p-3 rounded-xl border border-border bg-card hover:bg-accent/50 hover:border-primary/30 transition-all group"
+                  className="text-left p-3.5 rounded-xl border border-border bg-card hover:bg-accent/50 hover:border-primary/40 transition-all group flex flex-col justify-between space-y-2 shadow-2xs"
                 >
-                  <span className="text-sm font-medium text-foreground group-hover:text-primary transition-colors">
-                    {s.label}
+                  <div>
+                    <span className="text-xs font-bold text-foreground group-hover:text-primary transition-colors flex items-center justify-between">
+                      {s.label}
+                    </span>
+                    <p className="text-[11px] text-muted-foreground mt-1 line-clamp-2 leading-relaxed">
+                      {s.prompt}
+                    </p>
+                  </div>
+                  <span className="text-[10px] text-primary/80 group-hover:text-primary font-semibold flex items-center gap-1">
+                    Generate Analysis →
                   </span>
-                  <p className="text-[11px] text-muted-foreground mt-1 line-clamp-2">{s.prompt}</p>
                 </button>
               ))}
             </div>

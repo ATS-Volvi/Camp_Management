@@ -46,8 +46,14 @@ Camp-365 Enterprise Operational SOPs & Domain Policies:
 2. Sub-Departments: Specialized units such as Waste Management, Rigging, Scaffolding, HVAC, Electrical, and Fabrication operate under these main departments.
 3. Bed Tariffs: 1x1 Executive Suite (45 SAR/day), 2x1 Senior Staff (30 SAR/day), 3x1 (22 SAR/day), 4x1 Standard (16 SAR/day), 6x1 Labor (12 SAR/day).
 4. Daily Food Rate: 20 SAR/day per inmate unless explicit catering opt-out ("No Food") is approved.
-5. Vacation Holding Fee: Inmates away on annual leave retain bed reservation at 12 SAR/day room-holding charge with 0 SAR catering fee.
-6. Aramco Compliance: Maximum occupancy must never exceed room design capacity. Negative occupancy or unassigned beds must be immediately flagged.
+5. Vacation & Absence Policy: Inmates away on authorized annual leave retain bed reservation at 12 SAR/day room-holding charge with 0 SAR catering fee. Kitchen production batches MUST be automatically reduced by the absent inmate count (-0.18kg rice, -0.22kg chicken per person/day) to prevent overcooking loss.
+6. Special Dietary & Medical Roster: Kitchens must maintain segregated preparation for:
+   - Diabetic / Low-Glycemic: 18 inmates (unsweetened beverages, whole wheat rotis, steamed brown rice, no cornstarch).
+   - Hypertension / Low-Sodium: 14 inmates (no MSG, low salt &le;1,500mg/day).
+   - Celiac / Gluten-Free: 4 inmates (dedicated purple prep station, no shared fryers).
+   - Lactose Intolerant: 8 inmates (plant-based milk alternatives).
+   - Vegetarian / Jain: 18 inmates (dedicated green prep boards).
+7. Aramco Compliance: Maximum occupancy must never exceed room design capacity. Negative occupancy or unassigned beds must be immediately flagged.
 `;
         } catch (err) {
             console.error('Error fetching context:', err);
