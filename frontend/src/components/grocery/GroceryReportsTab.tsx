@@ -21,7 +21,8 @@ export default function GroceryReportsTab() {
   // Low stock items
   const lowStockItems = stock.filter((s: any) => {
     const bal = (s.opening_stock || 0) + (s.stock_in || 0) - (s.stock_out || 0);
-    return bal <= (s.min_level || 5);
+    const threshold = Number(s.ingredients?.reorder_level ?? s.min_level ?? 5);
+    return bal <= threshold;
   });
 
   // Price change analysis
@@ -90,13 +91,14 @@ export default function GroceryReportsTab() {
               <TableBody>
                 {lowStockItems.map((s: any) => {
                   const bal = (s.opening_stock || 0) + (s.stock_in || 0) - (s.stock_out || 0);
+                  const threshold = Number(s.ingredients?.reorder_level ?? s.min_level ?? 5);
                   return (
                     <TableRow key={s.id}>
                       <TableCell className="font-medium">{s.ingredients?.name}</TableCell>
                       <TableCell><Badge variant="outline" className="text-xs">{s.ingredients?.category}</Badge></TableCell>
                       <TableCell className="text-destructive font-semibold">{bal.toFixed(1)} {s.ingredients?.unit}</TableCell>
-                      <TableCell>{s.min_level}</TableCell>
-                      <TableCell className="text-destructive font-mono">{(s.min_level - bal).toFixed(1)}</TableCell>
+                      <TableCell>{threshold}</TableCell>
+                      <TableCell className="text-destructive font-mono">{(threshold - bal).toFixed(1)}</TableCell>
                     </TableRow>
                   );
                 })}

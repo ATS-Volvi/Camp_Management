@@ -146,9 +146,9 @@ export default function GroceryItemsTab() {
 
   const lowStockCount = sorted.filter(item => {
     const s = stockMap[item.id];
-    if (!s) return false;
-    const bal = (s.opening_stock || 0) + (s.stock_in || 0) - (s.stock_out || 0);
-    return bal <= (s.min_level || item.reorder_level);
+    const bal = s ? (Number(s.opening_stock) || 0) + (Number(s.stock_in) || 0) - (Number(s.stock_out) || 0) : 0;
+    const reorderThreshold = Number(item.reorder_level ?? s?.min_level ?? 5);
+    return bal <= reorderThreshold;
   }).length;
 
   const handleAddItem = async () => {
@@ -197,6 +197,7 @@ export default function GroceryItemsTab() {
             opening_stock: newQty,
             stock_in: 0,
             stock_out: 0,
+            min_level: Number(item.reorder_level) || 5,
             updated_at: now,
           })
           .eq("id", s.id);
@@ -209,7 +210,7 @@ export default function GroceryItemsTab() {
           opening_stock: newQty,
           stock_in: 0,
           stock_out: 0,
-          min_level: item.reorder_level || 5,
+          min_level: Number(item.reorder_level) || 5,
           updated_at: now,
         });
         if (error) throw error;
@@ -444,8 +445,9 @@ export default function GroceryItemsTab() {
                 </TableRow>
               ) : sorted.map(item => {
                 const s = stockMap[item.id];
-                const bal = s ? (s.opening_stock || 0) + (s.stock_in || 0) - (s.stock_out || 0) : 0;
-                const isLow = s ? bal <= (s.min_level || item.reorder_level) : false;
+                const bal = s ? (Number(s.opening_stock) || 0) + (Number(s.stock_in) || 0) - (Number(s.stock_out) || 0) : 0;
+                const reorderThreshold = Number(item.reorder_level ?? s?.min_level ?? 5);
+                const isLow = campId ? bal <= reorderThreshold : false;
                 const isEditing = editingItemId === item.id;
 
                 // Match with dish ingredient if dish filter is active
