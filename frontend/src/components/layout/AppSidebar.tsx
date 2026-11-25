@@ -3,7 +3,7 @@ import {
   Home, Upload, Building2, Truck, Users, Wrench, Package, Settings as SettingsIcon,
   BarChart3, Activity, Bell, HelpCircle, ChevronDown, Search, Box, LogIn, ClipboardList, Sparkles, UtensilsCrossed, UserCheck,
   Shield, UserCog, FileText, AlertTriangle, ChefHat, ShieldCheck, LineChart, Cog, Gauge, BedDouble, Link2, Ban,
-  LayoutDashboard, PieChart, CalendarDays, Briefcase, SlidersHorizontal, Compass, ArrowLeft, ArrowUpRight
+  LayoutDashboard, PieChart, CalendarDays, Briefcase, SlidersHorizontal, Compass, ArrowLeft, ArrowUpRight, Layers
 } from "lucide-react";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useEffect, useState, useMemo } from "react";
@@ -253,9 +253,27 @@ export default function AppSidebar() {
           </NavLink>
         </div>
       ) : (
-        <div className="px-4 py-4 flex items-center gap-2 border-b shrink-0">
-          <img src={campLogo} alt="Camp-365 Logo" className="w-8 h-8 rounded" />
-          <span className="font-bold text-lg text-foreground">Camp-365</span>
+        <div className="p-3 bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-transparent border-b border-border/70 shrink-0">
+          <div className="flex items-center gap-2 mb-2">
+            <img src={campLogo} alt="Camp-365 Logo" className="w-8 h-8 rounded shrink-0 shadow-2xs" />
+            <div className="min-w-0">
+              <div className="text-sm font-black tracking-tight text-foreground flex items-center gap-1.5">
+                <span>Camp-365</span>
+                <span className="text-[9px] font-mono px-1 py-0.2 rounded-full bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-bold">MGMT</span>
+              </div>
+              <div className="text-[10px] text-muted-foreground font-medium truncate">Workforce & Accommodation</div>
+            </div>
+          </div>
+          <NavLink
+            to="/camp-hub"
+            className="flex items-center justify-between w-full px-2.5 py-1.5 rounded-lg bg-card/90 hover:bg-muted text-[11px] font-semibold text-foreground border border-border/80 transition-all shadow-2xs group"
+          >
+            <span className="flex items-center gap-1.5 text-muted-foreground group-hover:text-primary">
+              <Layers size={13} />
+              <span>Camp-365 Launchpad</span>
+            </span>
+            <span className="text-[9px] font-mono text-muted-foreground bg-muted px-1 rounded">Switch</span>
+          </NavLink>
         </div>
       )}
 
