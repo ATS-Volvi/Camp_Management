@@ -25,7 +25,48 @@ import {
 } from "@/hooks/useCatering";
 import { useCreateCookRequest } from "@/hooks/useCookRequests";
 import { useQuery } from "@tanstack/react-query";
-import { findRecipe } from "@/data/dishRecipes";
+import { findRecipe, DISH_RECIPES } from "@/data/dishRecipes";
+
+export function matchesDishIngredient(itemName?: string | null, recipeIngredientName?: string | null): boolean {
+  if (!itemName || !recipeIngredientName) return false;
+  const normItem = itemName.toLowerCase().trim();
+  const normRecipe = recipeIngredientName.toLowerCase().trim();
+
+  // 1. Direct inclusion
+  if (normItem.includes(normRecipe) || normRecipe.includes(normItem)) return true;
+
+  // 2. Token overlap
+  const recipeTokens = normRecipe.split(/\s+/).filter(t => t.length > 2);
+  const itemTokens = normItem.split(/[\s(),/]+/).filter(t => t.length > 2);
+  const hasOverlap = recipeTokens.some(rt =>
+    itemTokens.some(it => it.includes(rt) || rt.includes(it))
+  );
+  if (hasOverlap) return true;
+
+  // 3. Synonym mapping
+  const synonyms: Record<string, string[]> = {
+    oil: ["sunflower", "olive", "canola", "vegetable", "ghee", "butter", "cooking oil"],
+    chicken: ["poultry", "breast", "drumstick", "thigh", "whole chicken"],
+    bread: ["pita", "roti", "parota", "naan", "chapati", "khubz", "arabic bread"],
+    rice: ["basmati", "biryani", "grain", "sella", "white rice"],
+    egg: ["eggs", "omelette"],
+    potato: ["potatoes", "aloo"],
+    onion: ["onions", "fresh onion"],
+    tomato: ["tomatoes", "puree", "paste"],
+    dal: ["lentil", "lentils", "chana", "moong", "toor", "urad"],
+    spice: ["masala", "curry powder", "turmeric", "chilli", "cumin", "coriander", "assorted spices"],
+    cheese: ["cheddar", "mozzarella", "slice cheese"],
+    mutton: ["lamb", "meat"],
+    chickpea: ["chickpeas", "hummus"],
+  };
+
+  for (const [key, syns] of Object.entries(synonyms)) {
+    if (normRecipe.includes(key) && syns.some(s => normItem.includes(s))) return true;
+    if (normItem.includes(key) && syns.some(s => normRecipe.includes(s))) return true;
+  }
+
+  return false;
+}
 
 type Tab = "dashboard" | "grocery-config" | "weekly-menu" | "menu" | "daily-plan" | "requests" | "inventory" | "costs" | "wastage";
 
@@ -1578,9 +1619,26 @@ function InventoryTab({ campId, camps }: { campId: string; camps: any[] }) {
   const updateStockDirectly = useUpdateStockDirectly();
 
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedDish, setSelectedDish] = useState("");
   const [showGRN, setShowGRN] = useState(false);
   const [showDirectAdjust, setShowDirectAdjust] = useState(false);
   const [adjustItem, setAdjustItem] = useState<{ ingredientId: string; name: string; unit: string; currentBalance: number; newBalance: number; minLevel: number } | null>(null);
+
+  // Extract all available dish names from DISH_RECIPES
+  const dishOptions = useMemo(() => {
+    return Object.keys(DISH_RECIPES)
+      .map(key => ({
+        id: key,
+        name: key.split(" ").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" "),
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, []);
+
+  // Get recipe ingredients for selected dish
+  const selectedDishIngredients = useMemo(() => {
+    if (!selectedDish) return [];
+    return DISH_RECIPES[selectedDish.toLowerCase()] || [];
+  }, [selectedDish]);
 
   const [grnCamp, setGrnCamp] = useState(activeCampId || "");
   useEffect(() => { if (activeCampId) setGrnCamp(activeCampId); }, [activeCampId]);
@@ -1630,13 +1688,23 @@ function InventoryTab({ campId, camps }: { campId: string; camps: any[] }) {
   };
 
   const filteredStock = (stock || []).filter((s: any) => {
-    if (!searchTerm) return true;
     const name = s.ingredients?.name?.toLowerCase() || "";
     const cat = s.ingredients?.category?.toLowerCase() || "";
-    return name.includes(searchTerm.toLowerCase()) || cat.includes(searchTerm.toLowerCase());
+    const matchesSearch = !searchTerm || name.includes(searchTerm.toLowerCase()) || cat.includes(searchTerm.toLowerCase());
+    if (!matchesSearch) return false;
+
+    // Filter by selected dish recipe
+    if (selectedDish && selectedDishIngredients.length > 0) {
+      return selectedDishIngredients.some(ri => matchesDishIngredient(s.ingredients?.name, ri.name));
+    }
+    return true;
   });
 
-  const lowStock = (stock || []).filter((s: any) => s.balance !== null && s.balance <= s.min_level);
+  const lowStock = (stock || []).filter((s: any) => {
+    const balNum = Number(s.balance ?? 0);
+    const minNum = Number(s.min_level ?? s.ingredients?.reorder_level ?? 5);
+    return balNum <= minNum;
+  });
 
   return (
     <div className="space-y-6">
@@ -1707,16 +1775,60 @@ function InventoryTab({ campId, camps }: { campId: string; camps: any[] }) {
               {filteredStock.length} items
             </span>
           </div>
-          <div className="relative w-full sm:w-64">
-            <input
-              type="text"
-              placeholder="Search stock by name or category..."
-              value={searchTerm}
-              onChange={e => setSearchTerm(e.target.value)}
-              className="w-full text-xs border rounded-lg pl-3 pr-3 py-1.5 bg-background"
-            />
+
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
+            {/* Dish Recipe Filter Dropdown */}
+            <div className="relative min-w-[210px]">
+              <select
+                value={selectedDish}
+                onChange={e => setSelectedDish(e.target.value)}
+                className="w-full text-xs border border-border/80 rounded-lg pl-3 pr-8 py-1.5 bg-background font-medium focus:ring-1 focus:ring-primary"
+              >
+                <option value="">🍽️ All Dishes (Show All Stock)</option>
+                {dishOptions.map(dish => (
+                  <option key={dish.id} value={dish.id}>
+                    {dish.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Search Input */}
+            <div className="relative w-full sm:w-60">
+              <input
+                type="text"
+                placeholder="Search stock by name or category..."
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+                className="w-full text-xs border rounded-lg pl-3 pr-3 py-1.5 bg-background"
+              />
+            </div>
           </div>
         </div>
+
+        {/* Active Dish Filter Banner */}
+        {selectedDish && (
+          <div className="mb-4 flex items-center justify-between px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-500/15 via-orange-500/10 to-transparent border border-amber-500/30 text-xs">
+            <div className="flex items-center gap-2">
+              <span className="text-base">👨‍🍳</span>
+              <span>
+                Filtering stock required for recipe:{" "}
+                <strong className="font-bold text-foreground capitalize">
+                  {dishOptions.find(d => d.id === selectedDish)?.name || selectedDish}
+                </strong>{" "}
+                <span className="text-muted-foreground ml-1">
+                  ({filteredStock.length} matching ingredient{filteredStock.length !== 1 ? "s" : ""} in store)
+                </span>
+              </span>
+            </div>
+            <button
+              onClick={() => setSelectedDish("")}
+              className="h-6 px-2 text-[11px] font-medium text-muted-foreground hover:text-foreground flex items-center gap-1 rounded hover:bg-muted transition-colors"
+            >
+              ✕ Clear Filter
+            </button>
+          </div>
+        )}
 
         {lowStock.length > 0 && (
           <div className="mb-4 px-3 py-2 bg-destructive/10 border border-destructive/20 rounded-lg">
@@ -1744,10 +1856,25 @@ function InventoryTab({ campId, camps }: { campId: string; camps: any[] }) {
             </thead>
             <tbody className="divide-y">
               {filteredStock.map((s: any) => {
-                const isLow = s.balance !== null && s.balance <= s.min_level;
+                const balNum = Number(s.balance ?? 0);
+                const minNum = Number(s.min_level ?? s.ingredients?.reorder_level ?? 5);
+                const isLow = balNum <= minNum;
+                const matchedRecipeIngredient = selectedDishIngredients.find(ri =>
+                  matchesDishIngredient(s.ingredients?.name, ri.name)
+                );
+
                 return (
                   <tr key={s.id} className="hover:bg-muted/40 transition-colors">
-                    <td className="py-2.5 font-bold text-foreground">{s.ingredients?.name}</td>
+                    <td className="py-2.5 font-bold text-foreground">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span>{s.ingredients?.name}</span>
+                        {matchedRecipeIngredient && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded font-mono font-bold bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30">
+                            {matchedRecipeIngredient.qty_per_person} {matchedRecipeIngredient.unit}/pax
+                          </span>
+                        )}
+                      </div>
+                    </td>
                     <td className="text-xs text-muted-foreground">{s.ingredients?.category}</td>
                     <td className="text-right font-mono text-muted-foreground">{s.opening_stock ?? 0}</td>
                     <td className="text-right font-mono text-emerald-600">+{s.stock_in ?? 0}</td>
