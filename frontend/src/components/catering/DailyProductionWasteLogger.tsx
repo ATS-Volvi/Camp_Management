@@ -2,7 +2,8 @@ import { useState, useMemo } from "react";
 import {
   UtensilsCrossed, Recycle, ChefHat, CheckCircle2, AlertTriangle,
   Plus, Trash2, ArrowRight, DollarSign, Scale, Layers, Download,
-  TrendingDown, TrendingUp, Sparkles, ShieldAlert, Calendar, Users
+  TrendingDown, TrendingUp, Sparkles, ShieldAlert, Calendar, Users,
+  SlidersHorizontal, Check, Edit2, Info
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -25,6 +26,8 @@ export interface ProductionEntry {
   cookedPax: number;
   wastedPax: number;
   wasteReason: string;
+  customIngredients: RecipeIngredient[];
+  isCustomizingRecipe: boolean;
 }
 
 interface DailyProductionWasteLoggerProps {
@@ -59,7 +62,16 @@ export default function DailyProductionWasteLogger({
   const [logDate, setLogDate] = useState<string>(format(new Date(), "yyyy-MM-dd"));
   const [isPosting, setIsPosting] = useState<boolean>(false);
 
-  // Initial dishes: e.g. Chicken Biryani & Mixed Salad
+  // Safety switch to prevent double deduction
+  const [deductFromStock, setDeductFromStock] = useState<boolean>(true);
+
+  // Helper to deep clone recipe ingredients for a dish
+  const getRecipeClone = (key: string): RecipeIngredient[] => {
+    const raw = DISH_RECIPES[key.toLowerCase()] || [];
+    return raw.map(ri => ({ ...ri }));
+  };
+
+  // Initial dishes: e.g. Chicken Biryani
   const [entries, setEntries] = useState<ProductionEntry[]>([
     {
       id: "1",
@@ -68,6 +80,8 @@ export default function DailyProductionWasteLogger({
       cookedPax: 500,
       wastedPax: 25,
       wasteReason: "Over-prepared / Excess unserved",
+      customIngredients: getRecipeClone("chicken biryani"),
+      isCustomizingRecipe: false,
     },
   ]);
 
@@ -93,15 +107,11 @@ export default function DailyProductionWasteLogger({
   // Resolve best matching ingredient from stock / master
   const resolveIngredient = (recipeIngName: string) => {
     const norm = recipeIngName.toLowerCase().trim();
-    // 1. Direct match
     if (stockByName[norm]) return stockByName[norm];
-
-    // 2. Fuzzy / Synonym match
     const found = stock.find((s: any) =>
       matchesDishIngredient(s.ingredients?.name, recipeIngName)
     );
     if (found) return found;
-
     return null;
   };
 
@@ -115,6 +125,8 @@ export default function DailyProductionWasteLogger({
       cookedPax: 300,
       wastedPax: 0,
       wasteReason: WASTE_REASONS[0],
+      customIngredients: getRecipeClone(dishKey),
+      isCustomizingRecipe: false,
     };
     setEntries(prev => [...prev, newEntry]);
   };
@@ -133,6 +145,7 @@ export default function DailyProductionWasteLogger({
             ...e,
             dishKey: value,
             dishName: item?.name || value,
+            customIngredients: getRecipeClone(value),
           };
         }
         return { ...e, [field]: value };
@@ -140,7 +153,54 @@ export default function DailyProductionWasteLogger({
     );
   };
 
-  // Decompose all entries into aggregated raw ingredients
+  // Recipe customization handlers for a single dish entry
+  const handleToggleCustomize = (entryId: string) => {
+    setEntries(prev =>
+      prev.map(e => (e.id === entryId ? { ...e, isCustomizingRecipe: !e.isCustomizingRecipe } : e))
+    );
+  };
+
+  const handleUpdateIngredientQty = (entryId: string, ingIdx: number, newQty: number) => {
+    setEntries(prev =>
+      prev.map(e => {
+        if (e.id !== entryId) return e;
+        const updated = [...e.customIngredients];
+        if (updated[ingIdx]) {
+          updated[ingIdx] = { ...updated[ingIdx], qty_per_person: Math.max(0, newQty) };
+        }
+        return { ...e, customIngredients: updated };
+      })
+    );
+  };
+
+  const handleAddIngredientToDish = (entryId: string) => {
+    setEntries(prev =>
+      prev.map(e => {
+        if (e.id !== entryId) return e;
+        return {
+          ...e,
+          customIngredients: [
+            ...e.customIngredients,
+            { name: "Cooking Oil", unit: "litres", qty_per_person: 0.01 },
+          ],
+        };
+      })
+    );
+  };
+
+  const handleRemoveIngredientFromDish = (entryId: string, ingIdx: number) => {
+    setEntries(prev =>
+      prev.map(e => {
+        if (e.id !== entryId) return e;
+        return {
+          ...e,
+          customIngredients: e.customIngredients.filter((_, idx) => idx !== ingIdx),
+        };
+      })
+    );
+  };
+
+  // Decompose all entries into aggregated raw ingredients using their customized recipe portions!
   const decomposedIngredients = useMemo(() => {
     const map: Record<
       string,
@@ -159,7 +219,7 @@ export default function DailyProductionWasteLogger({
     > = {};
 
     entries.forEach(entry => {
-      const recipe = DISH_RECIPES[entry.dishKey.toLowerCase()] || [];
+      const recipe = entry.customIngredients || DISH_RECIPES[entry.dishKey.toLowerCase()] || [];
       const cooked = Math.max(0, entry.cookedPax || 0);
       const wasted = Math.min(cooked, Math.max(0, entry.wastedPax || 0));
       const consumed = Math.max(0, cooked - wasted);
@@ -252,46 +312,48 @@ export default function DailyProductionWasteLogger({
       let stockDeductedCount = 0;
       let wasteLoggedCount = 0;
 
-      // 1. Process each decomposed ingredient for Stock Out
-      for (const item of decomposedIngredients) {
-        if (!item.ingredientId) continue;
+      // 1. Process each decomposed ingredient for Stock Out (ONLY IF deductFromStock IS TRUE!)
+      if (deductFromStock) {
+        for (const item of decomposedIngredients) {
+          if (!item.ingredientId) continue;
 
-        // Check current stock row
-        const { data: existing } = await supabase
-          .from("catering_stock")
-          .select("id, stock_out, opening_stock, stock_in")
-          .eq("camp_id", selectedCamp)
-          .eq("ingredient_id", item.ingredientId)
-          .maybeSingle();
-
-        if (existing) {
-          const newStockOut = (Number(existing.stock_out) || 0) + item.cookedQty;
-          const { error: stockErr } = await supabase
+          const { data: existing } = await supabase
             .from("catering_stock")
-            .update({
-              stock_out: newStockOut,
-              updated_at: now,
-            })
-            .eq("id", existing.id);
-          if (stockErr) throw stockErr;
-          stockDeductedCount++;
-        } else {
-          // Initialize stock row if missing
-          const { error: insErr } = await supabase.from("catering_stock").insert({
-            camp_id: selectedCamp,
-            ingredient_id: item.ingredientId,
-            opening_stock: 0,
-            stock_in: 0,
-            stock_out: item.cookedQty,
-            min_level: 5,
-            updated_at: now,
-          });
-          if (insErr) throw insErr;
-          stockDeductedCount++;
-        }
+            .select("id, stock_out, opening_stock, stock_in")
+            .eq("camp_id", selectedCamp)
+            .eq("ingredient_id", item.ingredientId)
+            .maybeSingle();
 
-        // 2. Log Food Wastage row if portions were wasted
-        if (item.wastedQty > 0) {
+          if (existing) {
+            const newStockOut = (Number(existing.stock_out) || 0) + item.cookedQty;
+            const { error: stockErr } = await supabase
+              .from("catering_stock")
+              .update({
+                stock_out: newStockOut,
+                updated_at: now,
+              })
+              .eq("id", existing.id);
+            if (stockErr) throw stockErr;
+            stockDeductedCount++;
+          } else {
+            const { error: insErr } = await supabase.from("catering_stock").insert({
+              camp_id: selectedCamp,
+              ingredient_id: item.ingredientId,
+              opening_stock: 0,
+              stock_in: 0,
+              stock_out: item.cookedQty,
+              min_level: 5,
+              updated_at: now,
+            });
+            if (insErr) throw insErr;
+            stockDeductedCount++;
+          }
+        }
+      }
+
+      // 2. Always Log Food Wastage rows if portions were wasted
+      for (const item of decomposedIngredients) {
+        if (item.wastedQty > 0 && item.ingredientId) {
           const relevantReason =
             entries.find(e => e.wastedPax > 0)?.wasteReason || "Portion Leftover / Unserved";
 
@@ -316,9 +378,13 @@ export default function DailyProductionWasteLogger({
       await queryClient.invalidateQueries({ queryKey: ["food-wastage"] });
       await queryClient.invalidateQueries({ queryKey: ["grocery-items"] });
 
+      const stockMsg = deductFromStock
+        ? `Deducted ingredients for ${metrics.totalCookedPortions} portions from warehouse.`
+        : `Warehouse stock untouched (prevented double deduction).`;
+
       toast({
         title: "Shift Production & Waste Reconciled! 🎉",
-        description: `Successfully deducted ingredients for ${metrics.totalCookedPortions} portions from stock and logged ${wasteLoggedCount} waste line items (SAR ${metrics.totalWasteCost.toFixed(2)} loss).`,
+        description: `${stockMsg} Logged ${wasteLoggedCount} waste line items (SAR ${metrics.totalWasteCost.toFixed(2)} loss).`,
       });
 
       if (onSuccess) onSuccess();
@@ -351,7 +417,7 @@ export default function DailyProductionWasteLogger({
               </Badge>
             </div>
             <p className="text-xs text-muted-foreground mt-1 max-w-2xl">
-              Cooks enter <strong>Dishes & Portions cooked</strong> plus leftovers. The engine automatically decomposes recipes, updates warehouse stock, logs food waste, and calculates financial loss in SAR.
+              Cooks enter <strong>Dishes & Portions cooked</strong> plus leftovers. You can inspect and customize <strong>exact ingredient portions per person</strong> for any dish.
             </p>
           </div>
 
@@ -426,7 +492,7 @@ export default function DailyProductionWasteLogger({
         </CardContent>
       </Card>
 
-      {/* 1. Dish Portions Input Section */}
+      {/* 1. Dish Portions Input Section with Recipe Customizer */}
       <Card className="border-border/70 shadow-xs">
         <CardHeader className="pb-3 pt-4 px-5 flex flex-row items-center justify-between border-b border-border/50">
           <div>
@@ -435,7 +501,7 @@ export default function DailyProductionWasteLogger({
               1. Dishes Cooked & Portions Leftover
             </CardTitle>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Enter the batch quantities cooked and leftover portions for this shift.
+              Enter batch quantities. Click <strong>"Customize Recipe Portions"</strong> on any dish to tweak single-portion ingredient weights.
             </p>
           </div>
           <Button
@@ -447,7 +513,7 @@ export default function DailyProductionWasteLogger({
             <Plus size={14} /> Add Another Dish
           </Button>
         </CardHeader>
-        <CardContent className="p-4 sm:p-5 space-y-3">
+        <CardContent className="p-4 sm:p-5 space-y-4">
           {entries.map((entry, idx) => {
             const netPax = Math.max(0, entry.cookedPax - entry.wastedPax);
             const lossPct = entry.cookedPax > 0 ? (entry.wastedPax / entry.cookedPax) * 100 : 0;
@@ -465,7 +531,7 @@ export default function DailyProductionWasteLogger({
                         Dish #{idx + 1}
                       </Label>
                       <Badge variant="outline" className="text-[10px] font-mono">
-                        {DISH_RECIPES[entry.dishKey]?.length || 0} Ingredients in BOM
+                        {entry.customIngredients.length} Ingredients in BOM
                       </Badge>
                     </div>
                     <Select
@@ -541,7 +607,7 @@ export default function DailyProductionWasteLogger({
                   )}
                 </div>
 
-                {/* Waste Reason & Net Badge */}
+                {/* Waste Reason, Net Badge, & Recipe Customizer Toggle */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 border-t border-border/40 text-xs">
                   <div className="flex items-center gap-2 flex-1">
                     <span className="text-[11px] text-muted-foreground font-medium shrink-0">
@@ -565,10 +631,25 @@ export default function DailyProductionWasteLogger({
                     </Select>
                   </div>
 
-                  {/* Net Result Chip */}
+                  {/* Customize Recipe Portion Trigger */}
                   <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleToggleCustomize(entry.id)}
+                      className={`text-xs font-semibold gap-1.5 h-7 px-2.5 ${
+                        entry.isCustomizingRecipe
+                          ? "bg-primary/15 text-primary border border-primary/30"
+                          : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                      }`}
+                    >
+                      <SlidersHorizontal size={13} />
+                      {entry.isCustomizingRecipe ? "Close Recipe Editor" : "Customize Portion Quantities"}
+                    </Button>
+
                     <Badge variant="outline" className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30 text-[11px]">
-                      Net Consumed: <strong>{netPax} pax</strong>
+                      Net: <strong>{netPax} pax</strong>
                     </Badge>
                     {entry.wastedPax > 0 && (
                       <Badge variant="outline" className="bg-rose-500/10 text-rose-700 dark:text-rose-400 border-rose-500/30 text-[11px]">
@@ -577,6 +658,69 @@ export default function DailyProductionWasteLogger({
                     )}
                   </div>
                 </div>
+
+                {/* INLINE RECIPE PORTION EDITOR (Editable ingredients per single pax!) */}
+                {entry.isCustomizingRecipe && (
+                  <div className="mt-3 p-3.5 bg-muted/40 rounded-xl border border-primary/20 space-y-3 animate-in fade-in slide-in-from-top-1 duration-200">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5 text-xs font-bold text-foreground">
+                        <Edit2 size={13} className="text-primary" />
+                        Single-Portion Recipe Formulation for <span className="underline">{entry.dishName}</span>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => handleAddIngredientToDish(entry.id)}
+                        className="text-[11px] h-6 px-2 text-primary hover:bg-primary/10 gap-1"
+                      >
+                        <Plus size={11} /> Add Extra Ingredient
+                      </Button>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+                      {entry.customIngredients.map((ri, ingIdx) => (
+                        <div
+                          key={ingIdx}
+                          className="p-2.5 rounded-lg bg-card border border-border/80 flex items-center justify-between gap-2 shadow-2xs"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <span className="text-xs font-bold text-foreground block truncate">
+                              {ri.name}
+                            </span>
+                            <span className="text-[10px] text-muted-foreground">
+                              Standard: {ri.unit} / pax
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <Input
+                              type="number"
+                              step="any"
+                              min="0"
+                              value={ri.qty_per_person}
+                              onChange={e =>
+                                handleUpdateIngredientQty(entry.id, ingIdx, parseFloat(e.target.value) || 0)
+                              }
+                              className="w-16 h-7 text-xs font-mono font-bold text-right px-1.5"
+                            />
+                            <span className="text-[10px] font-mono text-muted-foreground w-8">
+                              {ri.unit}
+                            </span>
+                            {entry.customIngredients.length > 1 && (
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveIngredientFromDish(entry.id, ingIdx)}
+                                className="text-muted-foreground hover:text-rose-500 p-0.5"
+                              >
+                                <Trash2 size={12} />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             );
           })}
@@ -743,12 +887,52 @@ export default function DailyProductionWasteLogger({
         </Card>
       </div>
 
+      {/* DOUBLE DEDUCTION SAFETY SWITCH */}
+      <div className="p-4 rounded-xl border border-border/80 bg-card/80 space-y-2 shadow-2xs">
+        <div className="flex items-start gap-3">
+          <input
+            type="checkbox"
+            id="deduct-stock-toggle"
+            checked={deductFromStock}
+            onChange={e => setDeductFromStock(e.target.checked)}
+            className="h-4 w-4 mt-0.5 rounded border-border text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+          />
+          <div className="flex-1 cursor-pointer" onClick={() => setDeductFromStock(!deductFromStock)}>
+            <label htmlFor="deduct-stock-toggle" className="text-xs font-bold text-foreground cursor-pointer flex items-center gap-2">
+              <span>Automatically Deduct Raw Ingredients from Warehouse Physical Stock</span>
+              {deductFromStock ? (
+                <Badge className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 text-[10px]">
+                  ✓ Active (Deducts Stock)
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30 text-[10px]">
+                  ⚠️ Safe Mode (Waste & Yield Only)
+                </Badge>
+              )}
+            </label>
+            <p className="text-[11px] text-muted-foreground mt-1 leading-relaxed">
+              {deductFromStock ? (
+                <span>
+                  <strong>Standard Mode:</strong> Increments <code className="text-primary font-mono font-bold">stock_out</code> in the warehouse balance for this shift.
+                </span>
+              ) : (
+                <span className="text-amber-600 dark:text-amber-400 font-medium">
+                  <strong>Prevent Double Deduction:</strong> Warehouse stock will <strong>NOT</strong> be touched. Use this if your storekeeper already deducted the raw items during morning store requisition.
+                </span>
+              )}
+            </p>
+          </div>
+        </div>
+      </div>
+
       {/* Confirmation & Post Action Bar */}
       <div className="p-4 rounded-xl border border-border bg-card/90 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
         <div className="flex items-center gap-2">
           <CheckCircle2 size={18} className="text-emerald-500 shrink-0" />
           <div className="text-xs text-muted-foreground">
-            Clicking confirm will increase <span className="font-mono text-foreground font-semibold">stock_out</span> in the warehouse and log food waste records for auditing.
+            {deductFromStock
+              ? "Confirming will update warehouse stock_out and insert food waste audit rows."
+              : "Confirming will log food waste and yield analytics without modifying warehouse balance."}
           </div>
         </div>
 
