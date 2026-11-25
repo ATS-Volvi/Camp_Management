@@ -12,6 +12,8 @@ import WeeklyMenuConfig from "@/components/catering/WeeklyMenuConfig";
 import BatchPrepScaler from "@/components/catering/BatchPrepScaler";
 import VisualPantryShelf from "@/components/catering/VisualPantryShelf";
 import DailyProductionWasteLogger from "@/components/catering/DailyProductionWasteLogger";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
