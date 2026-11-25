@@ -292,6 +292,62 @@ export function useCreateGRN() {
   });
 }
 
+export function useUpdateStockDirectly() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      campId,
+      ingredientId,
+      newBalance,
+      minLevel,
+    }: {
+      campId: string;
+      ingredientId: string;
+      newBalance: number;
+      minLevel?: number;
+    }) => {
+      const { data: existing } = await supabase
+        .from("catering_stock")
+        .select("id, opening_stock, stock_in, stock_out")
+        .eq("camp_id", campId)
+        .eq("ingredient_id", ingredientId)
+        .maybeSingle();
+
+      if (existing) {
+        const currentIn = existing.stock_in || 0;
+        const currentOut = existing.stock_out || 0;
+        const adjustedOpening = newBalance - currentIn + currentOut;
+        const { error } = await supabase
+          .from("catering_stock")
+          .update({
+            opening_stock: adjustedOpening,
+            ...(minLevel !== undefined ? { min_level: minLevel } : {}),
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", existing.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("catering_stock").insert({
+          camp_id: campId,
+          ingredient_id: ingredientId,
+          opening_stock: newBalance,
+          stock_in: 0,
+          stock_out: 0,
+          min_level: minLevel ?? 5,
+        });
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["catering-stock"] });
+      qc.invalidateQueries({ queryKey: ["catering-stock-summary"] });
+      toast({ title: "Stock count updated successfully" });
+    },
+    onError: (e: any) =>
+      toast({ title: "Failed to update stock", description: e.message, variant: "destructive" }),
+  });
+}
+
 // ==========================================
 // CATERING ISSUES
 // ==========================================

@@ -17,7 +17,7 @@ import {
   useMealMenuTemplates, useUpsertMenuTemplate, useDeleteMenuTemplate,
   useDailyMealPlan, useUpsertDailyMealPlan,
   useGroceryRequests, useCreateGroceryRequest, useUpdateRequestStatus, useGroceryRequestItems,
-  useCateringStock,
+  useCateringStock, useUpdateStockDirectly,
   useCateringGRNs, useCreateGRN,
   useCateringIssues, useCreateIssue,
   useCampOccupancy, useCateringCostSummary,
@@ -69,7 +69,8 @@ export default function MessCatering() {
 
   const tabs: { key: Tab; label: string; icon: any }[] = [
     { key: "dashboard", label: "Dashboard", icon: BarChart3 },
-    { key: "grocery-config", label: "Grocery Config", icon: ShoppingBasket },
+    { key: "grocery-config", label: "Dishes & Recipes", icon: ShoppingBasket },
+    { key: "inventory", label: "📦 Stock & Inventory (GRN)", icon: Package },
     { key: "weekly-menu", label: "Weekly Menu", icon: UtensilsCrossed },
     { key: "daily-plan", label: "Daily Plan", icon: Calculator },
     { key: "requests", label: "Requests", icon: ClipboardList },
@@ -126,7 +127,15 @@ export default function MessCatering() {
       </div>
 
       {tab === "dashboard" && <CateringDashboard campId={selectedCampId || undefined} camps={camps} />}
-      {tab === "grocery-config" && <GroceryConfigMaster mealTypes={activeMealTypes} campId={selectedCampId} camps={camps} />}
+      {tab === "grocery-config" && (
+        <GroceryConfigMaster
+          mealTypes={activeMealTypes}
+          campId={selectedCampId}
+          camps={camps}
+          onNavigateToStock={() => setTab("inventory")}
+        />
+      )}
+      {tab === "inventory" && <InventoryTab campId={selectedCampId} camps={camps} />}
       {tab === "weekly-menu" && <WeeklyMenuConfig campId={selectedCampId} camps={camps} mealTypes={activeMealTypes} />}
       {tab === "daily-plan" && <DailyPlan campId={selectedCampId} camps={camps} mealTypes={activeMealTypes} />}
       {tab === "requests" && <GroceryRequestsTab campId={selectedCampId} camps={camps} mealTypes={activeMealTypes} />}
@@ -1556,13 +1565,25 @@ function GroceryRequestsTab({ campId, camps, mealTypes }: { campId: string; camp
 // INVENTORY TAB
 // ==========================================
 function InventoryTab({ campId, camps }: { campId: string; camps: any[] }) {
-  const { data: stock = [] } = useCateringStock(campId || undefined);
-  const { data: grns = [] } = useCateringGRNs(campId || undefined);
+  const [activeCampId, setActiveCampId] = useState(campId || (camps[0]?.id || ""));
+  useEffect(() => {
+    if (campId) setActiveCampId(campId);
+    else if (!activeCampId && camps.length > 0) setActiveCampId(camps[0].id);
+  }, [campId, camps]);
+
+  const { data: stock = [] } = useCateringStock(activeCampId || undefined);
+  const { data: grns = [] } = useCateringGRNs(activeCampId || undefined);
   const { data: ingredients = [] } = useIngredients();
   const createGRN = useCreateGRN();
+  const updateStockDirectly = useUpdateStockDirectly();
 
+  const [searchTerm, setSearchTerm] = useState("");
   const [showGRN, setShowGRN] = useState(false);
-  const [grnCamp, setGrnCamp] = useState(campId || "");
+  const [showDirectAdjust, setShowDirectAdjust] = useState(false);
+  const [adjustItem, setAdjustItem] = useState<{ ingredientId: string; name: string; unit: string; currentBalance: number; newBalance: number; minLevel: number } | null>(null);
+
+  const [grnCamp, setGrnCamp] = useState(activeCampId || "");
+  useEffect(() => { if (activeCampId) setGrnCamp(activeCampId); }, [activeCampId]);
   const [grnVendor, setGrnVendor] = useState("");
   const [grnDate, setGrnDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [grnNotes, setGrnNotes] = useState("");
@@ -1573,7 +1594,10 @@ function InventoryTab({ campId, camps }: { campId: string; camps: any[] }) {
   const updateGrnItem = (i: number, field: string, value: any) => setGrnItems(p => p.map((item, idx) => idx === i ? { ...item, [field]: value } : item));
 
   const handleCreateGRN = async () => {
-    if (!grnCamp || grnItems.length === 0) return;
+    if (!grnCamp || grnItems.length === 0) {
+      toast({ title: "Please choose a camp and at least 1 item", variant: "destructive" });
+      return;
+    }
     const { data: { user } } = await supabase.auth.getUser();
     const totalCost = grnItems.reduce((s, i) => s + i.quantity * i.unit_cost, 0);
     const grnNumber = `GRN-${format(new Date(), "yyyyMMdd-HHmmss")}`;
@@ -1586,60 +1610,287 @@ function InventoryTab({ campId, camps }: { campId: string; camps: any[] }) {
     });
   };
 
+  const handleSaveDirectStock = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!adjustItem || !activeCampId) {
+      toast({ title: "Please select a camp first", variant: "destructive" });
+      return;
+    }
+    updateStockDirectly.mutate({
+      campId: activeCampId,
+      ingredientId: adjustItem.ingredientId,
+      newBalance: Number(adjustItem.newBalance),
+      minLevel: Number(adjustItem.minLevel),
+    }, {
+      onSuccess: () => {
+        setAdjustItem(null);
+        setShowDirectAdjust(false);
+      }
+    });
+  };
+
+  const filteredStock = (stock || []).filter((s: any) => {
+    if (!searchTerm) return true;
+    const name = s.ingredients?.name?.toLowerCase() || "";
+    const cat = s.ingredients?.category?.toLowerCase() || "";
+    return name.includes(searchTerm.toLowerCase()) || cat.includes(searchTerm.toLowerCase());
+  });
+
   const lowStock = (stock || []).filter((s: any) => s.balance !== null && s.balance <= s.min_level);
 
   return (
     <div className="space-y-6">
-      {/* Stock Ledger */}
-      <div className="stat-card">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-semibold">Catering Stock Ledger</h3>
-          <button onClick={() => setShowGRN(!showGRN)} className="text-xs bg-primary text-primary-foreground px-3 py-1.5 rounded-lg flex items-center gap-1">
-            <Plus size={12} /> Record GRN
+      {/* Camp & Search Header */}
+      <div className="bg-card p-4 rounded-xl border border-border/80 shadow-2xs flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 rounded-lg bg-primary/10 text-primary">
+            <Package size={22} />
+          </div>
+          <div>
+            <h3 className="text-base font-bold text-foreground">Camp Store & Warehouse Stock</h3>
+            <p className="text-xs text-muted-foreground">
+              Insert live stock counts, set opening balances, or log incoming supplier deliveries (GRN).
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Camp selector if not chosen globally */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs font-semibold text-muted-foreground">Camp:</span>
+            <select
+              value={activeCampId}
+              onChange={e => setActiveCampId(e.target.value)}
+              className="text-xs border rounded-lg px-2.5 py-1.5 bg-background font-medium"
+            >
+              {camps.map((c: any) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+          </div>
+
+          <button
+            onClick={() => {
+              if (ingredients.length > 0) {
+                const first = ingredients[0];
+                setAdjustItem({
+                  ingredientId: first.id,
+                  name: first.name,
+                  unit: first.unit,
+                  currentBalance: 0,
+                  newBalance: 100,
+                  minLevel: 5,
+                });
+                setShowDirectAdjust(true);
+              }
+            }}
+            className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-3 py-1.5 rounded-lg flex items-center gap-1.5 shadow-2xs transition-colors"
+          >
+            <Plus size={14} /> Quick Stock Count
           </button>
+
+          <button
+            onClick={() => setShowGRN(!showGRN)}
+            className="text-xs bg-primary text-primary-foreground font-semibold px-3 py-1.5 rounded-lg flex items-center gap-1.5 shadow-2xs hover:bg-primary/90 transition-colors"
+          >
+            <Truck size={14} /> Record Supplier GRN
+          </button>
+        </div>
+      </div>
+
+      {/* Stock Ledger Card */}
+      <div className="stat-card">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+          <div className="flex items-center gap-2">
+            <h3 className="text-sm font-semibold">Active Inventory Balance</h3>
+            <span className="text-xs bg-muted px-2 py-0.5 rounded-full text-muted-foreground font-mono">
+              {filteredStock.length} items
+            </span>
+          </div>
+          <div className="relative w-full sm:w-64">
+            <input
+              type="text"
+              placeholder="Search stock by name or category..."
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+              className="w-full text-xs border rounded-lg pl-3 pr-3 py-1.5 bg-background"
+            />
+          </div>
         </div>
 
         {lowStock.length > 0 && (
-          <div className="mb-4 px-3 py-2 bg-destructive/5 border border-destructive/20 rounded-lg">
-            <p className="text-xs text-destructive font-medium flex items-center gap-1"><AlertTriangle size={12} /> {lowStock.length} items below reorder level</p>
+          <div className="mb-4 px-3 py-2 bg-destructive/10 border border-destructive/20 rounded-lg">
+            <p className="text-xs text-destructive font-medium flex items-center gap-1.5">
+              <AlertTriangle size={14} />
+              <strong>{lowStock.length} items</strong> are at or below safety reorder level!
+            </p>
           </div>
         )}
 
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead><tr className="border-b text-left text-muted-foreground">
-              <th className="pb-2 font-medium">Ingredient</th>
-              <th className="pb-2 font-medium">Category</th>
-              <th className="pb-2 font-medium text-right">Opening</th>
-              <th className="pb-2 font-medium text-right">In</th>
-              <th className="pb-2 font-medium text-right">Out</th>
-              <th className="pb-2 font-medium text-right">Balance</th>
-              <th className="pb-2 font-medium text-right">Min Level</th>
-              <th className="pb-2 font-medium">Status</th>
-            </tr></thead>
-            <tbody>
-              {(stock || []).map((s: any) => {
+            <thead>
+              <tr className="border-b text-left text-muted-foreground text-xs uppercase tracking-wider">
+                <th className="pb-2 font-semibold">Ingredient</th>
+                <th className="pb-2 font-semibold">Category</th>
+                <th className="pb-2 font-semibold text-right">Opening</th>
+                <th className="pb-2 font-semibold text-right">In (GRN)</th>
+                <th className="pb-2 font-semibold text-right">Out (Kitchen)</th>
+                <th className="pb-2 font-semibold text-right">Current Stock</th>
+                <th className="pb-2 font-semibold text-right">Min Level</th>
+                <th className="pb-2 font-semibold text-center">Status</th>
+                <th className="pb-2 font-semibold text-right">Action</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {filteredStock.map((s: any) => {
                 const isLow = s.balance !== null && s.balance <= s.min_level;
                 return (
-                  <tr key={s.id} className="border-b last:border-0">
-                    <td className="py-2 font-medium">{s.ingredients?.name}</td>
+                  <tr key={s.id} className="hover:bg-muted/40 transition-colors">
+                    <td className="py-2.5 font-bold text-foreground">{s.ingredients?.name}</td>
                     <td className="text-xs text-muted-foreground">{s.ingredients?.category}</td>
-                    <td className="text-right">{s.opening_stock}</td>
-                    <td className="text-right text-emerald-600">+{s.stock_in}</td>
-                    <td className="text-right text-destructive">-{s.stock_out}</td>
-                    <td className={`text-right font-bold ${isLow ? "text-destructive" : ""}`}>{s.balance} {s.ingredients?.unit}</td>
-                    <td className="text-right">{s.min_level}</td>
-                    <td>{isLow ? <span className="text-xs bg-destructive/10 text-destructive px-2 py-0.5 rounded-full">Low</span> : <span className="text-xs bg-emerald-500/10 text-emerald-600 px-2 py-0.5 rounded-full">OK</span>}</td>
+                    <td className="text-right font-mono text-muted-foreground">{s.opening_stock ?? 0}</td>
+                    <td className="text-right font-mono text-emerald-600">+{s.stock_in ?? 0}</td>
+                    <td className="text-right font-mono text-rose-600">-{s.stock_out ?? 0}</td>
+                    <td className={`text-right font-mono font-black text-base ${isLow ? "text-rose-600" : "text-foreground"}`}>
+                      {s.balance ?? 0} <span className="text-xs font-normal text-muted-foreground">{s.ingredients?.unit}</span>
+                    </td>
+                    <td className="text-right font-mono text-muted-foreground">{s.min_level ?? 5}</td>
+                    <td className="text-center">
+                      {isLow ? (
+                        <span className="text-[11px] font-bold bg-rose-500/15 text-rose-700 dark:text-rose-300 px-2.5 py-0.5 rounded-full">
+                          Low Stock
+                        </span>
+                      ) : (
+                        <span className="text-[11px] font-semibold bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 px-2.5 py-0.5 rounded-full">
+                          OK
+                        </span>
+                      )}
+                    </td>
+                    <td className="text-right">
+                      <button
+                        onClick={() => {
+                          setAdjustItem({
+                            ingredientId: s.ingredient_id,
+                            name: s.ingredients?.name || "Ingredient",
+                            unit: s.ingredients?.unit || "kg",
+                            currentBalance: s.balance ?? 0,
+                            newBalance: s.balance ?? 0,
+                            minLevel: s.min_level ?? 5,
+                          });
+                          setShowDirectAdjust(true);
+                        }}
+                        className="text-xs font-semibold px-2.5 py-1 bg-muted hover:bg-primary hover:text-primary-foreground rounded-md transition-colors"
+                      >
+                        ✏️ Edit Stock
+                      </button>
+                    </td>
                   </tr>
                 );
               })}
-              {(!stock || stock.length === 0) && (
-                <tr><td colSpan={8} className="py-4 text-center text-muted-foreground">No stock records. Record a GRN to start.</td></tr>
+              {filteredStock.length === 0 && (
+                <tr>
+                  <td colSpan={9} className="py-8 text-center text-muted-foreground text-xs">
+                    No stock records found for this camp. Click <strong>"Quick Stock Count"</strong> or <strong>"Record Supplier GRN"</strong> above to enter quantities.
+                  </td>
+                </tr>
               )}
             </tbody>
           </table>
         </div>
       </div>
+
+      {/* Quick Direct Stock Adjustment Modal */}
+      {showDirectAdjust && adjustItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in">
+          <div className="bg-card border border-border shadow-2xl rounded-2xl p-6 max-w-md w-full space-y-4">
+            <div className="flex items-center justify-between border-b pb-3">
+              <div>
+                <h3 className="text-base font-bold text-foreground">Set Stock Count</h3>
+                <p className="text-xs text-muted-foreground">
+                  Update physical quantity stored in warehouse for <strong>{adjustItem.name}</strong>.
+                </p>
+              </div>
+              <button onClick={() => setShowDirectAdjust(false)} className="text-muted-foreground hover:text-foreground text-sm">✕</button>
+            </div>
+
+            <form onSubmit={handleSaveDirectStock} className="space-y-4">
+              <div>
+                <label className="text-xs font-medium block mb-1">Select Ingredient</label>
+                <select
+                  value={adjustItem.ingredientId}
+                  onChange={e => {
+                    const found = ingredients.find((i: any) => i.id === e.target.value);
+                    if (found) {
+                      const cur = stock.find((s: any) => s.ingredient_id === found.id);
+                      setAdjustItem({
+                        ingredientId: found.id,
+                        name: found.name,
+                        unit: found.unit,
+                        currentBalance: cur?.balance ?? 0,
+                        newBalance: cur?.balance ?? 0,
+                        minLevel: cur?.min_level ?? 5,
+                      });
+                    }
+                  }}
+                  className="w-full text-xs border rounded-lg px-3 py-2 bg-background font-medium"
+                >
+                  {ingredients.map((ing: any) => (
+                    <option key={ing.id} value={ing.id}>
+                      {ing.name} ({ing.unit}) — {ing.category}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="text-xs font-medium block mb-1">
+                  Actual Physical Stock Quantity ({adjustItem.unit})
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  required
+                  value={adjustItem.newBalance}
+                  onChange={e => setAdjustItem({ ...adjustItem, newBalance: +e.target.value })}
+                  className="w-full text-lg font-bold border rounded-lg px-3 py-2 bg-background"
+                  autoFocus
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-medium block mb-1">Safety Reorder Min Level ({adjustItem.unit})</label>
+                <input
+                  type="number"
+                  step="1"
+                  min="0"
+                  value={adjustItem.minLevel}
+                  onChange={e => setAdjustItem({ ...adjustItem, minLevel: +e.target.value })}
+                  className="w-full text-xs border rounded-lg px-3 py-2 bg-background"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t">
+                <button
+                  type="button"
+                  onClick={() => setShowDirectAdjust(false)}
+                  className="text-xs px-4 py-2 rounded-lg border hover:bg-muted"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={updateStockDirectly.isPending}
+                  className="text-xs font-bold px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90"
+                >
+                  Save Stock Quantity
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* GRN Form */}
       {showGRN && (
@@ -1665,7 +1916,7 @@ function InventoryTab({ campId, camps }: { campId: string; camps: any[] }) {
 
           <div className="space-y-2 mb-4">
             <div className="flex items-center justify-between">
-              <label className="text-xs font-medium">Items</label>
+              <label className="text-xs font-medium">Items Received</label>
               <button onClick={addGrnItem} className="text-xs text-primary hover:underline flex items-center gap-1"><Plus size={12} /> Add Item</button>
             </div>
             {grnItems.map((item, i) => (
@@ -1678,6 +1929,16 @@ function InventoryTab({ campId, camps }: { campId: string; camps: any[] }) {
                 <input type="number" step="0.01" value={item.unit_cost} onChange={e => updateGrnItem(i, "unit_cost", +e.target.value)} placeholder="Unit cost" className="border rounded px-2 py-1.5 text-sm bg-card" />
                 <button onClick={() => removeGrnItem(i)} className="text-destructive p-1"><Trash2 size={14} /></button>
               </div>
+            ))}
+          </div>
+
+          <input value={grnNotes} onChange={e => setGrnNotes(e.target.value)} placeholder="Delivery / Invoice Notes (optional)" className="w-full border rounded px-2 py-1.5 text-sm bg-card mb-3" />
+          <div className="flex gap-2">
+            <button onClick={handleCreateGRN} disabled={createGRN.isPending} className="text-xs bg-primary text-primary-foreground font-semibold px-4 py-2 rounded-lg">Save GRN & Update Stock</button>
+            <button onClick={() => setShowGRN(false)} className="text-xs border px-3 py-2 rounded-lg hover:bg-muted">Cancel</button>
+          </div>
+        </div>
+      )}
             ))}
           </div>
 

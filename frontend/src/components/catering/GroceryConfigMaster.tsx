@@ -34,9 +34,10 @@ interface GroceryConfigMasterProps {
   mealTypes: string[];
   campId?: string;
   camps?: any[];
+  onNavigateToStock?: () => void;
 }
 
-export default function GroceryConfigMaster({ mealTypes, campId, camps = [] }: GroceryConfigMasterProps) {
+export default function GroceryConfigMaster({ mealTypes, campId, camps = [], onNavigateToStock }: GroceryConfigMasterProps) {
   const { data: ingredients = [] } = useIngredients();
   const [activeMeal, setActiveMeal] = useState(mealTypes[0] || "Breakfast");
   const { data: dishes = [] } = useMenuDishes(activeMeal);
@@ -487,12 +488,44 @@ export default function GroceryConfigMaster({ mealTypes, campId, camps = [] }: G
           {/* Right: Dish Ingredients */}
           <div className="col-span-8 space-y-4">
             {!selectedDishId ? (
-              <Card>
-                <CardContent className="py-16 text-center">
-                  <UtensilsCrossed size={40} className="mx-auto text-muted-foreground mb-3" />
-                  <p className="text-muted-foreground">Select a dish from the left to configure its ingredients</p>
-                </CardContent>
-              </Card>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Card className="border-dashed">
+                  <CardContent className="py-12 px-6 text-center space-y-3">
+                    <div className="mx-auto w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                      <UtensilsCrossed size={24} />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-foreground">Dish Recipe Configuration</h4>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Select any dish from the left list (e.g. <em>Aloo Parota</em>, <em>Egg Dosa</em>) to view and configure its raw ingredient proportions per person.
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="border-primary/30 bg-primary/5">
+                  <CardContent className="py-12 px-6 text-center space-y-3">
+                    <div className="mx-auto w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center text-primary">
+                      <ShoppingBasket size={24} />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-foreground">Warehouse & Camp Stock Quantity</h4>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Looking to enter how many kilograms of rice, chicken, or oil are currently in your camp store?
+                      </p>
+                    </div>
+                    {onNavigateToStock && (
+                      <Button
+                        size="sm"
+                        onClick={onNavigateToStock}
+                        className="bg-primary text-primary-foreground font-semibold gap-1.5 shadow-2xs mt-2"
+                      >
+                        <ShoppingBasket size={14} /> Open Stock & Inventory (GRN)
+                      </Button>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
             ) : (
               <>
                 {/* Dish Header + KPIs */}

@@ -1345,14 +1345,14 @@ export default function MenuProductionPlanning2D({
                       size="sm"
                       variant={item.hasStockShortage ? "default" : "outline"}
                       onClick={() => handleOpenStockModal(item.bom, item.scaledQty, item.bom.warehouseStock)}
-                      className={`h-7 px-2.5 text-[11px] font-bold gap-1 shrink-0 ${
+                      className={`h-7 px-3 text-xs font-bold gap-1.5 shrink-0 shadow-2xs ${
                         item.hasStockShortage
                           ? "bg-rose-600 hover:bg-rose-700 text-white"
                           : "text-muted-foreground hover:text-foreground"
                       }`}
                     >
-                      <Package className="h-3 w-3" />
-                      {item.hasStockShortage ? "Restock" : "Adjust"}
+                      <Package className="h-3.5 w-3.5" />
+                      {item.hasStockShortage ? "✏️ Enter Stock Count" : "✏️ Adjust Stock"}
                     </Button>
                   </div>
                 </div>
