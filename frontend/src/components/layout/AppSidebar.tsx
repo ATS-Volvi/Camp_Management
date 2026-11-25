@@ -180,33 +180,52 @@ export default function AppSidebar() {
     const groupActive = items.some(item => isActive(item.path));
     const panelId = `nav-group-${index}`;
     return (
-      <div key={label} className={index === 0 ? "pt-2" : "pt-3 mt-1 border-t"}>
+      <div key={label} className={index === 0 ? "pt-2" : "pt-2.5 mt-1 border-t border-border/50"}>
         <Button
           variant="ghost"
           aria-expanded={open}
           aria-controls={panelId}
           onClick={() => toggleGroup(label)}
-          className={`sidebar-link w-full justify-start ${groupActive ? "sidebar-link-active" : ""}`}
+          className={`sidebar-link w-full justify-start py-2 text-xs font-semibold ${
+            groupActive ? "text-foreground font-bold" : "text-muted-foreground hover:text-foreground"
+          }`}
         >
-          <Icon size={18} />
-          <span className="flex-1 text-left">{label}</span>
-          <ChevronDown size={16} className={`transition-transform ${open ? "rotate-180" : ""}`} />
+          <Icon size={17} className={groupActive ? (isCatering ? "text-[#fe932c]" : "text-emerald-500") : "text-muted-foreground"} />
+          <span className="flex-1 text-left tracking-tight truncate">{label}</span>
+          <ChevronDown
+            size={14}
+            className={`transition-transform duration-300 text-muted-foreground ${open ? "rotate-180" : ""}`}
+          />
         </Button>
         {open && (
-          <div id={panelId} className="ml-3 pl-2 border-l space-y-0.5">
-            {items.map(item => (
-              <NavLink
-                key={item.path}
-                to={item.path}
-                end={item.path === "/"}
-                className={({ isActive: active }) =>
-                  `sidebar-link text-xs ${active ? "sidebar-link-active" : ""}`
-                }
-              >
-                {item.icon && <item.icon size={16} className="shrink-0" />}
-                <span className="truncate">{item.label}</span>
-              </NavLink>
-            ))}
+          <div id={panelId} className="ml-3 pl-2.5 border-l border-border/60 space-y-0.5 mt-0.5 animate-in slide-in-from-top-1 fade-in duration-200">
+            {items.map(item => {
+              const active = isActive(item.path);
+              return (
+                <NavLink
+                  key={item.path}
+                  to={item.path}
+                  end={item.path === "/"}
+                  className={
+                    `sidebar-link text-xs ${active ? "sidebar-link-active" : ""}`
+                  }
+                >
+                  {item.icon && (
+                    <item.icon
+                      size={15}
+                      className={`shrink-0 transition-colors ${
+                        active
+                          ? isCatering
+                            ? "text-[#fe932c]"
+                            : "text-emerald-500"
+                          : "text-muted-foreground"
+                      }`}
+                    />
+                  )}
+                  <span className="truncate">{item.label}</span>
+                </NavLink>
+              );
+            })}
           </div>
         )}
       </div>
@@ -214,69 +233,98 @@ export default function AppSidebar() {
   };
 
   return (
-    <aside className="w-[240px] h-screen bg-sidebar text-sidebar-foreground border-r flex flex-col shrink-0">
-      {/* Dynamic Header */}
+    <aside className="w-[260px] h-screen bg-card/95 dark:bg-[#0c1524]/95 backdrop-blur-xl border-r border-border/70 flex flex-col shrink-0 shadow-xl transition-all duration-300 z-30 select-none">
+      {/* Dynamic Division Header */}
       {isCatering ? (
-        <div className="p-3 bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-transparent border-b border-border/70 shrink-0">
-          <div className="flex items-center gap-2 mb-2">
-            <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-[#fe932c] to-amber-600 flex items-center justify-center text-white shadow-xs shrink-0">
-              <ChefHat size={18} />
+        <div className="relative p-3.5 bg-gradient-to-b from-orange-500/15 via-amber-500/10 to-transparent border-b border-border/70 shrink-0">
+          <div className="absolute top-0 left-4 right-4 h-[2px] bg-gradient-to-r from-amber-400 via-orange-400 to-transparent" />
+          <div className="flex items-center gap-2.5 mb-2.5">
+            <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-amber-500 via-[#fe932c] to-orange-600 flex items-center justify-center text-white shadow-md shadow-amber-500/25 shrink-0">
+              <ChefHat size={19} />
             </div>
-            <div className="min-w-0">
-              <div className="text-sm font-black tracking-tight text-foreground flex items-center gap-1.5">
-                <span>Catering-365</span>
-                <span className="text-[9px] font-mono px-1 py-0.2 rounded-full bg-orange-500/20 text-orange-600 dark:text-orange-400 font-bold">HUB</span>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-black tracking-tight text-foreground truncate">
+                  Catering-365
+                </span>
+                <span className="inline-flex items-center gap-1 text-[9px] font-mono px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-600 dark:text-amber-400 font-bold border border-amber-500/30">
+                  <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
+                  LIVE
+                </span>
               </div>
-              <div className="text-[10px] text-muted-foreground font-medium truncate">Culinary Operations Suite</div>
+              <div className="text-[10px] text-muted-foreground font-medium truncate mt-0.5">
+                Industrial Culinary Operations
+              </div>
             </div>
           </div>
           <NavLink
             to="/camp-hub"
             className="flex items-center justify-between w-full px-2.5 py-1.5 rounded-lg bg-card/90 hover:bg-muted text-[11px] font-semibold text-foreground border border-border/80 transition-all shadow-2xs group"
           >
-            <span className="flex items-center gap-1.5 text-muted-foreground group-hover:text-primary">
-              <ArrowLeft size={13} />
+            <span className="flex items-center gap-1.5 text-muted-foreground group-hover:text-primary transition-colors">
+              <ArrowLeft size={13} className="transition-transform group-hover:-translate-x-0.5" />
               <span>Exit to Camp-365</span>
             </span>
-            <span className="text-[9px] font-mono text-muted-foreground bg-muted px-1 rounded">Launchpad</span>
+            <span className="text-[9px] font-mono text-muted-foreground bg-muted px-1.5 py-0.5 rounded">Launchpad</span>
           </NavLink>
         </div>
       ) : (
-        <div className="p-3 bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-transparent border-b border-border/70 shrink-0">
-          <div className="flex items-center gap-2 mb-2">
-            <img src={campLogo} alt="Camp-365 Logo" className="w-8 h-8 rounded shrink-0 shadow-2xs" />
-            <div className="min-w-0">
-              <div className="text-sm font-black tracking-tight text-foreground flex items-center gap-1.5">
-                <span>Camp-365</span>
-                <span className="text-[9px] font-mono px-1 py-0.2 rounded-full bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-bold">MGMT</span>
+        <div className="relative p-3.5 bg-gradient-to-b from-emerald-500/15 via-teal-500/10 to-transparent border-b border-border/70 shrink-0">
+          <div className="absolute top-0 left-4 right-4 h-[2px] bg-gradient-to-r from-emerald-400 via-teal-400 to-transparent" />
+          <div className="flex items-center gap-2.5 mb-2.5">
+            <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white shadow-md shadow-emerald-500/25 shrink-0">
+              <Building2 size={19} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-black tracking-tight text-foreground truncate">
+                  Camp-365
+                </span>
+                <span className="inline-flex items-center gap-1 text-[9px] font-mono px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-bold border border-emerald-500/30">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  MGMT
+                </span>
               </div>
-              <div className="text-[10px] text-muted-foreground font-medium truncate">Workforce & Accommodation</div>
+              <div className="text-[10px] text-muted-foreground font-medium truncate mt-0.5">
+                Workforce Accommodation & Assets
+              </div>
             </div>
           </div>
           <NavLink
             to="/camp-hub"
             className="flex items-center justify-between w-full px-2.5 py-1.5 rounded-lg bg-card/90 hover:bg-muted text-[11px] font-semibold text-foreground border border-border/80 transition-all shadow-2xs group"
           >
-            <span className="flex items-center gap-1.5 text-muted-foreground group-hover:text-primary">
-              <Layers size={13} />
+            <span className="flex items-center gap-1.5 text-muted-foreground group-hover:text-primary transition-colors">
+              <Layers size={13} className="transition-transform group-hover:rotate-12" />
               <span>Camp-365 Launchpad</span>
             </span>
-            <span className="text-[9px] font-mono text-muted-foreground bg-muted px-1 rounded">Switch</span>
+            <span className="text-[9px] font-mono text-muted-foreground bg-muted px-1.5 py-0.5 rounded">Switch</span>
           </NavLink>
         </div>
       )}
 
-      {/* Search */}
+      {/* Quick Search */}
       <div className="px-3 py-2.5 shrink-0">
-        <div className="flex items-center gap-2 px-3 py-1.5 bg-muted rounded-lg text-muted-foreground text-xs">
-          <Search size={14} />
-          <span>{isCatering ? "Search recipes & dishes..." : "Search..."}</span>
-          <span className="ml-auto text-[10px] bg-card px-1.5 py-0.5 rounded border">⌘K</span>
+        <div className="flex items-center gap-2 px-3 py-1.5 bg-muted/50 rounded-xl text-muted-foreground text-xs border border-border/60 hover:border-border focus-within:border-primary/60 focus-within:ring-2 focus-within:ring-primary/10 transition-all">
+          <Search size={14} className="shrink-0 text-muted-foreground" />
+          <input
+            type="text"
+            placeholder={isCatering ? "Filter recipes & BOM..." : "Quick filter..."}
+            className="bg-transparent border-0 outline-hidden text-xs w-full text-foreground placeholder:text-muted-foreground"
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && e.currentTarget.value) {
+                // Quick search navigation
+              }
+            }}
+          />
+          <kbd className="text-[9px] font-mono bg-card px-1.5 py-0.5 rounded border border-border/80 text-muted-foreground shrink-0 shadow-2xs">
+            ⌘K
+          </kbd>
         </div>
       </div>
 
-      {/* Main Nav */}
-      <nav className="flex-1 px-3 space-y-0.5 overflow-y-auto">
+      {/* Main Nav Tree */}
+      <nav className="flex-1 px-3 space-y-0.5 overflow-y-auto custom-scrollbar">
         {!isCatering && (
           <>
             <Button
@@ -286,12 +334,12 @@ export default function AppSidebar() {
               onClick={() => setDashboardsOpen(!dashboardsOpen)}
               className={`sidebar-link w-full justify-start ${dashboardActive ? "sidebar-link-active" : ""}`}
             >
-              <Gauge size={18} />
-              <span className="flex-1 text-left">Dashboard</span>
-              <ChevronDown size={16} className={`transition-transform ${dashboardsOpen ? "rotate-180" : ""}`} />
+              <Gauge size={17} />
+              <span className="flex-1 text-left tracking-tight truncate">Dashboard</span>
+              <ChevronDown size={14} className={`transition-transform duration-300 ${dashboardsOpen ? "rotate-180" : ""}`} />
             </Button>
             {dashboardsOpen && (
-              <div id="dashboard-menu" className="ml-3 pl-2 border-l space-y-0.5">
+              <div id="dashboard-menu" className="ml-3 pl-2.5 border-l border-border/60 space-y-0.5 mt-0.5 animate-in slide-in-from-top-1 fade-in duration-200">
                 {dashboardNav.map(item => (
                   <NavLink
                     key={item.path}
@@ -300,7 +348,7 @@ export default function AppSidebar() {
                       `sidebar-link text-xs ${active ? "sidebar-link-active" : ""}`
                     }
                   >
-                    <item.icon size={16} className="shrink-0" />
+                    <item.icon size={15} className="shrink-0" />
                     <span className="truncate">{item.label}</span>
                   </NavLink>
                 ))}
@@ -312,8 +360,8 @@ export default function AppSidebar() {
                 `sidebar-link ${active ? "sidebar-link-active" : ""}`
               }
             >
-              <Home size={18} />
-              Home
+              <Home size={17} />
+              <span className="truncate">Home</span>
             </NavLink>
           </>
         )}
@@ -328,7 +376,7 @@ export default function AppSidebar() {
 
         {/* Bottom Reports Navigation for Accommodation */}
         {!isCatering && (
-          <div className="pt-4 space-y-0.5">
+          <div className="pt-3 border-t border-border/50 mt-2 space-y-0.5">
             {bottomNav.map(item => (
               <NavLink
                 key={item.path}
@@ -337,7 +385,7 @@ export default function AppSidebar() {
                   `sidebar-link ${active || isPathActive(location.pathname, item.path) ? "sidebar-link-active" : ""}`
                 }
               >
-                <item.icon size={18} />
+                <item.icon size={17} />
                 <span>{item.label}</span>
               </NavLink>
             ))}
@@ -346,13 +394,13 @@ export default function AppSidebar() {
 
         {/* Quick Launchpad Return Tile inside catering nav */}
         {isCatering && (
-          <div className="pt-3 border-t mt-3">
+          <div className="pt-3 border-t border-border/50 mt-3 space-y-0.5">
             <NavLink
               to="/"
               className="sidebar-link text-xs text-muted-foreground hover:text-foreground"
             >
               <Building2 size={16} />
-              <span>Enterprise Launchpad</span>
+              <span>Main Launchpad</span>
             </NavLink>
             <NavLink
               to="/ai-reports"
@@ -365,24 +413,48 @@ export default function AppSidebar() {
         )}
       </nav>
 
-      {/* Footer */}
-      <div className="px-3 py-2.5 border-t space-y-0.5 shrink-0">
+      {/* System Health & Status Pill */}
+      <div className="px-3 py-2 border-t border-border/60 shrink-0">
+        <div className="flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-muted/40 border border-border/50 text-[10px] text-muted-foreground">
+          <div className="flex items-center gap-2">
+            <span className="relative flex h-2 w-2">
+              <span
+                className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
+                  isCatering ? "bg-amber-400" : "bg-emerald-400"
+                }`}
+              />
+              <span
+                className={`relative inline-flex rounded-full h-2 w-2 ${
+                  isCatering ? "bg-amber-500" : "bg-emerald-500"
+                }`}
+              />
+            </span>
+            <span className="font-mono font-medium">
+              {isCatering ? "Catering Sync Live" : "CampOps Sync Live"}
+            </span>
+          </div>
+          <span className="font-mono text-[9px] opacity-70">24ms</span>
+        </div>
+      </div>
+
+      {/* Footer Settings & Support */}
+      <div className="px-3 py-2 border-t border-border/60 space-y-0.5 shrink-0">
         {footerNav.map(item => (
           <NavLink
             key={item.path}
             to={item.path}
             className={({ isActive: active }) =>
-              `sidebar-link ${active ? "sidebar-link-active" : ""}`
+              `sidebar-link py-1.5 ${active ? "sidebar-link-active" : ""}`
             }
           >
-            <item.icon size={18} />
-            {item.label}
+            <item.icon size={15} />
+            <span className="text-xs">{item.label}</span>
           </NavLink>
         ))}
       </div>
 
-      <div className="px-4 py-2 text-[10px] text-muted-foreground shrink-0">
-        © folkslogic. 2024. All Rights Reserved.
+      <div className="px-4 py-2 text-[10px] text-muted-foreground/80 shrink-0">
+        © Camp-365 Operations Suite. All Rights Reserved.
       </div>
     </aside>
   );

@@ -22,7 +22,9 @@ export default function AppLayout() {
         {commandView && <div className="md:hidden px-3 py-2 border-b flex items-center gap-2"><Button variant="ghost" size="icon" aria-label="Open navigation" onClick={() => setMobileNav(true)}><Menu /></Button><span className="text-sm font-semibold">Dashboard</span></div>}
         <TopBar />
         <main className={`flex-1 overflow-y-auto ${commandView ? "p-3 md:p-6" : "p-6"}`} onClick={() => mobileNav && setMobileNav(false)}>
-          <Outlet />
+          <div key={pathname} className="animate-in fade-in-50 slide-in-from-bottom-1 duration-200 ease-out">
+            <Outlet />
+          </div>
         </main>
       </div>
       <GlobalCommandPalette />
