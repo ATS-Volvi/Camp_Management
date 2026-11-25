@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import {
   UtensilsCrossed, Package, ClipboardList, BarChart3, Settings2,
   Plus, Trash2, Check, X, ChevronRight, AlertTriangle, Download,
-  Coffee, Sun, Moon, Users, Calculator, FileText, Truck, Sparkles, Recycle, ShoppingBasket, Wand2, Compass, Scale, LayoutGrid
+  Coffee, Sun, Moon, Users, Calculator, FileText, Truck, Sparkles, Recycle, ShoppingBasket, Wand2, Compass, Scale, LayoutGrid, Layers
 } from "lucide-react";
 import { MASTER_INGREDIENTS } from "@/data/ingredientMaster";
 import CateringNavHeader from "@/components/catering/CateringNavHeader";
