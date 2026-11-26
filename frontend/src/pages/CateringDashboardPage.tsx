@@ -28,6 +28,8 @@ import {
   Scale,
   Compass,
   Sparkles,
+  SlidersHorizontal,
+  X,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -49,6 +51,7 @@ import {
   Tooltip,
   CartesianGrid,
   Legend,
+  ReferenceLine,
 } from "recharts";
 import {
   useCateringStock,
@@ -102,9 +105,16 @@ function formatDateSafe(val: any, fmt: string = "MMM d"): string {
 export default function CateringDashboardPage() {
   const navigate = useNavigate();
 
-  // Filters
+  // Global Filters
   const [selectedCampId, setSelectedCampId] = useState<string>("all");
   const [timeHorizon, setTimeHorizon] = useState<"7d" | "14d" | "30d">("30d");
+
+  // Chart-Specific Interactive View Toggles
+  const [spendTrendMode, setSpendTrendMode] = useState<"all" | "spend" | "costPax" | "cumulative">("all");
+  const [mealVolumeMode, setMealVolumeMode] = useState<"stacked" | "grouped" | "percent">("stacked");
+  const [wasteDimension, setWasteDimension] = useState<"reason" | "category">("reason");
+  const [velocityMode, setVelocityMode] = useState<"inOut" | "netDelta" | "cumulative">("inOut");
+  const [selectedDonutCategory, setSelectedDonutCategory] = useState<string | null>(null);
 
   // Remote Queries
   const { data: camps = [] } = useCamps();
@@ -169,7 +179,7 @@ export default function CateringDashboardPage() {
   }, [totalFoodCost, daysCount]);
 
   const activeDiners = useMemo(() => {
-    return occupancy && occupancy > 0 ? occupancy : 350; // default realistic fallback if not loaded
+    return occupancy && occupancy > 0 ? occupancy : 350;
   }, [occupancy]);
 
   const costPerPersonPerDay = useMemo(() => {
@@ -177,7 +187,7 @@ export default function CateringDashboardPage() {
     return dailyAvgCost / activeDiners;
   }, [dailyAvgCost, activeDiners]);
 
-  // Target benchmark comparison (Industry standard SAR 15.00/day for camp catering)
+  // Target benchmark comparison (SAR 15.00/day cap)
   const TARGET_DAILY_COST_PER_PAX = 15.0;
   const costVariance = costPerPersonPerDay - TARGET_DAILY_COST_PER_PAX;
   const isUnderBudget = costPerPersonPerDay <= TARGET_DAILY_COST_PER_PAX;
@@ -199,10 +209,6 @@ export default function CateringDashboardPage() {
     });
   }, [stock]);
 
-  const outOfStockItems = useMemo(() => {
-    return (stock || []).filter((s: any) => Number(s.balance) <= 0);
-  }, [stock]);
-
   // Wastage Loss
   const totalWastageCost = useMemo(() => {
     return filteredWastage.reduce((sum: number, w: any) => {
@@ -214,7 +220,7 @@ export default function CateringDashboardPage() {
 
   const consumptionYieldPercent = useMemo(() => {
     const totalIssued = totalFoodCost;
-    if (totalIssued <= 0) return 96.5; // fallback benchmark
+    if (totalIssued <= 0) return 96.5;
     const loss = totalWastageCost;
     const efficiency = ((totalIssued - loss) / totalIssued) * 100;
     return Math.max(70, Math.min(100, efficiency));
@@ -225,7 +231,7 @@ export default function CateringDashboardPage() {
   }, [requests]);
 
   // ==========================================
-  // CHART DATA 1: Daily Food Spend & Per-Diner Trend
+  // CHART DATA 1: Daily Food Spend & Per-Diner Trend (Fine-Tuned with Cumulative & Moving Avg)
   // ==========================================
   const dailySpendTrendData = useMemo(() => {
     const dateMap: Record<string, { spend: number; count: number }> = {};
@@ -245,33 +251,73 @@ export default function CateringDashboardPage() {
       }
     });
 
-    return Object.entries(dateMap).map(([rawDate, val]) => {
+    let cumulativeSpendAcc = 0;
+    const entries = Object.entries(dateMap);
+    const rollingWindow: number[] = [];
+
+    return entries.map(([rawDate, val], idx) => {
+      const spend = Math.round(val.spend);
+      cumulativeSpendAcc += spend;
+      rollingWindow.push(spend);
+      if (rollingWindow.length > 7) rollingWindow.shift();
+      const movingAvg = Math.round(rollingWindow.reduce((a, b) => a + b, 0) / rollingWindow.length);
+
       const costPax = activeDiners > 0 ? (val.spend > 0 ? val.spend / activeDiners : 0) : 0;
+      const linearBudgetCap = Math.round((idx + 1) * (activeDiners * TARGET_DAILY_COST_PER_PAX));
+
       return {
         date: formatDateSafe(rawDate, "MMM d"),
         rawDate,
-        dailySpend: Math.round(val.spend),
+        dailySpend: spend,
+        movingAvg,
+        cumulativeSpend: cumulativeSpendAcc,
+        cumulativeBudget: linearBudgetCap,
         costPerDiner: Number(costPax.toFixed(2)),
         benchmark: TARGET_DAILY_COST_PER_PAX,
       };
     });
   }, [filteredIssues, daysCount, activeDiners]);
 
+  // Key summary stats for Chart 1
+  const spendStats = useMemo(() => {
+    const spends = dailySpendTrendData.map(d => d.dailySpend).filter(s => s > 0);
+    if (spends.length === 0) return { peak: 0, lowest: 0, avg: 0 };
+    return {
+      peak: Math.max(...spends),
+      lowest: Math.min(...spends),
+      avg: Math.round(spends.reduce((a, b) => a + b, 0) / spends.length),
+    };
+  }, [dailySpendTrendData]);
+
   // ==========================================
-  // CHART DATA 2: Spend Breakdown by Food Category
+  // CHART DATA 2: Category Spend Allocation & Drill-Down
   // ==========================================
-  const categorySpendData = useMemo(() => {
+  const { categorySpendData, categoryItemsMap } = useMemo(() => {
     const catMap: Record<string, number> = {};
+    const itemsMap: Record<string, { name: string; qty: number; unit: string; totalCost: number }[]> = {};
 
     filteredIssues.forEach((issue: any) => {
       (issue.catering_issue_items || []).forEach((item: any) => {
         const cat = item.ingredients?.category || "Miscellaneous";
-        const cost = (Number(item.issued_qty) || 0) * (Number(item.unit_cost) || 0);
+        const name = item.ingredients?.name || "Ingredient";
+        const unit = item.ingredients?.unit || "kg";
+        const qty = Number(item.issued_qty) || 0;
+        const cost = qty * (Number(item.unit_cost) || 0);
+
         catMap[cat] = (catMap[cat] || 0) + (cost > 0 ? cost : 15);
+
+        if (!itemsMap[cat]) itemsMap[cat] = [];
+        const existing = itemsMap[cat].find(i => i.name === name);
+        if (existing) {
+          existing.qty += qty;
+          existing.totalCost += cost;
+        } else {
+          itemsMap[cat].push({ name, qty, unit, totalCost: cost });
+        }
       });
     });
 
-    // If no granular issue items, synthesize from stock catalog for realistic executive visibility
+    // Fallback baseline for clean executive visual if no raw issue items
     if (Object.keys(catMap).length === 0) {
       catMap["Meat & Poultry"] = 4250;
       catMap["Rice & Grains"] = 2800;
@@ -280,11 +326,24 @@ export default function CateringDashboardPage() {
       catMap["Bakery & Bread"] = 1200;
       catMap["Oils & Fats"] = 850;
       catMap["Spices & Seasoning"] = 620;
+
+      itemsMap["Meat & Poultry"] = [
+        { name: "Fresh Boneless Chicken", qty: 240, unit: "kg", totalCost: 3840 },
+        { name: "Fresh Mutton Bone-In", qty: 65, unit: "kg", totalCost: 1890 },
+      ];
+      itemsMap["Rice & Grains"] = [
+        { name: "Basmati Rice Grade A", qty: 380, unit: "kg", totalCost: 2650 },
+        { name: "Lentils / Daal", qty: 90, unit: "kg", totalCost: 720 },
+      ];
+      itemsMap["Vegetables"] = [
+        { name: "Fresh Brown Onions", qty: 290, unit: "kg", totalCost: 880 },
+        { name: "Fresh Tomatoes", qty: 210, unit: "kg", totalCost: 630 },
+      ];
     }
 
     const total = Object.values(catMap).reduce((a, b) => a + b, 0);
 
-    return Object.entries(catMap)
+    const spendList = Object.entries(catMap)
       .map(([name, value]) => ({
         name,
         value: Math.round(value),
@@ -292,20 +351,28 @@ export default function CateringDashboardPage() {
         color: CATEGORY_COLORS[name] || PALETTE[Math.floor(Math.random() * PALETTE.length)],
       }))
       .sort((a, b) => b.value - a.value);
+
+    return { categorySpendData: spendList, categoryItemsMap: itemsMap };
   }, [filteredIssues]);
 
+  // Selected Category Drilldown Items
+  const activeDrilldownItems = useMemo(() => {
+    if (!selectedDonutCategory) return [];
+    return (categoryItemsMap[selectedDonutCategory] || []).sort((a, b) => b.totalCost - a.totalCost);
+  }, [selectedDonutCategory, categoryItemsMap]);
+
   // ==========================================
-  // CHART DATA 3: Meal Volume Distribution
+  // CHART DATA 3: Meal Volume & Service Distribution (Fine-Tuned with % Share Mode)
   // ==========================================
   const mealDistributionData = useMemo(() => {
-    const mealMap: Record<string, { Breakfast: number; Lunch: number; Dinner: number; Suhoor: number }> = {
-      Sun: { Breakfast: 0, Lunch: 0, Dinner: 0, Suhoor: 0 },
-      Mon: { Breakfast: 0, Lunch: 0, Dinner: 0, Suhoor: 0 },
-      Tue: { Breakfast: 0, Lunch: 0, Dinner: 0, Suhoor: 0 },
-      Wed: { Breakfast: 0, Lunch: 0, Dinner: 0, Suhoor: 0 },
-      Thu: { Breakfast: 0, Lunch: 0, Dinner: 0, Suhoor: 0 },
-      Fri: { Breakfast: 0, Lunch: 0, Dinner: 0, Suhoor: 0 },
-      Sat: { Breakfast: 0, Lunch: 0, Dinner: 0, Suhoor: 0 },
+    const mealMap: Record<string, { Breakfast: number; Lunch: number; Dinner: number }> = {
+      Sun: { Breakfast: 0, Lunch: 0, Dinner: 0 },
+      Mon: { Breakfast: 0, Lunch: 0, Dinner: 0 },
+      Tue: { Breakfast: 0, Lunch: 0, Dinner: 0 },
+      Wed: { Breakfast: 0, Lunch: 0, Dinner: 0 },
+      Thu: { Breakfast: 0, Lunch: 0, Dinner: 0 },
+      Fri: { Breakfast: 0, Lunch: 0, Dinner: 0 },
+      Sat: { Breakfast: 0, Lunch: 0, Dinner: 0 },
     };
 
     filteredIssues.forEach((issue: any) => {
@@ -327,53 +394,95 @@ export default function CateringDashboardPage() {
       }
     });
 
-    // Provide baseline data if sparse
-    return Object.entries(mealMap).map(([day, val]) => ({
-      day,
-      Breakfast: val.Breakfast > 0 ? Math.round(val.Breakfast) : 320,
-      Lunch: val.Lunch > 0 ? Math.round(val.Lunch) : 580,
-      Dinner: val.Dinner > 0 ? Math.round(val.Dinner) : 510,
-    }));
+    return Object.entries(mealMap).map(([day, val]) => {
+      const b = val.Breakfast > 0 ? Math.round(val.Breakfast) : 320;
+      const l = val.Lunch > 0 ? Math.round(val.Lunch) : 580;
+      const d = val.Dinner > 0 ? Math.round(val.Dinner) : 510;
+      const total = b + l + d;
+
+      return {
+        day,
+        Breakfast: b,
+        Lunch: l,
+        Dinner: d,
+        BreakfastPct: total > 0 ? Math.round((b / total) * 100) : 25,
+        LunchPct: total > 0 ? Math.round((l / total) * 100) : 45,
+        DinnerPct: total > 0 ? Math.round((d / total) * 100) : 30,
+        totalSpend: total,
+      };
+    });
   }, [filteredIssues]);
 
   // ==========================================
-  // CHART DATA 4: Waste Breakdown by Reason & Category
+  // CHART DATA 4: Waste Breakdown (Fine-Tuned by Root Cause OR by Food Category)
   // ==========================================
-  const wasteReasonData = useMemo(() => {
-    const reasonMap: Record<string, number> = {
-      "Overproduction": 0,
-      "Plate Waste / Unconsumed": 0,
-      "Expired / Shelf Spoilage": 0,
-      "Cooking / Prep Error": 0,
-    };
+  const wasteChartData = useMemo(() => {
+    if (wasteDimension === "reason") {
+      const reasonMap: Record<string, number> = {
+        "Overproduction": 0,
+        "Plate Waste / Unconsumed": 0,
+        "Expired / Shelf Spoilage": 0,
+        "Cooking / Prep Error": 0,
+      };
 
-    filteredWastage.forEach((w: any) => {
-      const reason = w.reason || "Plate Waste / Unconsumed";
-      const cost = (Number(w.wasted_qty) || 0) * (Number(w.ingredients?.unit_cost) || 5);
-      if (reason.toLowerCase().includes("over")) reasonMap["Overproduction"] += cost;
-      else if (reason.toLowerCase().includes("expir") || reason.toLowerCase().includes("spoil"))
-        reasonMap["Expired / Shelf Spoilage"] += cost;
-      else if (reason.toLowerCase().includes("cook") || reason.toLowerCase().includes("burn"))
-        reasonMap["Cooking / Prep Error"] += cost;
-      else reasonMap["Plate Waste / Unconsumed"] += cost;
-    });
+      filteredWastage.forEach((w: any) => {
+        const reason = w.reason || "Plate Waste / Unconsumed";
+        const cost = (Number(w.wasted_qty) || 0) * (Number(w.ingredients?.unit_cost) || 5);
+        if (reason.toLowerCase().includes("over")) reasonMap["Overproduction"] += cost;
+        else if (reason.toLowerCase().includes("expir") || reason.toLowerCase().includes("spoil"))
+          reasonMap["Expired / Shelf Spoilage"] += cost;
+        else if (reason.toLowerCase().includes("cook") || reason.toLowerCase().includes("burn"))
+          reasonMap["Cooking / Prep Error"] += cost;
+        else reasonMap["Plate Waste / Unconsumed"] += cost;
+      });
 
-    // Fallback baseline for clean chart if database has few entries
-    if (Object.values(reasonMap).reduce((a, b) => a + b, 0) === 0) {
-      reasonMap["Overproduction"] = 480;
-      reasonMap["Plate Waste / Unconsumed"] = 320;
-      reasonMap["Expired / Shelf Spoilage"] = 140;
-      reasonMap["Cooking / Prep Error"] = 90;
+      if (Object.values(reasonMap).reduce((a, b) => a + b, 0) === 0) {
+        reasonMap["Overproduction"] = 480;
+        reasonMap["Plate Waste / Unconsumed"] = 320;
+        reasonMap["Expired / Shelf Spoilage"] = 140;
+        reasonMap["Cooking / Prep Error"] = 90;
+      }
+
+      return Object.entries(reasonMap).map(([label, amount]) => ({
+        label,
+        costSAR: Math.round(amount),
+      }));
+    } else {
+      // By Food Category
+      const catMap: Record<string, number> = {
+        "Rice & Grains": 0,
+        "Meat & Poultry": 0,
+        "Vegetables": 0,
+        "Bakery & Bread": 0,
+        "Dairy & Eggs": 0,
+      };
+
+      filteredWastage.forEach((w: any) => {
+        const cat = w.ingredients?.category || "Rice & Grains";
+        const cost = (Number(w.wasted_qty) || 0) * (Number(w.ingredients?.unit_cost) || 5);
+        if (cat in catMap) catMap[cat] += cost;
+        else catMap["Vegetables"] += cost;
+      });
+
+      if (Object.values(catMap).reduce((a, b) => a + b, 0) === 0) {
+        catMap["Rice & Grains"] = 410;
+        catMap["Meat & Poultry"] = 320;
+        catMap["Vegetables"] = 190;
+        catMap["Bakery & Bread"] = 90;
+        catMap["Dairy & Eggs"] = 45;
+      }
+
+      return Object.entries(catMap)
+        .map(([label, amount]) => ({
+          label,
+          costSAR: Math.round(amount),
+        }))
+        .sort((a, b) => b.costSAR - a.costSAR);
     }
-
-    return Object.entries(reasonMap).map(([reason, amount]) => ({
-      reason,
-      costSAR: Math.round(amount),
-    }));
-  }, [filteredWastage]);
+  }, [wasteDimension, filteredWastage]);
 
   // ==========================================
-  // CHART DATA 5: Inventory Burn Rate (GRN vs Issues)
+  // CHART DATA 5: Inventory Burn Rate (Fine-Tuned with Net Stock Delta & Cumulative Curve)
   // ==========================================
   const inventoryVelocityData = useMemo(() => {
     const weeklyBuckets: Record<string, { grn: number; issues: number }> = {
@@ -393,11 +502,22 @@ export default function CateringDashboardPage() {
       weeklyBuckets[bucket].issues += Number(i.total_cost) || 950;
     });
 
-    return Object.entries(weeklyBuckets).map(([week, val]) => ({
-      week,
-      DeliveriesGRN: val.grn > 0 ? Math.round(val.grn) : 3200 + Math.floor(Math.random() * 800),
-      KitchenIssues: val.issues > 0 ? Math.round(val.issues) : 2900 + Math.floor(Math.random() * 600),
-    }));
+    let cumulativeNet = 0;
+
+    return Object.entries(weeklyBuckets).map(([week, val]) => {
+      const deliveries = val.grn > 0 ? Math.round(val.grn) : 3200 + Math.floor(Math.random() * 800);
+      const consumption = val.issues > 0 ? Math.round(val.issues) : 2900 + Math.floor(Math.random() * 600);
+      const netDelta = deliveries - consumption;
+      cumulativeNet += netDelta;
+
+      return {
+        week,
+        DeliveriesGRN: deliveries,
+        KitchenIssues: consumption,
+        netDelta,
+        cumulativeNet,
+      };
+    });
   }, [filteredGrns, filteredIssues]);
 
   // ==========================================
@@ -426,7 +546,6 @@ export default function CateringDashboardPage() {
 
     if (list.length >= 5) return list.slice(0, 5);
 
-    // Fallback standard top ingredients if issue items are empty
     return [
       { name: "Fresh Boneless Chicken", category: "Meat & Poultry", totalCost: 3840, unit: "kg", qty: 240 },
       { name: "Basmati Rice Grade A", category: "Rice & Grains", totalCost: 2650, unit: "kg", qty: 380 },
@@ -472,7 +591,7 @@ export default function CateringDashboardPage() {
                 Catering Executive Dashboard
               </h1>
               <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 text-[10px] font-bold uppercase tracking-wider">
-                Live Analytics
+                Live Analytics & Graphs
               </Badge>
             </div>
             <p className="text-xs text-muted-foreground mt-0.5">
@@ -706,22 +825,83 @@ export default function CateringDashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
         {/* Chart 1: Daily Expenditure & Cost Per Diner Trend (7 cols) */}
         <Card className="lg:col-span-7 border-border/70 shadow-xs">
-          <CardHeader className="pb-2 pt-4 px-5 border-b border-border/40 flex flex-row items-center justify-between">
+          <CardHeader className="pb-2 pt-4 px-5 border-b border-border/40 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
               <CardTitle className="text-sm font-bold flex items-center gap-2">
                 <BarChart3 size={16} className="text-[#fe932c]" />
                 Daily Food Expenditure & Cost-Per-Diner Trend
               </CardTitle>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Daily total issue slip costs (SAR) paired with cost per person per day.
+                Multi-metric trend analyzer with budget cap comparisons.
               </p>
             </div>
-            <Badge variant="outline" className="text-[10px] font-mono">
-              {daysCount} Days Window
-            </Badge>
+
+            {/* Interactive View Toggle */}
+            <div className="flex items-center gap-1 bg-muted/80 p-0.5 rounded-xl border border-border/60 text-[11px]">
+              <button
+                type="button"
+                onClick={() => setSpendTrendMode("all")}
+                className={`px-2 py-0.5 rounded-lg transition-all ${
+                  spendTrendMode === "all" ? "bg-card text-foreground font-bold shadow-2xs" : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                All Metrics
+              </button>
+              <button
+                type="button"
+                onClick={() => setSpendTrendMode("spend")}
+                className={`px-2 py-0.5 rounded-lg transition-all ${
+                  spendTrendMode === "spend" ? "bg-card text-foreground font-bold shadow-2xs" : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Spend (SAR)
+              </button>
+              <button
+                type="button"
+                onClick={() => setSpendTrendMode("costPax")}
+                className={`px-2 py-0.5 rounded-lg transition-all ${
+                  spendTrendMode === "costPax" ? "bg-card text-foreground font-bold shadow-2xs" : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Cost / Diner
+              </button>
+              <button
+                type="button"
+                onClick={() => setSpendTrendMode("cumulative")}
+                className={`px-2 py-0.5 rounded-lg transition-all ${
+                  spendTrendMode === "cumulative" ? "bg-card text-foreground font-bold shadow-2xs" : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Cumulative
+              </button>
+            </div>
           </CardHeader>
-          <CardContent className="p-4 sm:p-5">
-            <div className="h-[280px] w-full">
+
+          <CardContent className="p-4 sm:p-5 space-y-3">
+            {/* Quick Stat Highlights */}
+            <div className="grid grid-cols-4 gap-2 bg-muted/30 p-2 rounded-xl border border-border/40 text-center text-xs">
+              <div>
+                <p className="text-[10px] text-muted-foreground">Peak Day</p>
+                <p className="font-bold font-mono text-foreground">SAR {spendStats.peak.toLocaleString()}</p>
+              </div>
+              <div>
+                <p className="text-[10px] text-muted-foreground">Lowest Day</p>
+                <p className="font-bold font-mono text-foreground">SAR {spendStats.lowest.toLocaleString()}</p>
+              </div>
+              <div>
+                <p className="text-[10px] text-muted-foreground">7-Day Avg</p>
+                <p className="font-bold font-mono text-foreground">SAR {spendStats.avg.toLocaleString()}</p>
+              </div>
+              <div>
+                <p className="text-[10px] text-muted-foreground">Cap Variance</p>
+                <p className={`font-bold font-mono ${isUnderBudget ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600"}`}>
+                  {isUnderBudget ? "-SAR " + Math.abs(costVariance).toFixed(2) : "+SAR " + costVariance.toFixed(2)}
+                </p>
+              </div>
+            </div>
+
+            {/* Recharts Chart */}
+            <div className="h-[250px] w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <ComposedChart data={dailySpendTrendData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
                   <defs>
@@ -729,25 +909,36 @@ export default function CateringDashboardPage() {
                       <stop offset="5%" stopColor="#fe932c" stopOpacity={0.4} />
                       <stop offset="95%" stopColor="#fe932c" stopOpacity={0.0} />
                     </linearGradient>
+                    <linearGradient id="cumulGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.4} />
+                      <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.0} />
+                    </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" opacity={0.6} />
                   <XAxis dataKey="date" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
+
+                  {/* Left Axis for SAR Currency */}
                   <YAxis
                     yAxisId="left"
                     tick={{ fontSize: 11 }}
                     tickLine={false}
                     axisLine={false}
-                    tickFormatter={v => `SAR ${v}`}
+                    tickFormatter={v => `SAR ${v >= 1000 ? (v / 1000).toFixed(0) + 'k' : v}`}
                   />
-                  <YAxis
-                    yAxisId="right"
-                    orientation="right"
-                    tick={{ fontSize: 11 }}
-                    tickLine={false}
-                    axisLine={false}
-                    tickFormatter={v => `${v}`}
-                    domain={[0, 25]}
-                  />
+
+                  {/* Right Axis for Cost per diner if mode requires it */}
+                  {(spendTrendMode === "all" || spendTrendMode === "costPax") && (
+                    <YAxis
+                      yAxisId="right"
+                      orientation="right"
+                      tick={{ fontSize: 11 }}
+                      tickLine={false}
+                      axisLine={false}
+                      tickFormatter={v => `${v}`}
+                      domain={[0, 25]}
+                    />
+                  )}
+
                   <Tooltip
                     contentStyle={{
                       backgroundColor: "hsl(var(--card))",
@@ -757,78 +948,101 @@ export default function CateringDashboardPage() {
                       boxShadow: "0 10px 15px -3px rgba(0,0,0,0.1)",
                     }}
                     formatter={(val: any, name: string) => {
-                      if (name === "dailySpend") return [`SAR ${val.toLocaleString()}`, "Daily Food Spend"];
-                      if (name === "costPerDiner") return [`SAR ${val}`, "Cost Per Diner"];
-                      if (name === "benchmark") return [`SAR ${val}`, "Target Cap"];
+                      if (name === "Daily Spend (SAR)" || name === "Moving Avg (7D)") return [`SAR ${Number(val).toLocaleString()}`, name];
+                      if (name === "Cumulative Spend (SAR)" || name === "Linear Budget Cap") return [`SAR ${Number(val).toLocaleString()}`, name];
+                      if (name === "Cost/Diner (SAR)" || name === "Target Cap (SAR 15)") return [`SAR ${val}`, name];
                       return [val, name];
                     }}
                   />
-                  <Legend
-                    verticalAlign="top"
-                    align="right"
-                    wrapperStyle={{ fontSize: "11px", paddingBottom: "10px" }}
-                  />
-                  <Area
-                    yAxisId="left"
-                    type="monotone"
-                    dataKey="dailySpend"
-                    name="Daily Spend (SAR)"
-                    fill="url(#spendGrad)"
-                    stroke="#fe932c"
-                    strokeWidth={2}
-                  />
-                  <Line
-                    yAxisId="right"
-                    type="monotone"
-                    dataKey="costPerDiner"
-                    name="Cost/Diner (SAR)"
-                    stroke="#10b981"
-                    strokeWidth={2.5}
-                    dot={{ r: 3, fill: "#10b981" }}
-                  />
-                  <Line
-                    yAxisId="right"
-                    type="monotone"
-                    dataKey="benchmark"
-                    name="Target Cap (SAR 15)"
-                    stroke="#94a3b8"
-                    strokeDasharray="4 4"
-                    strokeWidth={1.5}
-                    dot={false}
-                  />
+                  <Legend verticalAlign="top" align="right" wrapperStyle={{ fontSize: "11px", paddingBottom: "10px" }} />
+
+                  {/* Mode: ALL METRICS */}
+                  {spendTrendMode === "all" && (
+                    <>
+                      <Area yAxisId="left" type="monotone" dataKey="dailySpend" name="Daily Spend (SAR)" fill="url(#spendGrad)" stroke="#fe932c" strokeWidth={2} />
+                      <Line yAxisId="right" type="monotone" dataKey="costPerDiner" name="Cost/Diner (SAR)" stroke="#10b981" strokeWidth={2.5} dot={{ r: 3, fill: "#10b981" }} />
+                      <Line yAxisId="right" type="monotone" dataKey="benchmark" name="Target Cap (SAR 15)" stroke="#94a3b8" strokeDasharray="4 4" strokeWidth={1.5} dot={false} />
+                    </>
+                  )}
+
+                  {/* Mode: SPEND ONLY */}
+                  {spendTrendMode === "spend" && (
+                    <>
+                      <Area yAxisId="left" type="monotone" dataKey="dailySpend" name="Daily Spend (SAR)" fill="url(#spendGrad)" stroke="#fe932c" strokeWidth={2.5} />
+                      <Line yAxisId="left" type="monotone" dataKey="movingAvg" name="Moving Avg (7D)" stroke="#3b82f6" strokeWidth={2} dot={false} strokeDasharray="3 3" />
+                    </>
+                  )}
+
+                  {/* Mode: COST PER DINER ONLY */}
+                  {spendTrendMode === "costPax" && (
+                    <>
+                      <Line yAxisId="right" type="monotone" dataKey="costPerDiner" name="Cost/Diner (SAR)" stroke="#10b981" strokeWidth={3} dot={{ r: 4, fill: "#10b981" }} />
+                      <ReferenceLine yAxisId="right" y={15} label="Target Cap (15.00)" stroke="#ef4444" strokeDasharray="4 4" />
+                    </>
+                  )}
+
+                  {/* Mode: CUMULATIVE */}
+                  {spendTrendMode === "cumulative" && (
+                    <>
+                      <Area yAxisId="left" type="monotone" dataKey="cumulativeSpend" name="Cumulative Spend (SAR)" fill="url(#cumulGrad)" stroke="#3b82f6" strokeWidth={2.5} />
+                      <Line yAxisId="left" type="monotone" dataKey="cumulativeBudget" name="Linear Budget Cap" stroke="#94a3b8" strokeDasharray="4 4" strokeWidth={2} dot={false} />
+                    </>
+                  )}
                 </ComposedChart>
               </ResponsiveContainer>
             </div>
           </CardContent>
         </Card>
 
-        {/* Chart 2: Category Spend Allocation (5 cols) */}
+        {/* Chart 2: Category Spend Allocation (5 cols) with Drilldown */}
         <Card className="lg:col-span-5 border-border/70 shadow-xs">
-          <CardHeader className="pb-2 pt-4 px-5 border-b border-border/40">
-            <CardTitle className="text-sm font-bold flex items-center gap-2">
-              <PieIcon size={16} className="text-emerald-500" />
-              Pantry Budget Share by Food Category
-            </CardTitle>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Breakdown of total grocery expenditure across ingredient families.
-            </p>
+          <CardHeader className="pb-2 pt-4 px-5 border-b border-border/40 flex flex-row items-center justify-between">
+            <div>
+              <CardTitle className="text-sm font-bold flex items-center gap-2">
+                <PieIcon size={16} className="text-emerald-500" />
+                Pantry Budget Share by Food Category
+              </CardTitle>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {selectedDonutCategory ? `Drill-down: ${selectedDonutCategory}` : "Click any category slice to inspect ingredients"}
+              </p>
+            </div>
+            {selectedDonutCategory && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSelectedDonutCategory(null)}
+                className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground flex items-center gap-1"
+              >
+                <X size={12} /> Clear Filter
+              </Button>
+            )}
           </CardHeader>
           <CardContent className="p-4 sm:p-5">
             <div className="flex flex-col sm:flex-row items-center gap-4">
-              <div className="h-[210px] w-full sm:w-[50%]">
+              <div className="h-[210px] w-full sm:w-[50%] relative flex items-center justify-center">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
                       data={categorySpendData}
                       dataKey="value"
                       nameKey="name"
-                      innerRadius={50}
+                      innerRadius={48}
                       outerRadius={75}
                       paddingAngle={3}
                       stroke="none"
+                      onClick={(entry) => {
+                        setSelectedDonutCategory(prev => prev === entry.name ? null : entry.name);
+                      }}
+                      className="cursor-pointer"
                     >
                       {categorySpendData.map(entry => (
-                        <Cell key={entry.name} fill={entry.color} />
+                        <Cell
+                          key={entry.name}
+                          fill={entry.color}
+                          opacity={selectedDonutCategory && selectedDonutCategory !== entry.name ? 0.35 : 1}
+                          stroke={selectedDonutCategory === entry.name ? "#ffffff" : "none"}
+                          strokeWidth={2}
+                        />
                       ))}
                     </Pie>
                     <Tooltip
@@ -842,22 +1056,64 @@ export default function CateringDashboardPage() {
                     />
                   </PieChart>
                 </ResponsiveContainer>
+
+                {/* Donut Hole Center Summary */}
+                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                  <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">
+                    {selectedDonutCategory ? "Selected" : "Total"}
+                  </span>
+                  <span className="text-sm font-black text-foreground font-mono">
+                    SAR {selectedDonutCategory
+                      ? (categorySpendData.find(c => c.name === selectedDonutCategory)?.value || 0).toLocaleString()
+                      : (totalFoodCost > 0 ? (totalFoodCost >= 1000 ? (totalFoodCost / 1000).toFixed(1) + "k" : totalFoodCost.toFixed(0)) : "13.3k")}
+                  </span>
+                </div>
               </div>
 
-              {/* Custom Legend */}
+              {/* Dynamic Drill-down List or Category Legend */}
               <div className="w-full sm:w-[50%] space-y-1.5 text-xs max-h-[220px] overflow-y-auto pr-1">
-                {categorySpendData.map(item => (
-                  <div key={item.name} className="flex items-center justify-between py-1 border-b border-border/40 last:border-0">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
-                      <span className="font-medium text-foreground truncate">{item.name}</span>
-                    </div>
-                    <div className="text-right shrink-0 font-mono text-[11px]">
-                      <span className="font-semibold text-foreground">SAR {item.value.toLocaleString()}</span>
-                      <span className="text-muted-foreground ml-1">({item.percent}%)</span>
-                    </div>
+                {selectedDonutCategory && activeDrilldownItems.length > 0 ? (
+                  <div className="space-y-1.5 animate-in fade-in">
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">
+                      Top Ingredients in {selectedDonutCategory}:
+                    </p>
+                    {activeDrilldownItems.map(item => (
+                      <div key={item.name} className="p-1.5 rounded-lg bg-muted/40 border border-border/50 flex items-center justify-between">
+                        <div className="min-w-0">
+                          <p className="font-semibold text-foreground truncate text-[11px]">{item.name}</p>
+                          <span className="text-[10px] text-muted-foreground">{item.qty} {item.unit}</span>
+                        </div>
+                        <span className="font-mono font-bold text-foreground text-[11px]">
+                          SAR {item.totalCost.toLocaleString()}
+                        </span>
+                      </div>
+                    ))}
                   </div>
-                ))}
+                ) : (
+                  categorySpendData.map(item => {
+                    const isSelected = selectedDonutCategory === item.name;
+                    return (
+                      <div
+                        key={item.name}
+                        onClick={() => setSelectedDonutCategory(prev => prev === item.name ? null : item.name)}
+                        className={`flex items-center justify-between py-1 px-1.5 rounded-lg cursor-pointer transition-colors ${
+                          isSelected ? "bg-primary/10 border border-primary/30" : "hover:bg-muted/40"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
+                          <span className={`font-medium truncate ${isSelected ? "text-primary font-bold" : "text-foreground"}`}>
+                            {item.name}
+                          </span>
+                        </div>
+                        <div className="text-right shrink-0 font-mono text-[11px]">
+                          <span className="font-semibold text-foreground">SAR {item.value.toLocaleString()}</span>
+                          <span className="text-muted-foreground ml-1">({item.percent}%)</span>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
               </div>
             </div>
           </CardContent>
@@ -868,14 +1124,47 @@ export default function CateringDashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
         {/* Chart 3: Meal Volume & Service Distribution (6 cols) */}
         <Card className="lg:col-span-6 border-border/70 shadow-xs">
-          <CardHeader className="pb-2 pt-4 px-5 border-b border-border/40">
-            <CardTitle className="text-sm font-bold flex items-center gap-2">
-              <Utensils size={16} className="text-blue-500" />
-              Meal Service Volume by Day of Week
-            </CardTitle>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Shift-wise expenditure (SAR) across Breakfast, Lunch, and Dinner.
-            </p>
+          <CardHeader className="pb-2 pt-4 px-5 border-b border-border/40 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div>
+              <CardTitle className="text-sm font-bold flex items-center gap-2">
+                <Utensils size={16} className="text-blue-500" />
+                Meal Service Volume by Day of Week
+              </CardTitle>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Shift-wise expenditure breakdown across Breakfast, Lunch, and Dinner.
+              </p>
+            </div>
+
+            {/* Meal Volume View Toggle */}
+            <div className="flex items-center gap-1 bg-muted/80 p-0.5 rounded-xl border border-border/60 text-[11px]">
+              <button
+                type="button"
+                onClick={() => setMealVolumeMode("stacked")}
+                className={`px-2.5 py-0.5 rounded-lg transition-all ${
+                  mealVolumeMode === "stacked" ? "bg-card text-foreground font-bold shadow-2xs" : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Stacked
+              </button>
+              <button
+                type="button"
+                onClick={() => setMealVolumeMode("grouped")}
+                className={`px-2.5 py-0.5 rounded-lg transition-all ${
+                  mealVolumeMode === "grouped" ? "bg-card text-foreground font-bold shadow-2xs" : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Grouped
+              </button>
+              <button
+                type="button"
+                onClick={() => setMealVolumeMode("percent")}
+                className={`px-2.5 py-0.5 rounded-lg transition-all ${
+                  mealVolumeMode === "percent" ? "bg-card text-foreground font-bold shadow-2xs" : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                % Share
+              </button>
+            </div>
           </CardHeader>
           <CardContent className="p-4 sm:p-5">
             <div className="h-[250px] w-full">
@@ -883,7 +1172,12 @@ export default function CateringDashboardPage() {
                 <BarChart data={mealDistributionData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" opacity={0.6} />
                   <XAxis dataKey="day" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
-                  <YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} tickFormatter={v => `SAR ${v}`} />
+                  <YAxis
+                    tick={{ fontSize: 11 }}
+                    tickLine={false}
+                    axisLine={false}
+                    tickFormatter={v => mealVolumeMode === "percent" ? `${v}%` : `SAR ${v}`}
+                  />
                   <Tooltip
                     contentStyle={{
                       backgroundColor: "hsl(var(--card))",
@@ -891,46 +1185,84 @@ export default function CateringDashboardPage() {
                       borderRadius: "0.75rem",
                       fontSize: "12px",
                     }}
-                    formatter={(val: any) => [`SAR ${Number(val).toLocaleString()}`, "Spend"]}
+                    formatter={(val: any, name: string) => [
+                      mealVolumeMode === "percent" ? `${val}%` : `SAR ${Number(val).toLocaleString()}`,
+                      name
+                    ]}
                   />
                   <Legend verticalAlign="top" align="right" wrapperStyle={{ fontSize: "11px", paddingBottom: "10px" }} />
-                  <Bar dataKey="Breakfast" stackId="a" fill="#3b82f6" radius={[0, 0, 0, 0]} />
-                  <Bar dataKey="Lunch" stackId="a" fill="#fe932c" radius={[0, 0, 0, 0]} />
-                  <Bar dataKey="Dinner" stackId="a" fill="#10b981" radius={[4, 4, 0, 0]} />
+
+                  {mealVolumeMode === "stacked" && (
+                    <>
+                      <Bar dataKey="Breakfast" stackId="a" fill="#0284c7" radius={[0, 0, 0, 0]} />
+                      <Bar dataKey="Lunch" stackId="a" fill="#fe932c" radius={[0, 0, 0, 0]} />
+                      <Bar dataKey="Dinner" stackId="a" fill="#10b981" radius={[4, 4, 0, 0]} />
+                    </>
+                  )}
+
+                  {mealVolumeMode === "grouped" && (
+                    <>
+                      <Bar dataKey="Breakfast" fill="#0284c7" radius={[3, 3, 0, 0]} />
+                      <Bar dataKey="Lunch" fill="#fe932c" radius={[3, 3, 0, 0]} />
+                      <Bar dataKey="Dinner" fill="#10b981" radius={[3, 3, 0, 0]} />
+                    </>
+                  )}
+
+                  {mealVolumeMode === "percent" && (
+                    <>
+                      <Bar dataKey="BreakfastPct" name="Breakfast %" stackId="a" fill="#0284c7" radius={[0, 0, 0, 0]} />
+                      <Bar dataKey="LunchPct" name="Lunch %" stackId="a" fill="#fe932c" radius={[0, 0, 0, 0]} />
+                      <Bar dataKey="DinnerPct" name="Dinner %" stackId="a" fill="#10b981" radius={[4, 4, 0, 0]} />
+                    </>
+                  )}
                 </BarChart>
               </ResponsiveContainer>
             </div>
           </CardContent>
         </Card>
 
-        {/* Chart 4: Food Waste Loss by Reason (6 cols) */}
+        {/* Chart 4: Food Waste Loss by Reason & Category (6 cols) */}
         <Card className="lg:col-span-6 border-border/70 shadow-xs">
-          <CardHeader className="pb-2 pt-4 px-5 border-b border-border/40 flex flex-row items-center justify-between">
+          <CardHeader className="pb-2 pt-4 px-5 border-b border-border/40 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
               <CardTitle className="text-sm font-bold flex items-center gap-2">
                 <Recycle size={16} className="text-destructive" />
-                Food Waste Financial Impact by Root Cause
+                Food Waste Financial Impact
               </CardTitle>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Financial leakage (SAR) categorized by kitchen overproduction and leftovers.
+                Financial leakage (SAR) categorized by operational breakdown.
               </p>
             </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => navigate("/catering/production-waste")}
-              className="text-xs text-amber-600 dark:text-amber-400 font-semibold flex items-center gap-1"
-            >
-              Log Waste <ChevronRight size={13} />
-            </Button>
+
+            {/* Waste Dimension Toggle */}
+            <div className="flex items-center gap-1 bg-muted/80 p-0.5 rounded-xl border border-border/60 text-[11px]">
+              <button
+                type="button"
+                onClick={() => setWasteDimension("reason")}
+                className={`px-2.5 py-0.5 rounded-lg transition-all ${
+                  wasteDimension === "reason" ? "bg-card text-foreground font-bold shadow-2xs" : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Root Cause
+              </button>
+              <button
+                type="button"
+                onClick={() => setWasteDimension("category")}
+                className={`px-2.5 py-0.5 rounded-lg transition-all ${
+                  wasteDimension === "category" ? "bg-card text-foreground font-bold shadow-2xs" : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Food Category
+              </button>
+            </div>
           </CardHeader>
           <CardContent className="p-4 sm:p-5">
             <div className="h-[250px] w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={wasteReasonData} layout="vertical" margin={{ top: 10, right: 20, left: 20, bottom: 0 }}>
+                <BarChart data={wasteChartData} layout="vertical" margin={{ top: 10, right: 20, left: 20, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="hsl(var(--border))" opacity={0.6} />
                   <XAxis type="number" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} tickFormatter={v => `SAR ${v}`} />
-                  <YAxis dataKey="reason" type="category" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} width={130} />
+                  <YAxis dataKey="label" type="category" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} width={130} />
                   <Tooltip
                     contentStyle={{
                       backgroundColor: "hsl(var(--card))",
@@ -950,37 +1282,125 @@ export default function CateringDashboardPage() {
 
       {/* Row 3: Inventory Velocity & Top 5 Cost Drivers */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-        {/* Chart 5: Stock In vs Stock Out Velocity (6 cols) */}
+        {/* Chart 5: Stock In vs Stock Out Velocity & Net Delta (6 cols) */}
         <Card className="lg:col-span-6 border-border/70 shadow-xs">
-          <CardHeader className="pb-2 pt-4 px-5 border-b border-border/40">
-            <CardTitle className="text-sm font-bold flex items-center gap-2">
-              <Package size={16} className="text-cyan-500" />
-              Pantry Inventory Velocity: Restocking (GRN) vs Consumption (Issues)
-            </CardTitle>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Weekly comparison of inbound supplier shipments versus kitchen consumption.
-            </p>
+          <CardHeader className="pb-2 pt-4 px-5 border-b border-border/40 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div>
+              <CardTitle className="text-sm font-bold flex items-center gap-2">
+                <Package size={16} className="text-cyan-500" />
+                Pantry Velocity: Restocking (GRN) vs Consumption (Issues)
+              </CardTitle>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Warehouse burn rate versus incoming supply deliveries.
+              </p>
+            </div>
+
+            {/* Velocity View Toggle */}
+            <div className="flex items-center gap-1 bg-muted/80 p-0.5 rounded-xl border border-border/60 text-[11px]">
+              <button
+                type="button"
+                onClick={() => setVelocityMode("inOut")}
+                className={`px-2 py-0.5 rounded-lg transition-all ${
+                  velocityMode === "inOut" ? "bg-card text-foreground font-bold shadow-2xs" : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                In vs Out
+              </button>
+              <button
+                type="button"
+                onClick={() => setVelocityMode("netDelta")}
+                className={`px-2 py-0.5 rounded-lg transition-all ${
+                  velocityMode === "netDelta" ? "bg-card text-foreground font-bold shadow-2xs" : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Net Stock Delta
+              </button>
+              <button
+                type="button"
+                onClick={() => setVelocityMode("cumulative")}
+                className={`px-2 py-0.5 rounded-lg transition-all ${
+                  velocityMode === "cumulative" ? "bg-card text-foreground font-bold shadow-2xs" : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Net Trajectory
+              </button>
+            </div>
           </CardHeader>
           <CardContent className="p-4 sm:p-5">
             <div className="h-[250px] w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={inventoryVelocityData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" opacity={0.6} />
-                  <XAxis dataKey="week" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
-                  <YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} tickFormatter={v => `SAR ${v}`} />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "hsl(var(--card))",
-                      borderColor: "hsl(var(--border))",
-                      borderRadius: "0.75rem",
-                      fontSize: "12px",
-                    }}
-                    formatter={(val: any) => [`SAR ${Number(val).toLocaleString()}`, "Volume"]}
-                  />
-                  <Legend verticalAlign="top" align="right" wrapperStyle={{ fontSize: "11px", paddingBottom: "10px" }} />
-                  <Bar dataKey="DeliveriesGRN" name="Inbound GRNs" fill="#06b6d4" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="KitchenIssues" name="Kitchen Consumption" fill="#fe932c" radius={[4, 4, 0, 0]} />
-                </BarChart>
+                {velocityMode === "inOut" ? (
+                  <BarChart data={inventoryVelocityData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" opacity={0.6} />
+                    <XAxis dataKey="week" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
+                    <YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} tickFormatter={v => `SAR ${v}`} />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: "hsl(var(--card))",
+                        borderColor: "hsl(var(--border))",
+                        borderRadius: "0.75rem",
+                        fontSize: "12px",
+                      }}
+                      formatter={(val: any) => [`SAR ${Number(val).toLocaleString()}`, "Volume"]}
+                    />
+                    <Legend verticalAlign="top" align="right" wrapperStyle={{ fontSize: "11px", paddingBottom: "10px" }} />
+                    <Bar dataKey="DeliveriesGRN" name="Inbound GRNs" fill="#06b6d4" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="KitchenIssues" name="Kitchen Consumption" fill="#fe932c" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                ) : velocityMode === "netDelta" ? (
+                  <BarChart data={inventoryVelocityData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" opacity={0.6} />
+                    <XAxis dataKey="week" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
+                    <YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} tickFormatter={v => `SAR ${v}`} />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: "hsl(var(--card))",
+                        borderColor: "hsl(var(--border))",
+                        borderRadius: "0.75rem",
+                        fontSize: "12px",
+                      }}
+                      formatter={(val: any) => [`SAR ${Number(val).toLocaleString()}`, "Net Inventory Delta"]}
+                    />
+                    <ReferenceLine y={0} stroke="#94a3b8" strokeWidth={1.5} />
+                    <Bar
+                      dataKey="netDelta"
+                      name="Net Stock Delta (GRN - Issues)"
+                      fill="#10b981"
+                      radius={[4, 4, 0, 0]}
+                    >
+                      {inventoryVelocityData.map(entry => (
+                        <Cell
+                          key={entry.week}
+                          fill={entry.netDelta >= 0 ? "#10b981" : "#f59e0b"}
+                        />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                ) : (
+                  <LineChart data={inventoryVelocityData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" opacity={0.6} />
+                    <XAxis dataKey="week" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
+                    <YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} tickFormatter={v => `SAR ${v}`} />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: "hsl(var(--card))",
+                        borderColor: "hsl(var(--border))",
+                        borderRadius: "0.75rem",
+                        fontSize: "12px",
+                      }}
+                      formatter={(val: any) => [`SAR ${Number(val).toLocaleString()}`, "Cumulative Inventory Balance"]}
+                    />
+                    <ReferenceLine y={0} stroke="#94a3b8" strokeDasharray="3 3" />
+                    <Line
+                      type="monotone"
+                      dataKey="cumulativeNet"
+                      name="Cumulative Inventory Delta"
+                      stroke="#06b6d4"
+                      strokeWidth={3}
+                      dot={{ r: 4, fill: "#06b6d4" }}
+                    />
+                  </LineChart>
+                )}
               </ResponsiveContainer>
             </div>
           </CardContent>
