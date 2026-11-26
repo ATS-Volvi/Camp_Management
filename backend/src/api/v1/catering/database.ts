@@ -252,16 +252,18 @@ class CateringDatabase {
         const pool = Database.getPool();
         let query = `
             SELECT i.*, 
+                   json_build_object('name', c.name) as camps,
                    COALESCE(
                        json_agg(
                            json_build_object(
                                'issued_qty', ci.issued_qty, 
                                'unit_cost', ci.unit_cost, 
-                               'ingredients', json_build_object('name', ing.name, 'category', ing.category)
+                               'ingredients', json_build_object('name', ing.name, 'category', ing.category, 'unit', ing.unit)
                            )
                        ) FILTER (WHERE ci.id IS NOT NULL), '[]'
                    ) as catering_issue_items
             FROM catering_issues i
+            LEFT JOIN camps c ON i.camp_id = c.id
             LEFT JOIN catering_issue_items ci ON i.id = ci.issue_id
             LEFT JOIN ingredients ing ON ci.ingredient_id = ing.id
         `;
@@ -270,7 +272,7 @@ class CateringDatabase {
             values.push(campId);
             query += ` WHERE i.camp_id = $${values.length}`;
         }
-        query += ` GROUP BY i.id ORDER BY i.issue_date DESC LIMIT 100`;
+        query += ` GROUP BY i.id, c.name ORDER BY i.issue_date DESC LIMIT 1000`;
         const { rows } = await pool.query(query, values);
         return rows;
     }

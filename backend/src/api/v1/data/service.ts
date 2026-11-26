@@ -30,7 +30,11 @@ const SAFE_TABLES = [
 
 const IDENT = /^[A-Za-z_]\w*$/;
 // Reverse joins whose child FK isn't `<parent singular>_id`, keyed by child table.
-const REVERSE_FK: Record<string, string> = { food_cancellation_request_meals: 'request_id' };
+const REVERSE_FK: Record<string, string> = {
+    food_cancellation_request_meals: 'request_id',
+    catering_issue_items: 'issue_id',
+    catering_grn_items: 'grn_id',
+};
 const RESERVED_KEYS = new Set(['select', 'order', 'limit', 'offset', 'single', 'maybeSingle', 'count', 'head']);
 
 class DataService {

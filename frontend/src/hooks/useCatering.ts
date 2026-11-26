@@ -436,9 +436,18 @@ export function useCateringCostSummary(campId?: string) {
   return useQuery({
     queryKey: ["catering-cost-summary", campId],
     queryFn: async () => {
+      try {
+        const url = campId && campId !== "all"
+          ? `/catering/cost-summary?camp_id=${encodeURIComponent(campId)}`
+          : "/catering/cost-summary";
+        const result = await api.get(url);
+        if (Array.isArray(result) && result.length > 0) return result;
+      } catch {
+        // fallback
+      }
       let q = supabase.from("catering_issues").select("*, camps(name), catering_issue_items(issued_qty, unit_cost, ingredients(name, category))");
       if (campId && campId !== "all") q = q.eq("camp_id", campId);
-      const { data, error } = await q.order("issue_date", { ascending: false }).limit(100);
+      const { data, error } = await q.order("issue_date", { ascending: false }).limit(500);
       if (error) throw error;
       return data;
     },
